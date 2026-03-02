@@ -5,4 +5,17 @@ edition = "2024"
 
 [lib]
 
+
 [dependencies]
+bcs = { workspace = true }
+blake3 = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand_core = { workspace = true }
+serde = { workspace = true }
+aptos-batch-encryption = { workspace = true }
+aptos-crypto = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+ark-std = { workspace = true }
+
+
