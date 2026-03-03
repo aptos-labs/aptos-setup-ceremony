@@ -1,4 +1,4 @@
-use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -64,6 +64,7 @@ impl<C: ContributionInner> Contribution<C> {
         rng: &mut R, 
         maybe_previous: &Option<Self>, 
         current_contributor: Contributor,
+        params: &C::Params,
     ) -> Self {
         let (inner, previous_hashes) = if let Some(previous) = maybe_previous {
             let previous_hashes = Self::build_previous_hashes(&previous);
@@ -74,7 +75,7 @@ impl<C: ContributionInner> Contribution<C> {
             )
         } else {
             (
-                C::generate(rng, &C::first_contribution()),
+                C::generate(rng, &C::first_contribution(params)),
                 Vec::new()
             )
         };

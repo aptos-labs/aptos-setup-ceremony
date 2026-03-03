@@ -1,9 +1,10 @@
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
-use aptos_batch_encryption::group::{Fr, G1Affine, G2Affine};
+use aptos_batch_encryption::group::{Fr, G1Affine, G2Affine, G2Projective};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use serde::{Deserialize, Serialize};
 
+use crate::batched_schnorr::BatchedSigOfKnowledge;
 use crate::contribution::ContributionInner;
 use crate::errors::BatchSizeNotPowerOfTwo;
 
@@ -16,9 +17,11 @@ pub struct FPTXContributionInner {
     pub random_alphas_g2: Vec<G2Affine>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub tau_powers_g1: Vec<Vec<G1Affine>>,
+    pub sok: BatchedSigOfKnowledge<G2Projective>,
 
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXParams {
     batch_size: usize,
     num_rounds: usize,
@@ -71,6 +74,7 @@ impl ContributionInner for FPTXContributionInner {
     type Output = DigestKey;
 
     fn first_contribution(params: &Self::Params) -> Self {
+        todo!()
     }
 
     fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self) -> Self {

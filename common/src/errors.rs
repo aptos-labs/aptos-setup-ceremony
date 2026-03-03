@@ -15,3 +15,7 @@ pub struct DeserializationError(pub bcs::Error);
 #[derive(Debug, Error)]
 #[error("FPTX batch size must be a power of two")]
 pub struct BatchSizeNotPowerOfTwo;
+
+#[derive(Debug, Error)]
+#[error("Schnorr signature of knowledge verification failed")]
+pub struct SoKVerificationError;
