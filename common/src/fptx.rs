@@ -1,7 +1,9 @@
+use ark_ec::{AffineRepr, ScalarMul as _};
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
-use aptos_batch_encryption::group::{Fr, G1Affine, G2Affine, G2Projective};
+use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
+use rand::SeedableRng as _;
 use serde::{Deserialize, Serialize};
 
 use crate::batched_schnorr::BatchedSigOfKnowledge;
@@ -71,17 +73,54 @@ fn tau_powers_randomized_fr(
 
 impl ContributionInner for FPTXContributionInner {
     type Params = FPTXParams;
+    type Secrets = ();
     type Output = DigestKey;
 
     fn first_contribution(params: &Self::Params) -> Self {
-        todo!()
+        let trivial_random_alphas_fr = vec![Fr::one(); params.num_rounds];
+
+        let tau_powers_trivial_randomness_fr = tau_powers_randomized_fr(
+            params, 
+            Fr::one(), 
+            &trivial_random_alphas_fr
+        );
+
+        let trivial_random_alphas_g2 : Vec<G2Affine> = trivial_random_alphas_fr.iter()
+            .map(|alpha| G2Affine::from(G2Affine::generator() * alpha))
+            .collect();
+
+
+        let tau_powers_trivial_randomness_g1: Vec<Vec<G1Affine>> = tau_powers_trivial_randomness_fr
+            .into_iter()
+            .map(|powers_for_r| G1Projective::from(G1Affine::generator()).batch_mul(&powers_for_r))
+            .collect();
+
+        let mut rng = rand::rngs::StdRng::from_seed([0u8; 32]);
+
+
+        let mut target_elts = vec![G2Affine::generator()]; target_elts.extend_from_slice(&trivial_random_alphas_g2);
+        let mut secret_exponents = vec![Fr::one()]; secret_exponents.extend_from_slice(&trivial_random_alphas_fr);
+        let sok = BatchedSigOfKnowledge::sign(
+            &mut rng,
+            &target_elts,
+            &secret_exponents, 
+            &String::new(),
+        );
+
+        Self { 
+            tau_g2: G2Affine::generator(),
+            random_alphas_g2: trivial_random_alphas_g2,
+            tau_powers_g1: tau_powers_trivial_randomness_g1,
+            sok
+        }
+
     }
 
-    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self) -> Self {
-        todo!()
+    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, ()) {
+       todo!() 
     }
 
-    fn verify(&self, previous: &Self) -> Result<(), crate::errors::ContributionVerificationFailure> {
+    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<(), crate::errors::ContributionVerificationFailure> {
         todo!()
     }
 

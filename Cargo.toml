@@ -8,6 +8,7 @@ bcs = "0.1.6"
 blake3 = { version = "1.8.3", features = ["serde"] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 rand_core = "0.6.4"
+rand = "0.8.5"
 serde = { version = "1.0.228", features = ["derive"] }
 aptos-batch-encryption = { git = "https://github.com/aptos-labs/aptos-core", branch = "main" }
 aptos-crypto = { git = "https://github.com/aptos-labs/aptos-core", branch = "main" }

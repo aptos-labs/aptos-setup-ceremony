@@ -17,5 +17,5 @@ pub struct DeserializationError(pub bcs::Error);
 pub struct BatchSizeNotPowerOfTwo;
 
 #[derive(Debug, Error)]
-#[error("Schnorr signature of knowledge verification failed")]
+#[error("Signature of knowledge verification failed")]
 pub struct SoKVerificationError;

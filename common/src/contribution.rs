@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::errors::{ContributionVerificationFailure, DeserializationError};
 
+// TODO switch this file to use SHA2 instead of blake3
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Contributor {
     pub name: String,
@@ -33,14 +35,17 @@ impl Contributor {
 pub trait ContributionInner : Serialize + DeserializeOwned {
     /// The params required for initializing the ceremony.
     type Params;
+    /// The secrets that the current contribution used. This is output during generate, for better
+    /// composition.
+    type Secrets;
     /// The type of the result of the ceremony
     type Output : Eq + PartialEq;
     /// Fixed, first "dummy" inner contribution. For instance, a powers of "tau" where tau = [1].
     fn first_contribution(params: &Self::Params) -> Self;
     /// Compute an inner contribution w.r.t. a previous inner contribution.
-    fn generate<R: CryptoRngCore>(rng: &mut R, previous: &Self) -> Self;
+    fn generate<R: CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, Self::Secrets);
     /// Verify this inner contribution w.r.t. a previous inner contribution.
-    fn verify(&self, previous: &Self) -> Result<(), ContributionVerificationFailure>;
+    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<(), ContributionVerificationFailure>;
     /// Output the ceremony result. Note that this is deterministic; given a final contribution and
     /// an output, we want to be able to verify the output by recomputing and testing for equality.
     fn output(&self) -> Self::Output;
@@ -70,12 +75,12 @@ impl<C: ContributionInner> Contribution<C> {
             let previous_hashes = Self::build_previous_hashes(&previous);
 
             (
-                C::generate(rng, &previous.inner),
+                C::generate(rng, &previous.inner, params).0,
                 previous_hashes
             )
         } else {
             (
-                C::generate(rng, &C::first_contribution(params)),
+                C::generate(rng, &C::first_contribution(params), params).0,
                 Vec::new()
             )
         };
@@ -116,11 +121,11 @@ impl<C: ContributionInner> Contribution<C> {
         &self.previous_hashes
     }
 
-    pub fn verify(&self, previous: &Self) -> Result<(), ContributionVerificationFailure> {
+    pub fn verify(&self, previous: &Self, params: &C::Params) -> Result<(), ContributionVerificationFailure> {
         if self.previous_hashes != Self::build_previous_hashes(previous) {
             Err(ContributionVerificationFailure::ContributionHashMismatch)
         } else {
-            self.inner.verify(&previous.inner)
+            self.inner.verify(&previous.inner, params)
         }
     }
 
