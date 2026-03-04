@@ -1,7 +1,8 @@
-use ark_ec::{AffineRepr, ScalarMul as _};
+use ark_ec::hashing::curve_maps::wb::WBMap;
+use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _};
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
-use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective};
+use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use rand::SeedableRng as _;
 use rand_core::CryptoRngCore;
@@ -11,12 +12,13 @@ use crate::batched_schnorr::BatchedSigOfKnowledge;
 use crate::contribution::ContributionInner;
 use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
 use crate::multipairing_equation::MultipairingEquation;
+use crate::powers_of_tau::PowersOfTauContributionInner;
 
+type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXContributionInner {
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub tau_g2: G2Affine,
+    pub tau_powers_contrib_inner: PowersOfTauContributionInner<Pairing, M2C>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub random_alphas_g2: Vec<G2Affine>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
