@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::batched_schnorr::BatchedSigOfKnowledge;
 use crate::contribution::ContributionInner;
-use crate::errors::BatchSizeNotPowerOfTwo;
+use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
+use crate::multipairing_equation::MultipairingEquation;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -72,6 +73,7 @@ fn tau_powers_randomized_fr(
 }
 
 impl ContributionInner for FPTXContributionInner {
+    type P = aptos_batch_encryption::group::Pairing;
     type Params = FPTXParams;
     type Secrets = ();
     type Output = DigestKey;
@@ -120,7 +122,7 @@ impl ContributionInner for FPTXContributionInner {
        todo!() 
     }
 
-    fn verify(&self, _previous: &Self, _params: &Self::Params) -> Result<(), crate::errors::ContributionVerificationFailure> {
+    fn verify(&self, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
         todo!()
     }
 

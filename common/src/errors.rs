@@ -5,7 +5,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ContributionVerificationFailure {
     #[error("Contribution hashes mismatch")]
-    ContributionHashMismatch
+    ContributionHashMismatch,
+    #[error("Multipairing equation had a nonzero result")]
+    MultipairingEquationNonZeroResult,
 }
 
 #[derive(Debug, Error)]
@@ -19,3 +21,7 @@ pub struct BatchSizeNotPowerOfTwo;
 #[derive(Debug, Error)]
 #[error("Signature of knowledge verification failed")]
 pub struct SoKVerificationError;
+
+#[derive(Debug, Error)]
+#[error("Multipairing equation had a nonzero result.")]
+pub struct MultipairingEquationNonZeroResult;

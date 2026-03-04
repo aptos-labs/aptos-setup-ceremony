@@ -6,14 +6,16 @@ use ark_ec::{
     }, pairing::{Pairing, PairingOutput}
 };
 use ark_ff::{Zero as _, field_hashers::DefaultFieldHasher};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 
 use crate::errors::SoKVerificationError;
 
 
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BLSSoK<P, M2C>
 where
     P: Pairing,
@@ -21,6 +23,7 @@ where
     P::G2: CurveGroup,
     P::G1: CurveGroup,
 {
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     sig: P::G2,
     _phantom: PhantomData<M2C>,
 }

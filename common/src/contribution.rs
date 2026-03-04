@@ -1,8 +1,9 @@
+use ark_ec::pairing::Pairing;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::errors::{ContributionVerificationFailure, DeserializationError};
+use crate::{errors::{ContributionVerificationFailure, DeserializationError}, multipairing_equation::MultipairingEquation};
 
 // TODO switch this file to use SHA2 instead of blake3
 
@@ -33,6 +34,8 @@ impl Contributor {
 }
 
 pub trait ContributionInner : Serialize + DeserializeOwned {
+    /// The pairing over which this inner contribution is defined.
+    type P : Pairing;
     /// The params required for initializing the ceremony.
     type Params;
     /// The secrets that the current contribution used. This is output during generate, for better
@@ -44,8 +47,12 @@ pub trait ContributionInner : Serialize + DeserializeOwned {
     fn first_contribution(params: &Self::Params) -> Self;
     /// Compute an inner contribution w.r.t. a previous inner contribution.
     fn generate<R: CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, Self::Secrets);
-    /// Verify this inner contribution w.r.t. a previous inner contribution.
-    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<(), ContributionVerificationFailure>;
+    /// Verify this inner contribution w.r.t. a previous inner contribution. This returns a 
+    /// [`MultipairingEquation`]; the verification is considered to pass iff this equation
+    /// evaluates to zero. The reason for returning this equation instead of evaluating directly
+    /// within `verify` is so that the equation verifications can be batched in a single
+    /// multipairing when composing multiple inner contributions.
+    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure>;
     /// Output the ceremony result. Note that this is deterministic; given a final contribution and
     /// an output, we want to be able to verify the output by recomputing and testing for equality.
     fn output(&self) -> Self::Output;
@@ -125,7 +132,8 @@ impl<C: ContributionInner> Contribution<C> {
         if self.previous_hashes != Self::build_previous_hashes(previous) {
             Err(ContributionVerificationFailure::ContributionHashMismatch)
         } else {
-            self.inner.verify(&previous.inner, params)
+            self.inner.verify(&previous.inner, params)?.equals_zero()
+            .map_err(|_| ContributionVerificationFailure::MultipairingEquationNonZeroResult)
         }
     }
 
