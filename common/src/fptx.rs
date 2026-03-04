@@ -127,7 +127,7 @@ impl ContributionInner for FPTXContributionInner {
        todo!() 
     }
 
-    fn verify(&self, rng: &mut impl CryptoRngCore, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
+    fn verify(&self, _rng: &mut impl CryptoRngCore, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
         todo!()
     }
 

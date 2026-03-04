@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
 use ark_ec::{
-    CurveGroup, PrimeGroup, hashing::{
+    CurveGroup, hashing::{
         HashToCurve, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
-    }, pairing::{Pairing, PairingOutput}
+    }, pairing::Pairing
 };
-use ark_ff::{Zero as _, field_hashers::DefaultFieldHasher};
+use ark_ff::field_hashers::DefaultFieldHasher;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 
-use crate::{errors::SoKVerificationError, multipairing_equation::MultipairingEquation};
+use crate::multipairing_equation::MultipairingEquation;
 
 
 
