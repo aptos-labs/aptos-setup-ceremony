@@ -1,4 +1,4 @@
-use ark_ec::{CurveGroup, pairing::Pairing};
+use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 
@@ -26,15 +26,15 @@ impl<P: Pairing> ContributionInner for PowersOfTauContributionInner<P> {
 
     type Output = ();
 
-    fn first_contribution(params: &Self::Params) -> Self {
+    fn first_contribution(_params: &Self::Params) -> Self {
         todo!()
     }
 
-    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, Self::Secrets) {
+    fn generate<R: rand_core::CryptoRngCore>(_rng: &mut R, _previous: &Self, _params: &Self::Params) -> (Self, Self::Secrets) {
         todo!()
     }
 
-    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<(), crate::errors::ContributionVerificationFailure> {
+    fn verify(&self, _previous: &Self, _params: &Self::Params) -> Result<(), crate::errors::ContributionVerificationFailure> {
         todo!()
     }
 

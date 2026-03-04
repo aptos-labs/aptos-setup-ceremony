@@ -2,11 +2,10 @@ use std::marker::PhantomData;
 
 use ark_ec::{
     CurveGroup, PrimeGroup, hashing::{
-        HashToCurve, curve_maps::wb::WBMap, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
+        HashToCurve, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
     }, pairing::{Pairing, PairingOutput}
 };
 use ark_ff::{Zero as _, field_hashers::DefaultFieldHasher};
-use rand_core::CryptoRngCore;
 use serde::Serialize;
 use sha2::Sha256;
 
