@@ -1,5 +1,6 @@
 use ark_ec::hashing::curve_maps::wb::WBMap;
 use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _};
+use ark_ff::UniformRand;
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
@@ -9,6 +10,7 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::batched_schnorr::BatchedSigOfKnowledge;
+use crate::bls_sok::BLSSoK;
 use crate::contribution::ContributionInner;
 use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
 use crate::multipairing_equation::MultipairingEquation;
@@ -20,10 +22,10 @@ type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 pub struct FPTXContributionInner {
     pub tau_powers_contrib_inner: PowersOfTauContributionInner<Pairing, M2C>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub random_alphas_g2: Vec<G2Affine>,
+    pub alphas_g2: Vec<G2Affine>,
+    pub soks_alphas: Vec<BLSSoK<Pairing, M2C>>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub tau_powers_g1: Vec<Vec<G1Affine>>,
-    pub sok: BatchedSigOfKnowledge<G2Projective>,
+    pub randomized_tau_powers_g1: Vec<Vec<G1Affine>>,
 
 }
 
@@ -49,18 +51,10 @@ impl FPTXParams {
 
 fn tau_powers_randomized_fr(
     params: &FPTXParams,
-    tau: Fr,
+    tau_powers_fr: &[Fr],
     random_alphas: &[Fr],
 ) -> Vec<Vec<Fr>> {
     assert_eq!(params.num_rounds, random_alphas.len());
-
-    let mut tau_powers_fr = vec![Fr::one()];
-    let mut cur = tau;
-    for _ in 0..params.batch_size {
-        tau_powers_fr.push(cur);
-        cur *= &tau;
-    }
-
 
     let tau_powers_randomized_fr = random_alphas
         .into_iter()
@@ -75,56 +69,93 @@ fn tau_powers_randomized_fr(
     tau_powers_randomized_fr
 }
 
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct HashPreimage<'a>
+where
+{
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
+    previous_alphas_g2: &'a [G2Affine],
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
+    alpha_g2: G2Affine,
+    index: usize
+}
+
+
 impl ContributionInner for FPTXContributionInner {
     type P = aptos_batch_encryption::group::Pairing;
     type Params = FPTXParams;
+    /// No secret for new b/c we don't need this to be composable
     type Secrets = ();
     type Output = DigestKey;
 
     fn first_contribution(params: &Self::Params) -> Self {
         let trivial_random_alphas_fr = vec![Fr::one(); params.num_rounds];
 
-        let tau_powers_trivial_randomness_fr = tau_powers_randomized_fr(
-            params, 
-            Fr::one(), 
-            &trivial_random_alphas_fr
-        );
-
         let trivial_random_alphas_g2 : Vec<G2Affine> = trivial_random_alphas_fr.iter()
             .map(|alpha| G2Affine::from(G2Affine::generator() * alpha))
             .collect();
 
+        let tau_powers_trivial_randomness_fr = tau_powers_randomized_fr(
+            params, 
+            &vec![Fr::one(); params.batch_size], 
+            &trivial_random_alphas_fr
+        );
 
         let tau_powers_trivial_randomness_g1: Vec<Vec<G1Affine>> = tau_powers_trivial_randomness_fr
             .into_iter()
             .map(|powers_for_r| G1Projective::from(G1Affine::generator()).batch_mul(&powers_for_r))
             .collect();
 
-        let mut rng = rand::rngs::StdRng::from_seed([0u8; 32]);
-
-
-        let mut target_elts = vec![G2Affine::generator()]; target_elts.extend_from_slice(&trivial_random_alphas_g2);
-        let mut secret_exponents = vec![Fr::one()]; secret_exponents.extend_from_slice(&trivial_random_alphas_fr);
-        let sok = BatchedSigOfKnowledge::sign(
-            &mut rng,
-            &target_elts,
-            &secret_exponents, 
-            &String::new(),
-        );
-
         let first_pot_inner = PowersOfTauContributionInner::first_contribution(&PowersOfTauParams { max_power: params.batch_size });
 
         Self { 
             tau_powers_contrib_inner: first_pot_inner,
-            random_alphas_g2: trivial_random_alphas_g2,
-            tau_powers_g1: tau_powers_trivial_randomness_g1,
-            sok
+            soks_alphas: vec![ BLSSoK::sign(Fr::one(), &String::from("")); trivial_random_alphas_g2.len()],
+            alphas_g2: trivial_random_alphas_g2,
+            randomized_tau_powers_g1: tau_powers_trivial_randomness_g1,
         }
-
     }
 
-    fn generate<R: rand_core::CryptoRngCore>(_rng: &mut R, _previous: &Self, _params: &Self::Params) -> (Self, ()) {
-       todo!() 
+    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, ()) {
+        let mut random_alphas_fr = Vec::new();
+        for _ in 0..params.num_rounds {
+            random_alphas_fr.push(Fr::rand(rng));
+        }
+
+        let random_alphas_g2 : Vec<G2Affine> = random_alphas_fr.iter()
+            .map(|alpha| G2Affine::from(G2Affine::generator() * alpha))
+            .collect();
+
+        let soks_alphas : Vec<BLSSoK<Pairing, M2C>> = random_alphas_fr.iter().enumerate()
+            .zip(&random_alphas_g2)
+            .map(|((i, alpha_fr), alpha_g2)| BLSSoK::sign(*alpha_fr, &HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: *alpha_g2, index: i }))
+            .collect();
+
+
+        let (tau_powers_contrib_inner, tau_powers_fr) = PowersOfTauContributionInner::generate(
+            rng, 
+            &previous.tau_powers_contrib_inner, 
+            &PowersOfTauParams { max_power: params.batch_size }
+        );
+
+        let randomized_tau_powers_fr = tau_powers_randomized_fr(
+            params, 
+            &tau_powers_fr,
+            &random_alphas_fr
+        );
+
+        let randomized_tau_powers_g1: Vec<Vec<G1Affine>> = randomized_tau_powers_fr
+            .into_iter()
+            .map(|powers_for_r| G1Projective::from(G1Affine::generator()).batch_mul(&powers_for_r))
+            .collect();
+
+
+        (Self { 
+            tau_powers_contrib_inner,
+            soks_alphas,
+            alphas_g2: random_alphas_g2,
+            randomized_tau_powers_g1,
+        }, ())
     }
 
     fn verify(&self, _rng: &mut impl CryptoRngCore, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
