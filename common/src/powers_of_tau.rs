@@ -10,7 +10,7 @@ pub struct PowersOfTauParams {
     max_power: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
 // otherwise serde adds unneeded P,M2C: Serialize, Deserialize bounds for this struct's
 // Serialize, Deserialize impls
 #[serde(bound(serialize = "", deserialize = ""))]
@@ -26,6 +26,51 @@ where
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     tau_g2: P::G2,
     sok: BLSSoK<P, M2C>,
+}
+
+impl<P: Eq, M2C> Eq for PowersOfTauContributionInner<P, M2C>
+where
+    P: Pairing,
+    M2C: MapToCurve<P::G1>,
+    P::G1: CurveGroup,
+    P::G2: CurveGroup,
+{
+}
+
+impl<P: PartialEq, M2C> PartialEq for PowersOfTauContributionInner<P, M2C>
+where
+    P: Pairing,
+    M2C: MapToCurve<P::G1>,
+    P::G1: CurveGroup,
+    P::G2: CurveGroup,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.powers == other.powers && self.tau_g2 == other.tau_g2 && self.sok == other.sok
+    }
+}
+
+impl<P: Clone, M2C> Clone for PowersOfTauContributionInner<P, M2C>
+where
+    P: Pairing,
+    M2C: MapToCurve<P::G1>,
+    P::G1: CurveGroup,
+    P::G2: CurveGroup,
+{
+    fn clone(&self) -> Self {
+        Self { powers: self.powers.clone(), tau_g2: self.tau_g2.clone(), sok: self.sok.clone() }
+    }
+}
+
+impl<P: std::fmt::Debug, M2C> std::fmt::Debug for PowersOfTauContributionInner<P, M2C>
+where
+    P: Pairing,
+    M2C: MapToCurve<P::G1>,
+    P::G1: CurveGroup,
+    P::G2: CurveGroup,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PowersOfTauContributionInner").field("powers", &self.powers).field("tau_g2", &self.tau_g2).field("sok", &self.sok).finish()
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
