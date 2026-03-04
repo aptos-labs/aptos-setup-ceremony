@@ -116,12 +116,12 @@ where
             &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, powers: self.powers.clone(), tau_g2: self.tau_g2 }
         );
 
-        let powers_check_equations = self.powers.iter().skip(1)
+        let powers_check_equation_combined = self.powers.iter().skip(1)
             .zip(&self.powers)
             .map(|(higher, lower)| MultipairingEquation::new(vec![*higher, *lower], vec![P::G2::generator(), self.tau_g2]))
             .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
                 
-        Ok(sok_check_equation.combine(rng, powers_check_equations))
+        Ok(sok_check_equation.combine(rng, powers_check_equation_combined))
     }
 
     fn output(&self) -> Self::Output {

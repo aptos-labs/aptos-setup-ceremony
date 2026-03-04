@@ -158,8 +158,32 @@ impl ContributionInner for FPTXContributionInner {
         }, ())
     }
 
-    fn verify(&self, _rng: &mut impl CryptoRngCore, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
-        todo!()
+    fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
+        if self.alphas_g2.len() != params.num_rounds ||
+            self.soks_alphas.len() != params.num_rounds ||
+            self.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
+            self.randomized_tau_powers_g1.len() != (params.batch_size + 1) * params.num_rounds) {
+            return Err(ContributionVerificationFailure::ParamsMismatch)
+        }
+
+        let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, &PowersOfTauParams { max_power: params.batch_size })?;
+
+        let sok_check_equation_combined = self.alphas_g2.iter().enumerate()
+            .zip(&previous.alphas_g2)
+            .zip(&self.soks_alphas)
+            .map(|(((i, alpha_g2), previous_alpha_g2), sok)| sok.verify(
+                G2Projective::from(*previous_alpha_g2), 
+                G2Projective::from(*alpha_g2), 
+                &HashPreimage {
+                    previous_alphas_g2: &previous.alphas_g2,
+                    alpha_g2: *alpha_g2,
+                    index: i,
+                })
+            )
+            .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
+
+        // TODO final alpha pairing check
+
     }
 
     fn output(&self) -> Self::Output {
