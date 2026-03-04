@@ -25,53 +25,8 @@ where
     P::G1: CurveGroup,
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    sig: P::G1,
-    _phantom: PhantomData<fn() -> M2C>,
-}
-
-impl<P: Eq, M2C> Eq for BLSSoK<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
-{
-}
-
-impl<P: PartialEq, M2C> PartialEq for BLSSoK<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.sig == other.sig && self._phantom == other._phantom
-    }
-}
-
-impl<P: Clone, M2C> Clone for BLSSoK<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
-{
-    fn clone(&self) -> Self {
-        Self { sig: self.sig.clone(), _phantom: self._phantom.clone() }
-    }
-}
-
-impl<P: std::fmt::Debug, M2C> std::fmt::Debug for BLSSoK<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BLSSoK").field("sig", &self.sig).field("_phantom", &self._phantom).finish()
-    }
+    pub(crate) sig: P::G1,
+    pub(crate) _phantom: PhantomData<fn() -> M2C>,
 }
 
 

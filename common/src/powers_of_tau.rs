@@ -7,7 +7,7 @@ use ark_std::{One, UniformRand};
 use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::MultipairingEquation};
 
 pub struct PowersOfTauParams {
-    max_power: usize,
+    pub max_power: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -22,56 +22,12 @@ where
     P::G2: CurveGroup,
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    powers: Vec<P::G1>,
+    pub(super) powers: Vec<P::G1>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    tau_g2: P::G2,
-    sok: BLSSoK<P, M2C>,
+    pub(super) tau_g2: P::G2,
+    pub(super) sok: BLSSoK<P, M2C>,
 }
 
-impl<P: Eq, M2C> Eq for PowersOfTauContributionInner<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
-{
-}
-
-impl<P: PartialEq, M2C> PartialEq for PowersOfTauContributionInner<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.powers == other.powers && self.tau_g2 == other.tau_g2 && self.sok == other.sok
-    }
-}
-
-impl<P: Clone, M2C> Clone for PowersOfTauContributionInner<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
-{
-    fn clone(&self) -> Self {
-        Self { powers: self.powers.clone(), tau_g2: self.tau_g2.clone(), sok: self.sok.clone() }
-    }
-}
-
-impl<P: std::fmt::Debug, M2C> std::fmt::Debug for PowersOfTauContributionInner<P, M2C>
-where
-    P: Pairing,
-    M2C: MapToCurve<P::G1>,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PowersOfTauContributionInner").field("powers", &self.powers).field("tau_g2", &self.tau_g2).field("sok", &self.sok).finish()
-    }
-}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct HashPreimage<P>
@@ -97,8 +53,9 @@ where
 
     type Params = PowersOfTauParams;
 
-    /// The secret is simply tau
-    type Secrets = P::ScalarField;
+    /// The secret is simply tau. We return every power so that downstream we avoid
+    /// recomputing.
+    type Secrets = Vec<P::ScalarField>;
 
     /// No output b/c this should be a generic/composable PoT inner contribution, not one specific
     /// to a construction
@@ -118,12 +75,14 @@ where
         params: &Self::Params,
     ) -> (Self, Self::Secrets) {
         let current_contribution_tau_fr = P::ScalarField::rand(rng);
-        let current_contribution_tau_powers_fr = std::iter::successors(
+        let current_contribution_tau_powers_fr : Vec<P::ScalarField> = std::iter::successors(
             Some(P::ScalarField::one()),
             |power| Some(*power * current_contribution_tau_fr))
-            .take(params.max_power + 1);
+            .take(params.max_power + 1)
+            .collect();
 
         let new_powers : Vec<P::G1> = current_contribution_tau_powers_fr
+            .iter()
             .zip(&previous.powers)
             .map(|(current_tau_fr, previous_power_g)| *previous_power_g * current_tau_fr)
             .collect();
@@ -136,7 +95,7 @@ where
                 tau_g2: new_tau_g2,
                 sok: BLSSoK::sign(current_contribution_tau_fr, &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, powers: new_powers, tau_g2: new_tau_g2 }),
             }, 
-            current_contribution_tau_fr
+            current_contribution_tau_powers_fr
         )
 
     }

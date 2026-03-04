@@ -5,3 +5,4 @@ pub mod batched_schnorr;
 pub mod bls_sok;
 pub mod powers_of_tau;
 pub mod multipairing_equation;
+pub mod boilerplate_trait_impls;

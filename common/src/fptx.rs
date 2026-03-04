@@ -12,7 +12,7 @@ use crate::batched_schnorr::BatchedSigOfKnowledge;
 use crate::contribution::ContributionInner;
 use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
 use crate::multipairing_equation::MultipairingEquation;
-use crate::powers_of_tau::PowersOfTauContributionInner;
+use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
 type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 
@@ -112,8 +112,10 @@ impl ContributionInner for FPTXContributionInner {
             &String::new(),
         );
 
+        let first_pot_inner = PowersOfTauContributionInner::first_contribution(&PowersOfTauParams { max_power: params.batch_size });
+
         Self { 
-            tau_g2: G2Affine::generator(),
+            tau_powers_contrib_inner: first_pot_inner,
             random_alphas_g2: trivial_random_alphas_g2,
             tau_powers_g1: tau_powers_trivial_randomness_g1,
             sok
