@@ -8,6 +8,8 @@ pub enum ContributionVerificationFailure {
     ContributionHashMismatch,
     #[error("Multipairing equation had a nonzero result")]
     MultipairingEquationNonZeroResult,
+    #[error("Params mismatch")]
+    ParamsMismatch,
 }
 
 #[derive(Debug, Error)]

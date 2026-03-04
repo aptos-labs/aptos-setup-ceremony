@@ -52,7 +52,7 @@ pub trait ContributionInner : Serialize + DeserializeOwned {
     /// evaluates to zero. The reason for returning this equation instead of evaluating directly
     /// within `verify` is so that the equation verifications can be batched in a single
     /// multipairing when composing multiple inner contributions.
-    fn verify(&self, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure>;
+    fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure>;
     /// Output the ceremony result. Note that this is deterministic; given a final contribution and
     /// an output, we want to be able to verify the output by recomputing and testing for equality.
     fn output(&self) -> Self::Output;
@@ -128,11 +128,11 @@ impl<C: ContributionInner> Contribution<C> {
         &self.previous_hashes
     }
 
-    pub fn verify(&self, previous: &Self, params: &C::Params) -> Result<(), ContributionVerificationFailure> {
+    pub fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &C::Params) -> Result<(), ContributionVerificationFailure> {
         if self.previous_hashes != Self::build_previous_hashes(previous) {
             Err(ContributionVerificationFailure::ContributionHashMismatch)
         } else {
-            self.inner.verify(&previous.inner, params)?.equals_zero()
+            self.inner.verify(rng, &previous.inner, params)?.equals_zero()
             .map_err(|_| ContributionVerificationFailure::MultipairingEquationNonZeroResult)
         }
     }

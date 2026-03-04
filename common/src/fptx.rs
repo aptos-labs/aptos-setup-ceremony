@@ -4,6 +4,7 @@ use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use rand::SeedableRng as _;
+use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::batched_schnorr::BatchedSigOfKnowledge;
@@ -122,7 +123,7 @@ impl ContributionInner for FPTXContributionInner {
        todo!() 
     }
 
-    fn verify(&self, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
+    fn verify(&self, rng: &mut impl CryptoRngCore, _previous: &Self, _params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
         todo!()
     }
 

@@ -23,6 +23,10 @@ where
         Self { g1s, g2s }
     }
 
+    pub fn empty() -> Self {
+        Self::new(vec![], vec![])
+    }
+
     fn scalar_mul(self, scalar: P::ScalarField) -> Self {
         Self {
             g1s: self.g1s.into_iter().map( |g1| g1 * scalar ).collect(),
