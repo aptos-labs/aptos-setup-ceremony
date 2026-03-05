@@ -71,4 +71,41 @@ where
 }
 
 
-// TODO tests
+#[cfg(test)]
+mod tests {
+    use aptos_batch_encryption::group::{Fr, G2Projective, G1Projective, Pairing};
+    use ark_ec::{CurveGroup, PrimeGroup, hashing::curve_maps::wb::WBMap};
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
+    use crate::bls_sok::BLSSoK;
+    type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+
+    #[test]
+    fn test_bls_sign_and_verify() {
+        let mut rng = thread_rng();
+        let base_point = G2Projective::generator() * Fr::rand(&mut rng);
+        let secret = Fr::rand(&mut rng);
+        let verification_key = base_point * secret;
+        let msg = String::from("hi");
+
+        let sig : BLSSoK<Pairing, M2C> = BLSSoK::sign(secret, &msg);
+
+        sig.verify(base_point, verification_key, &msg).equals_zero().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_bls_sign_and_verify_invalid() {
+        let mut rng = thread_rng();
+        let base_point = G2Projective::generator() * Fr::rand(&mut rng);
+        let secret = Fr::rand(&mut rng);
+        let verification_key = base_point * secret;
+        let msg = String::from("hi");
+
+        let mut sig : BLSSoK<Pairing, M2C> = BLSSoK::sign(secret, &msg);
+        sig.sig += G1Projective::generator();
+
+        sig.verify(base_point, verification_key, &msg).equals_zero().unwrap();
+    }
+}

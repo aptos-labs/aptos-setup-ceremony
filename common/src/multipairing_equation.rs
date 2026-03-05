@@ -55,3 +55,120 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use aptos_batch_encryption::group::{Fr, G1Projective, G2Projective, Pairing};
+    use ark_ec::PrimeGroup;
+    use ark_std::UniformRand;
+    use ark_std::Zero;
+    use rand::thread_rng;
+
+    use crate::multipairing_equation::MultipairingEquation;
+
+    fn make_eq() -> MultipairingEquation<Pairing> {
+        let mut rng = thread_rng();
+
+        let mut frs_1 = Vec::new();
+        for _ in 0..4 {
+            frs_1.push(Fr::rand(&mut rng));
+        }
+
+        let mut frs_2 = Vec::new();
+        for _ in 0..3 {
+            frs_2.push(Fr::rand(&mut rng));
+        }
+
+        let partial_sum : Fr = frs_2.iter().zip(&frs_1).map(|(x,y)| *x*y).sum();
+        frs_2.push(-partial_sum/frs_1[3]);
+
+        assert_eq!(
+            frs_2.iter().zip(&frs_1).map(|(x,y)| *x*y).sum::<Fr>(),
+            Fr::zero()
+        );
+
+        let g1s : Vec<G1Projective> = frs_1.into_iter().map(|x| G1Projective::generator()*x).collect();
+        let g2s : Vec<G2Projective> = frs_2.into_iter().map(|x| G2Projective::generator()*x).collect();
+
+        MultipairingEquation::new(g1s, g2s)
+    }
+
+    fn make_eq_nonzero() -> MultipairingEquation<Pairing> {
+        let mut rng = thread_rng();
+
+        let mut frs_1 = Vec::new();
+        for _ in 0..4 {
+            frs_1.push(Fr::rand(&mut rng));
+        }
+
+        let mut frs_2 = Vec::new();
+        for _ in 0..4 {
+            frs_2.push(Fr::rand(&mut rng));
+        }
+
+
+        assert!(
+            frs_2.iter().zip(&frs_1).map(|(x,y)| *x*y).sum::<Fr>()
+            !=
+            Fr::zero()
+        );
+
+        let g1s : Vec<G1Projective> = frs_1.into_iter().map(|x| G1Projective::generator()*x).collect();
+        let g2s : Vec<G2Projective> = frs_2.into_iter().map(|x| G2Projective::generator()*x).collect();
+
+        MultipairingEquation::new(g1s, g2s)
+    }
+
+    #[test]
+    fn test_single_multipairing_eq() {
+        let eq = make_eq();
+        eq.equals_zero().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_single_multipairing_eq_nonzero() {
+        let eq = make_eq_nonzero();
+
+        eq.equals_zero().unwrap();
+    }
+
+    #[test]
+    fn test_two_multipairing_eq() {
+        let mut rng = thread_rng();
+        let eq1 = make_eq();
+        let eq2 = make_eq();
+
+        eq1.combine(&mut rng, eq2).equals_zero().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_two_multipairing_eq_nonzero() {
+        let mut rng = thread_rng();
+        let eq1 = make_eq();
+        let eq2 = make_eq_nonzero();
+
+        eq1.combine(&mut rng, eq2).equals_zero().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_two_multipairing_eq_nonzero_2() {
+        let mut rng = thread_rng();
+        let eq1 = make_eq_nonzero();
+        let eq2 = make_eq();
+
+        eq1.combine(&mut rng, eq2).equals_zero().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_two_multipairing_eq_nonzero_3() {
+        let mut rng = thread_rng();
+        let eq1 = make_eq_nonzero();
+        let eq2 = make_eq_nonzero();
+
+        eq1.combine(&mut rng, eq2).equals_zero().unwrap();
+    }
+}
+

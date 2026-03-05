@@ -1,4 +1,3 @@
-
 use ark_ec::hashing::curve_maps::wb::WBMap;
 use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _, PrimeGroup};
 use ark_ff::UniformRand;
@@ -186,10 +185,8 @@ impl ContributionInner for FPTXContributionInner {
             .map(|(alpha, tau_powers)| 
                 tau_powers.iter().zip(&self.tau_powers_contrib_inner.powers)
                 .map(|(randomized_power, nonrandomized_power)| 
-                    MultipairingEquation::new(vec![*nonrandomized_power, G1Projective::from(*randomized_power)], vec![G2Projective::generator(), G2Projective::from(*alpha)]))
-                .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2)))
-            .collect::<Vec<MultipairingEquation<Pairing>>>()
-            .into_iter()
+                    MultipairingEquation::new(vec![*nonrandomized_power, G1Projective::from(*randomized_power)], vec![G2Projective::generator(), G2Projective::from(*alpha)])))
+            .flatten()
             .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
 
         Ok(
