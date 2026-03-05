@@ -26,3 +26,6 @@ sha2 = { workspace = true }
 rayon = "1.11.0"
 
 
+[[bench]]
+name = "fptx"
+harness = false
