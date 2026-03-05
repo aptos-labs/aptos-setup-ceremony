@@ -1,5 +1,7 @@
+use std::ops::Mul;
+
 use ark_ec::hashing::curve_maps::wb::WBMap;
-use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _};
+use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _, PrimeGroup};
 use ark_ff::UniformRand;
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
@@ -162,7 +164,7 @@ impl ContributionInner for FPTXContributionInner {
         if self.alphas_g2.len() != params.num_rounds ||
             self.soks_alphas.len() != params.num_rounds ||
             self.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
-            self.randomized_tau_powers_g1.len() != (params.batch_size + 1) * params.num_rounds) {
+            self.randomized_tau_powers_g1.len() != (params.batch_size + 1) * params.num_rounds {
             return Err(ContributionVerificationFailure::ParamsMismatch)
         }
 
@@ -182,7 +184,22 @@ impl ContributionInner for FPTXContributionInner {
             )
             .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
 
-        // TODO final alpha pairing check
+        let alpha_check_equation_combined  = self.alphas_g2.iter()
+            .zip(&self.randomized_tau_powers_g1)
+            .map(|(alpha, tau_powers)| 
+                tau_powers.iter().zip(&self.tau_powers_contrib_inner.powers)
+                .map(|(randomized_power, nonrandomized_power)| 
+                    MultipairingEquation::new(vec![*nonrandomized_power, G1Projective::from(*randomized_power)], vec![G2Projective::generator(), G2Projective::from(*alpha)]))
+                .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2)))
+            .collect::<Vec<MultipairingEquation<Pairing>>>()
+            .into_iter()
+            .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
+
+        Ok(
+            [pot_equation, sok_check_equation_combined, alpha_check_equation_combined]
+                .into_iter()
+                .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2))
+        )
 
     }
 
