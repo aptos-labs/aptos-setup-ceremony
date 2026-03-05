@@ -1,4 +1,3 @@
-use std::ops::Mul;
 
 use ark_ec::hashing::curve_maps::wb::WBMap;
 use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _, PrimeGroup};
@@ -7,11 +6,9 @@ use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
-use rand::SeedableRng as _;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
-use crate::batched_schnorr::BatchedSigOfKnowledge;
 use crate::bls_sok::BLSSoK;
 use crate::contribution::ContributionInner;
 use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
