@@ -26,7 +26,7 @@ where
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub(crate) sig: P::G1,
-    pub(crate) _phantom: PhantomData<fn() -> M2C>,
+    pub(crate) _phantom: PhantomData<M2C>,
 }
 
 

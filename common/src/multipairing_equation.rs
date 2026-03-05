@@ -2,6 +2,7 @@ use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_ff::Zero;
 use ark_std::UniformRand;
 use rand_core::CryptoRngCore;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::errors::MultipairingEquationNonZeroResult;
 
@@ -54,6 +55,41 @@ where
         }
     }
 }
+
+pub struct MultipairingEquations<P: Pairing> {
+    pub eqns : Vec<MultipairingEquation<P>>,
+}
+
+impl<P: Pairing> MultipairingEquations<P> {
+    pub fn new() -> Self {
+        Self { 
+            eqns: vec![]
+        }
+    }
+
+    pub fn add(mut self, eq: MultipairingEquation<P>) -> Self {
+        self.eqns.push(eq);
+        self
+    }
+
+    pub fn compact(self, rng: &mut impl CryptoRngCore) -> MultipairingEquation<P> {
+        let mut random_scalars = Vec::new();
+        for _ in 0..self.eqns.len() {
+            random_scalars.push(P::ScalarField::rand(rng));
+        }
+
+        let (g1s, g2s): (Vec<<P as Pairing>::G1>, Vec<<P as Pairing>::G2>) = self.eqns
+            .into_par_iter()
+            .zip(random_scalars)
+            .map(|(eq, scalar)| { 
+                let new_eq = eq.scalar_mul(scalar);
+                (new_eq.g1s, new_eq.g2s)
+            }).flatten().collect();
+
+        MultipairingEquation::new(g1s, g2s)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -136,6 +172,15 @@ mod tests {
     fn test_two_multipairing_eq() {
         let mut rng = thread_rng();
         let eq1 = make_eq();
+        let eq2 = make_eq();
+
+        eq1.combine(&mut rng, eq2).equals_zero().unwrap();
+    }
+
+    #[test]
+    fn test_two_multipairing_eq_one_empty() {
+        let mut rng = thread_rng();
+        let eq1 = MultipairingEquation::empty();
         let eq2 = make_eq();
 
         eq1.combine(&mut rng, eq2).equals_zero().unwrap();

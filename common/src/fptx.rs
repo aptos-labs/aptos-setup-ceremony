@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::bls_sok::BLSSoK;
 use crate::contribution::ContributionInner;
 use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
-use crate::multipairing_equation::MultipairingEquation;
+use crate::multipairing_equation::{MultipairingEquation, MultipairingEquations};
 use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
 type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
@@ -160,11 +160,15 @@ impl ContributionInner for FPTXContributionInner {
         if self.alphas_g2.len() != params.num_rounds ||
             self.soks_alphas.len() != params.num_rounds ||
             self.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
-            self.randomized_tau_powers_g1.len() != (params.batch_size + 1) * params.num_rounds {
+            self.randomized_tau_powers_g1.len() != params.num_rounds {
             return Err(ContributionVerificationFailure::ParamsMismatch)
         }
 
+        let time = std::time::Instant::now();
         let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, &PowersOfTauParams { max_power: params.batch_size })?;
+        println!("a {:?}", time.elapsed());
+        let time = std::time::Instant::now();
+
 
         let sok_check_equation_combined = self.alphas_g2.iter().enumerate()
             .zip(&previous.alphas_g2)
@@ -178,26 +182,54 @@ impl ContributionInner for FPTXContributionInner {
                     index: i,
                 })
             )
-            .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
+            .compact(rng);
+        println!("b {:?}", time.elapsed());
 
+        let time = std::time::Instant::now();
         let alpha_check_equation_combined  = self.alphas_g2.iter()
             .zip(&self.randomized_tau_powers_g1)
             .map(|(alpha, tau_powers)| 
                 tau_powers.iter().zip(&self.tau_powers_contrib_inner.powers)
                 .map(|(randomized_power, nonrandomized_power)| 
-                    MultipairingEquation::new(vec![*nonrandomized_power, G1Projective::from(*randomized_power)], vec![G2Projective::generator(), G2Projective::from(*alpha)])))
+                    MultipairingEquation::new(vec![G1Projective::from(*randomized_power), *nonrandomized_power], vec![G2Projective::generator(), -G2Projective::from(*alpha)])))
             .flatten()
-            .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
+            .compact(rng);
+        println!("c {:?}", time.elapsed());
 
         Ok(
             [pot_equation, sok_check_equation_combined, alpha_check_equation_combined]
                 .into_iter()
-                .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2))
+                .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
+                .compact(rng)
         )
 
     }
 
     fn output(&self) -> Self::Output {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::thread_rng;
+
+    use crate::{contribution::ContributionInner, fptx::{FPTXContributionInner, FPTXParams}};
+
+
+    #[test]
+    fn test_ftpx_contribute() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(128, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
     }
 }

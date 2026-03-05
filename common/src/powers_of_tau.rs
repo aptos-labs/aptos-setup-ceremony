@@ -4,10 +4,16 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
 
-use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::MultipairingEquation};
+use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::{MultipairingEquation, MultipairingEquations}};
 
 pub struct PowersOfTauParams {
     pub max_power: usize,
+}
+impl PowersOfTauParams {
+    pub fn new(max_power: usize) -> Self {
+        Self { max_power }
+    }
+    
 }
 
 #[derive(Serialize, Deserialize)]
@@ -118,13 +124,42 @@ where
 
         let powers_check_equation_combined = self.powers.iter().skip(1)
             .zip(&self.powers)
-            .map(|(higher, lower)| MultipairingEquation::new(vec![*higher, *lower], vec![P::G2::generator(), self.tau_g2]))
-            .fold(MultipairingEquation::empty(), |eq1, eq2| eq1.combine(rng, eq2));
-                
+            .map(|(higher, lower)| MultipairingEquation::new(vec![*higher, *lower], vec![P::G2::generator(), -self.tau_g2]))
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
+            .compact(rng);
+
         Ok(sok_check_equation.combine(rng, powers_check_equation_combined))
     }
 
     fn output(&self) -> Self::Output {
         ()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use ark_ec::{CurveGroup, hashing::curve_maps::wb::WBMap};
+    use rand::thread_rng;
+
+    use crate::powers_of_tau::PowersOfTauContributionInner;
+    use crate::contribution::ContributionInner;
+
+    use aptos_batch_encryption::group::{G1Projective, Pairing};
+    type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+
+
+    #[test]
+    fn test_pot_contribute() {
+        let mut rng = thread_rng();
+        let params = super::PowersOfTauParams::new(5);
+
+        let first_contrib : PowersOfTauContributionInner<Pairing, M2C> = PowersOfTauContributionInner::first_contribution(&params);
+        let (new_contrib, _) = PowersOfTauContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
     }
 }

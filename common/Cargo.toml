@@ -23,5 +23,6 @@ ark-ff-asm = { workspace = true }
 ark-ff-macros = { workspace = true }
 ark-ec = { workspace = true }
 sha2 = { workspace = true }
+rayon = "1.11.0"
 
 
