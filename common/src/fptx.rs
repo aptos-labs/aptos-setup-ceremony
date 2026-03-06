@@ -1,5 +1,6 @@
+use std::ops::Mul;
+
 use ark_ec::hashing::curve_maps::wb::WBMap;
-use ark_ec::pairing::Pairing as _;
 use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _, PrimeGroup};
 use ark_ff::UniformRand;
 use ark_std::One;
@@ -7,6 +8,7 @@ use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use rand_core::CryptoRngCore;
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator as _};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_sok::BLSSoK;
@@ -56,7 +58,7 @@ fn tau_powers_randomized_fr(
     assert_eq!(params.num_rounds, random_alphas.len());
 
     let tau_powers_randomized_fr = random_alphas
-        .into_iter()
+        .into_par_iter()
         .map(|alpha| {
             tau_powers_fr
                 .iter()
@@ -83,14 +85,14 @@ where
 impl ContributionInner for FPTXContributionInner {
     type P = aptos_batch_encryption::group::Pairing;
     type Params = FPTXParams;
-    /// No secret for new b/c we don't need this to be composable
+    /// No secret for now b/c we don't need this to be composable
     type Secrets = ();
     type Output = DigestKey;
 
     fn first_contribution(params: &Self::Params) -> Self {
         let trivial_random_alphas_fr = vec![Fr::one(); params.num_rounds];
 
-        let trivial_random_alphas_g2 : Vec<G2Affine> = trivial_random_alphas_fr.iter()
+        let trivial_random_alphas_g2 : Vec<G2Affine> = trivial_random_alphas_fr.par_iter()
             .map(|alpha| G2Affine::from(G2Affine::generator() * alpha))
             .collect();
 
@@ -101,7 +103,7 @@ impl ContributionInner for FPTXContributionInner {
         );
 
         let tau_powers_trivial_randomness_g1: Vec<Vec<G1Affine>> = tau_powers_trivial_randomness_fr
-            .into_iter()
+            .into_par_iter()
             .map(|powers_for_r| G1Projective::from(G1Affine::generator()).batch_mul(&powers_for_r))
             .collect();
 
@@ -121,42 +123,51 @@ impl ContributionInner for FPTXContributionInner {
             random_alphas_fr.push(Fr::rand(rng));
         }
 
-        let random_alphas_g2 : Vec<G2Affine> = random_alphas_fr.iter()
+        let time = std::time::Instant::now();
+        let random_alphas_g2 : Vec<G2Affine> = random_alphas_fr.par_iter()
             .zip(&previous.alphas_g2)
             .map(|(alpha_fr, old_alpha_g2)| G2Affine::from(*old_alpha_g2 * alpha_fr))
             .collect();
+        println!("a: {:?}", time.elapsed());
 
-        let soks_alphas : Vec<BLSSoK<Pairing, M2C>> = random_alphas_fr.iter().enumerate()
+        let time = std::time::Instant::now();
+        let soks_alphas : Vec<BLSSoK<Pairing, M2C>> = random_alphas_fr.par_iter().enumerate()
             .zip(&random_alphas_g2)
             .map(|((i, alpha_fr), alpha_g2)| { 
-                println!("{:?}", BLSSoK::<Pairing, M2C>::hash_point(&HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: *alpha_g2, index: i }));
                 BLSSoK::sign(*alpha_fr, &HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: *alpha_g2, index: i })
 
             })
             .collect();
+        println!("b: {:?}", time.elapsed());
 
 
+        let time = std::time::Instant::now();
         let (tau_powers_contrib_inner, tau_powers_fr) = PowersOfTauContributionInner::generate(
             rng, 
             &previous.tau_powers_contrib_inner, 
             &PowersOfTauParams { max_power: params.batch_size }
         );
+        println!("c: {:?}", time.elapsed());
 
+        let time = std::time::Instant::now();
         let randomized_tau_powers_fr = tau_powers_randomized_fr(
             params, 
             &tau_powers_fr,
             &random_alphas_fr
         );
+        println!("d: {:?}", time.elapsed());
 
+        let time = std::time::Instant::now();
         let randomized_tau_powers_g1: Vec<Vec<G1Affine>> = randomized_tau_powers_fr
-            .into_iter()
+            .into_par_iter()
             .zip(&previous.randomized_tau_powers_g1)
             .map(|(new_scalars_fr, old_g1s)| 
-                new_scalars_fr.iter()
+                new_scalars_fr.par_iter()
                     .zip(old_g1s)
                     .map(|(new_scalar, old_g1)| G1Affine::from(*old_g1 * new_scalar))
                     .collect())
             .collect();
+        println!("e: {:?}", time.elapsed());
 
         (Self { 
             tau_powers_contrib_inner,
@@ -181,11 +192,10 @@ impl ContributionInner for FPTXContributionInner {
         let time = std::time::Instant::now();
 
 
-        let sok_check_equation_combined = self.alphas_g2.iter().enumerate()
+        let sok_check_equation_combined = self.alphas_g2.par_iter().enumerate()
             .zip(&previous.alphas_g2)
             .zip(&self.soks_alphas)
             .map(|(((i, alpha_g2), previous_alpha_g2), sok)| { 
-                println!("{:?}", BLSSoK::<Pairing, M2C>::hash_point(&HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: *alpha_g2, index: i }));
                 sok.verify(
                     G2Projective::from(*previous_alpha_g2), 
                     G2Projective::from(*alpha_g2), 
@@ -194,34 +204,31 @@ impl ContributionInner for FPTXContributionInner {
                         alpha_g2: *alpha_g2,
                         index: i,
                     })
-            })
-            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
-            .compact(rng);
+            }).collect::<Vec<MultipairingEquation<Pairing>>>()
+            .into_iter()
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2));
         
-        let hash_point = BLSSoK::<Pairing, M2C>::hash_point(&HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: self.alphas_g2[0], index: 0 });
-        println!("{:?}", hash_point);
-        println!("{:?}", Pairing::pairing(hash_point, self.alphas_g2[0]) == Pairing::pairing(self.soks_alphas[0].sig, previous.alphas_g2[0]));
 
         println!("b {:?}", time.elapsed());
-        println!("b {:?}", sok_check_equation_combined.equals_zero());
 
         let time = std::time::Instant::now();
-        let alpha_check_equation_combined  = self.alphas_g2.iter()
+        let alpha_check_equation_combined  = self.alphas_g2.par_iter()
             .zip(&self.randomized_tau_powers_g1)
             .map(|(alpha, tau_powers)| 
-                tau_powers.iter().zip(&self.tau_powers_contrib_inner.powers)
+                tau_powers.par_iter().zip(&self.tau_powers_contrib_inner.powers)
                 .map(|(randomized_power, nonrandomized_power)| 
                     MultipairingEquation::new(vec![G1Projective::from(*randomized_power), *nonrandomized_power], vec![G2Projective::generator(), -G2Projective::from(*alpha)])))
             .flatten()
-            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
-            .compact(rng);
+            .collect::<Vec<MultipairingEquation<Pairing>>>()
+            .into_iter()
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2));
         println!("c {:?}", time.elapsed());
-        println!("c {:?}", alpha_check_equation_combined.equals_zero());
 
         Ok(
-            [pot_equation, sok_check_equation_combined, alpha_check_equation_combined]
-                .into_iter()
-                .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
+            MultipairingEquations::new()
+                .add(pot_equation)
+                .add_eqs(sok_check_equation_combined)
+                .add_eqs(alpha_check_equation_combined)
                 .compact(rng)
         )
 

@@ -30,7 +30,7 @@ where
 
     fn scalar_mul(self, scalar: P::ScalarField) -> Self {
         Self {
-            g1s: self.g1s.into_iter().map( |g1| g1 * scalar ).collect(),
+            g1s: self.g1s.into_par_iter().map( |g1| g1 * scalar ).collect(),
             // I believe the move and the use of `self` instead of `&self` above means no copy here
             g2s: self.g2s
         }
@@ -48,7 +48,12 @@ where
 
     /// Test if this multipairing equation equals zero.
     pub fn equals_zero(&self) -> Result<(), MultipairingEquationNonZeroResult> {
-        if P::multi_pairing(&self.g1s, &self.g2s) == PairingOutput::zero() {
+        println!("multipairing size: {}", self.g1s.len());
+        let time = std::time::Instant::now();
+        let output = P::multi_pairing(&self.g1s, &self.g2s);
+        println!("equals_zero: {:?}", time.elapsed());
+
+        if output == PairingOutput::zero() {
             Ok(())
         } else {
             Err(MultipairingEquationNonZeroResult)
@@ -72,7 +77,14 @@ impl<P: Pairing> MultipairingEquations<P> {
         self
     }
 
+    pub fn add_eqs(mut self, mut eq: MultipairingEquations<P>) -> Self {
+        self.eqns.append(&mut eq.eqns);
+        self
+    }
+
     pub fn compact(self, rng: &mut impl CryptoRngCore) -> MultipairingEquation<P> {
+        println!("compact size: {}", self.eqns.len());
+        let time = std::time::Instant::now();
         let mut random_scalars = Vec::new();
         for _ in 0..self.eqns.len() {
             random_scalars.push(P::ScalarField::rand(rng));
@@ -85,6 +97,8 @@ impl<P: Pairing> MultipairingEquations<P> {
                 let new_eq = eq.scalar_mul(scalar);
                 (new_eq.g1s, new_eq.g2s)
             }).flatten().collect();
+
+        println!("compact: {:?}", time.elapsed());
 
         MultipairingEquation::new(g1s, g2s)
     }

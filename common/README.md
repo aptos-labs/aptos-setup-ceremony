@@ -13,7 +13,7 @@
 Assume $20$ rounds per second. With baked-in margin, assume $30$ rounds per
 second.
 
-So the number of rounds we need to support, for a two-hour epoch, is $30*60*60*2$.
+So the number of rounds we need to support, for a two-hour epoch, is $30*60*60*2 = 216000$.
 
 We should maybe set number of CTs per round to 256, to also have margin in
 that regard.
