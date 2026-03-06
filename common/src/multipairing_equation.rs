@@ -2,7 +2,7 @@ use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_ff::Zero;
 use ark_std::UniformRand;
 use rand_core::CryptoRngCore;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::errors::MultipairingEquationNonZeroResult;
 
@@ -50,7 +50,9 @@ where
     pub fn equals_zero(&self) -> Result<(), MultipairingEquationNonZeroResult> {
         println!("multipairing size: {}", self.g1s.len());
         let time = std::time::Instant::now();
-        let output = P::multi_pairing(&self.g1s, &self.g2s);
+        let g1s_prepared: Vec<P::G1Prepared> = self.g1s.par_iter().map(|g| P::G1Prepared::from(*g)).collect();
+        let g2s_prepared: Vec<P::G2Prepared> = self.g2s.par_iter().map(|g| P::G2Prepared::from(*g)).collect();
+        let output = P::multi_pairing(g1s_prepared, g2s_prepared);
         println!("equals_zero: {:?}", time.elapsed());
 
         if output == PairingOutput::zero() {
