@@ -81,7 +81,7 @@ where
 
     rest.par_chunks(es)
         .map(|chunk| {
-            T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::Yes)
+            T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::No)
                 .map_err(|e| e.to_string())
         })
         .collect::<Result<Vec<T>, String>>()
@@ -163,7 +163,7 @@ where
     // Determine element byte size by trial-deserializing the first element
     let trial_start = &raw[16..];
     let mut cursor = std::io::Cursor::new(trial_start);
-    let _trial: T = T::deserialize_with_mode(&mut cursor, Compress::Yes, Validate::Yes)
+    let _trial: T = T::deserialize_with_mode(&mut cursor, Compress::Yes, Validate::No)
         .map_err(|e| serde::de::Error::custom(e.to_string()))?;
     let es = cursor.position() as usize;
 
@@ -190,7 +190,7 @@ where
             let data = &raw[start..start + inner_len * es];
             data.par_chunks(es)
                 .map(|chunk| {
-                    T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::Yes)
+                    T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::No)
                         .map_err(|e| e.to_string())
                 })
                 .collect::<Result<Vec<T>, String>>()
