@@ -71,11 +71,11 @@ fn tau_powers_randomized_fr(
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
-pub struct HashPreimage<'a>
+pub struct HashPreimage
 where
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    previous_alphas_g2: &'a [G2Affine],
+    previous_alpha_g2: G2Affine,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     alpha_g2: G2Affine,
     index: usize
@@ -131,10 +131,11 @@ impl ContributionInner for FPTXContributionInner {
         println!("a: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
+
         let soks_alphas : Vec<BLSSoK<Pairing, M2C>> = random_alphas_fr.par_iter().enumerate()
             .zip(&random_alphas_g2)
             .map(|((i, alpha_fr), alpha_g2)| { 
-                BLSSoK::sign(*alpha_fr, &HashPreimage { previous_alphas_g2: &previous.alphas_g2, alpha_g2: *alpha_g2, index: i })
+                BLSSoK::sign(*alpha_fr, &HashPreimage { previous_alpha_g2: previous.alphas_g2[i], alpha_g2: *alpha_g2, index: i })
 
             })
             .collect();
@@ -200,7 +201,7 @@ impl ContributionInner for FPTXContributionInner {
                     G2Projective::from(*previous_alpha_g2), 
                     G2Projective::from(*alpha_g2), 
                     &HashPreimage {
-                        previous_alphas_g2: &previous.alphas_g2,
+                        previous_alpha_g2: previous.alphas_g2[i],
                         alpha_g2: *alpha_g2,
                         index: i,
                     })
