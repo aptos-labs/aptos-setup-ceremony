@@ -22,7 +22,7 @@ ark-ff-asm = { version = "0.5.0" }
 ark-ff-macros = "0.5.0"
 ark-poly = { version = "0.5.0", features = ["parallel"] }
 ark-serialize = { version = "0.5.0", features = ["derive"] }
-ark-std = { version = "0.5.0", features = ["getrandom"] }
+ark-std = { version = "0.5.0", features = ["getrandom", "parallel"] }
 sha2 = { version = "0.10.9", features = ["asm-aarch64", "asm"] }
 
 
