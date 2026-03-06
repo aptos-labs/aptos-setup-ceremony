@@ -1,4 +1,5 @@
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
+use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec};
 use ark_ec::{CurveGroup, PrimeGroup, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -27,7 +28,7 @@ where
     P::G1: CurveGroup,
     P::G2: CurveGroup,
 {
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
+    #[serde(serialize_with = "par_ark_se_vec", deserialize_with = "par_ark_de_vec")]
     pub(super) powers: Vec<P::G1>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub(super) tau_g2: P::G2,

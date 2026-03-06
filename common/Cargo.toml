@@ -25,6 +25,7 @@ ark-ec.workspace = true
 sha2 = { workspace = true }
 rayon = "1.11.0"
 chrono = "0.4.44"
+ark-serialize.workspace = true
 ark-bls12-381.workspace = true
 
 

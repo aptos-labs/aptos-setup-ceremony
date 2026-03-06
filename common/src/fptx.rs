@@ -6,7 +6,8 @@ use ark_ff::UniformRand;
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
-use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
+use aptos_crypto::arkworks::serialization::ark_se;
+use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec, par_ark_se_vec_vec, par_ark_de_vec_vec};
 use rand_core::CryptoRngCore;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator as _};
 use serde::{Deserialize, Serialize};
@@ -22,10 +23,10 @@ type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXContributionInner {
     pub tau_powers_contrib_inner: PowersOfTauContributionInner<Pairing, M2C>,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
+    #[serde(serialize_with = "par_ark_se_vec", deserialize_with = "par_ark_de_vec")]
     pub alphas_g2: Vec<G2Affine>,
     pub soks_alphas: Vec<BLSSoK<Pairing, M2C>>,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
+    #[serde(serialize_with = "par_ark_se_vec_vec", deserialize_with = "par_ark_de_vec_vec")]
     pub randomized_tau_powers_g1: Vec<Vec<G1Affine>>,
 
 }

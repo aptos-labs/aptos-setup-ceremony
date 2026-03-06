@@ -852,6 +852,7 @@ dependencies = [
  "ark-ff",
  "ark-ff-asm",
  "ark-ff-macros",
+ "ark-serialize",
  "ark-std",
  "bcs 0.1.6",
  "blake3",
