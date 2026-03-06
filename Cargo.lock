@@ -847,6 +847,7 @@ version = "0.1.0"
 dependencies = [
  "aptos-batch-encryption",
  "aptos-crypto",
+ "ark-bls12-381",
  "ark-ec",
  "ark-ff",
  "ark-ff-asm",
