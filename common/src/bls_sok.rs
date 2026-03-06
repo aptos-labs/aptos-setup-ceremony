@@ -66,7 +66,7 @@ where
     ) -> MultipairingEquation<P> {
         let hash_point = Self::hash_point(msg);
         
-        MultipairingEquation::new(vec![P::G1::from(hash_point), self.sig], vec![verification_key, - base_point], )
+        MultipairingEquation::simple(vec![P::G1::from(hash_point), self.sig], vec![verification_key, - base_point], )
     }
 }
 

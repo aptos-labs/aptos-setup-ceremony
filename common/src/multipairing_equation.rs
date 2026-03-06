@@ -1,4 +1,5 @@
-use ark_ec::pairing::{Pairing, PairingOutput};
+use aptos_crypto::arkworks::msm;
+use ark_ec::{VariableBaseMSM, pairing::{Pairing, PairingOutput}};
 use ark_ff::Zero;
 use ark_std::UniformRand;
 use rand_core::CryptoRngCore;
@@ -20,13 +21,34 @@ where
 {
     /// Construct a new multipairing equation. Takes vecs instead of slices so that we can move w/o
     /// calling `to_vec()`, which I believe does a copy.
-    pub fn new(g1s: Vec<P::G1>, g2s: Vec<P::G2>) -> Self {
+    pub fn simple(g1s: Vec<P::G1>, g2s: Vec<P::G2>) -> Self {
         Self { g1s, g2s }
     }
 
-    pub fn empty() -> Self {
-        Self::new(vec![], vec![])
+    pub fn with_shared_g2s(rng: &mut impl CryptoRngCore, g1s: Vec<Vec<P::G1>>, shared_g2s: Vec<P::G2>) -> Self {
+        assert!(g1s.len() > 0);
+
+        let random_challenge : Vec<P::ScalarField> = 
+        (0..g1s.len()).map(|_| P::ScalarField::rand(rng)).collect();
+
+        let g1s_combined_scaled : Vec<P::G1> = (0..g1s[0].len()).map(|i|
+            <P::G1 as VariableBaseMSM>::msm_unchecked(
+                &g1s.iter().map(|g1s| P::G1Affine::from(g1s[i])).collect::<Vec<P::G1Affine>>(),
+                &random_challenge
+            ))
+            .collect();
+
+        Self {
+            g1s: g1s_combined_scaled,
+            g2s: shared_g2s,
+        }
+
     }
+
+    pub fn empty() -> Self {
+        Self::simple(vec![], vec![])
+    }
+
 
     fn scalar_mul(self, scalar: P::ScalarField) -> Self {
         Self {
@@ -102,7 +124,7 @@ impl<P: Pairing> MultipairingEquations<P> {
 
         println!("compact: {:?}", time.elapsed());
 
-        MultipairingEquation::new(g1s, g2s)
+        MultipairingEquation::simple(g1s, g2s)
     }
 }
 
@@ -141,7 +163,7 @@ mod tests {
         let g1s : Vec<G1Projective> = frs_1.into_iter().map(|x| G1Projective::generator()*x).collect();
         let g2s : Vec<G2Projective> = frs_2.into_iter().map(|x| G2Projective::generator()*x).collect();
 
-        MultipairingEquation::new(g1s, g2s)
+        MultipairingEquation::simple(g1s, g2s)
     }
 
     fn make_eq_nonzero() -> MultipairingEquation<Pairing> {
@@ -167,7 +189,7 @@ mod tests {
         let g1s : Vec<G1Projective> = frs_1.into_iter().map(|x| G1Projective::generator()*x).collect();
         let g2s : Vec<G2Projective> = frs_2.into_iter().map(|x| G2Projective::generator()*x).collect();
 
-        MultipairingEquation::new(g1s, g2s)
+        MultipairingEquation::simple(g1s, g2s)
     }
 
     #[test]

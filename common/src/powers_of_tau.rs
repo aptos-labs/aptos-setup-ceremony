@@ -125,7 +125,7 @@ where
 
         let powers_check_equation_combined = self.powers.iter().skip(1)
             .zip(&self.powers)
-            .map(|(higher, lower)| MultipairingEquation::new(vec![*higher, *lower], vec![P::G2::generator(), -self.tau_g2]))
+            .map(|(higher, lower)| MultipairingEquation::simple(vec![*higher, *lower], vec![P::G2::generator(), -self.tau_g2]))
             .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
             .compact(rng);
 

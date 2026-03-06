@@ -7,6 +7,7 @@ use ark_std::{One, Zero};
 use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
 use aptos_crypto::arkworks::serialization::ark_se;
+use rand::thread_rng;
 use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec, par_ark_se_vec_vec, par_ark_de_vec_vec};
 use rand_core::CryptoRngCore;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator as _};
@@ -99,7 +100,7 @@ impl ContributionInner for FPTXContributionInner {
 
         let tau_powers_trivial_randomness_fr = tau_powers_randomized_fr(
             params, 
-            &vec![Fr::one(); params.batch_size], 
+            &vec![Fr::one(); params.batch_size + 1], 
             &trivial_random_alphas_fr
         );
 
@@ -215,51 +216,33 @@ impl ContributionInner for FPTXContributionInner {
         println!("b {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
-        // Pre-compact alpha check equations by grouping by G2 element.
-        // Each equation: e(c*randomized[r][j], G2_gen) * e(c*powers[j], -alpha_g2[r]) = 1
-        // Group by G2 to reduce ~num_rounds*(batch_size+1) pairs to num_rounds+1.
-        let num_powers = self.randomized_tau_powers_g1.first()
-            .map_or(0, |v| v.len())
-            .min(self.tau_powers_contrib_inner.powers.len());
-        let random_scalars: Vec<Fr> = (0..params.num_rounds * num_powers)
-            .map(|_| Fr::rand(&mut *rng))
-            .collect();
 
-        // G2_gen term: sum_{r,j} c_{r,j} * randomized[r][j]
-        let g1_for_generator: G1Projective = self.randomized_tau_powers_g1.par_iter()
-            .enumerate()
-            .map(|(r, tau_powers)| {
-                tau_powers.iter().take(num_powers).enumerate()
-                    .map(|(j, rp)| G1Projective::from(*rp) * random_scalars[r * num_powers + j])
-                    .fold(G1Projective::zero(), |a, b| a + b)
-            })
-            .reduce(|| G1Projective::zero(), |a, b| a + b);
+        let alpha_check_equation_combined  = self.alphas_g2.par_iter()
+            .zip(&self.randomized_tau_powers_g1)
+            .map_init(
+                || thread_rng(),
+                |rng, (alpha_g2, tau_powers)| 
+                MultipairingEquation::with_shared_g2s(
+                    rng, 
+                    tau_powers.par_iter().zip(&self.tau_powers_contrib_inner.powers)
+                        .map(|(randomized_power, nonrandomized_power)|
+                            vec![G1Projective::from(*randomized_power), *nonrandomized_power])
+                        .collect(),
+                    vec![G2Projective::generator(), -G2Projective::from(*alpha_g2)],
+                )
+            )
+            .collect::<Vec<MultipairingEquation<Pairing>>>()
+            .into_iter()
+            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2));
 
-        // -alpha_g2[r] terms: sum_j c_{r,j} * powers[j]
-        let g1s_for_alphas: Vec<G1Projective> = (0..params.num_rounds).into_par_iter()
-            .map(|r| {
-                self.tau_powers_contrib_inner.powers.iter().take(num_powers).enumerate()
-                    .map(|(j, power)| *power * random_scalars[r * num_powers + j])
-                    .fold(G1Projective::zero(), |a, b| a + b)
-            })
-            .collect();
 
-        let mut alpha_g1s: Vec<G1Projective> = Vec::with_capacity(params.num_rounds + 1);
-        let mut alpha_g2s: Vec<G2Projective> = Vec::with_capacity(params.num_rounds + 1);
-        alpha_g1s.push(g1_for_generator);
-        alpha_g2s.push(G2Projective::generator());
-        for (r, g1) in g1s_for_alphas.into_iter().enumerate() {
-            alpha_g1s.push(g1);
-            alpha_g2s.push(-G2Projective::from(self.alphas_g2[r]));
-        }
-        let alpha_check_equation_combined = MultipairingEquation::new(alpha_g1s, alpha_g2s);
         println!("c {:?}", time.elapsed());
 
         Ok(
             MultipairingEquations::new()
                 .add(pot_equation)
                 .add_eqs(sok_check_equation_combined)
-                .add(alpha_check_equation_combined)
+                .add_eqs(alpha_check_equation_combined)
                 .compact(rng)
         )
 
@@ -311,4 +294,7 @@ mod tests {
             .equals_zero()
             .unwrap();
     }
+
+    // TODO test invalid contributions
 }
+
