@@ -189,7 +189,6 @@ impl ContributionInner for FPTXContributionInner {
         let time = std::time::Instant::now();
         let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, &PowersOfTauParams { max_power: params.batch_size })?;
         println!("a {:?}", time.elapsed());
-        println!("a {:?}", pot_equation.equals_zero());
         let time = std::time::Instant::now();
 
 
