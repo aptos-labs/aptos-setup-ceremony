@@ -24,6 +24,8 @@ fn main() {
     println!("Time to serialize a user contrib: {:?}", time.elapsed());
     println!("Size: {} MB", fs::metadata("./test.contrib").unwrap().len()/1000/1000);
     
+    drop(new_contrib);
+
     let time = std::time::Instant::now();
     println!("Starting user contrib deserialization at {}", chrono::Local::now() );
     let new_contrib : FPTXContributionInner = bcs::from_reader(fs::File::open("./test.contrib").unwrap()).unwrap();

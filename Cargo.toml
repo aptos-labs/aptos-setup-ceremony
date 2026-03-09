@@ -2,6 +2,9 @@
 resolver = "3"
 members = ["common"]
 
+[profile.release]
+debug = true
+
 
 [workspace.dependencies]
 bcs = "0.1.6"
