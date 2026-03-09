@@ -1,4 +1,3 @@
-use aptos_crypto::arkworks::msm;
 use ark_ec::{VariableBaseMSM, pairing::{Pairing, PairingOutput}};
 use ark_ff::Zero;
 use ark_std::UniformRand;
