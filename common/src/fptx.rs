@@ -163,16 +163,27 @@ impl ContributionInner for FPTXContributionInner {
         println!("d: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
-        let randomized_tau_powers_g1: Vec<Vec<G1Affine>> = randomized_tau_powers_fr
+        let randomized_tau_powers_g1p: Vec<Vec<G1Projective>> = randomized_tau_powers_fr
             .into_par_iter()
             .zip(&previous.randomized_tau_powers_g1)
             .map(|(new_scalars_fr, old_g1s)| 
                 new_scalars_fr.par_iter()
                     .zip(old_g1s)
-                    .map(|(new_scalar, old_g1)| G1Affine::from(*old_g1 * new_scalar))
+                    .map(|(new_scalar, old_g1)| *old_g1 * new_scalar)
                     .collect())
             .collect();
         println!("e: {:?}", time.elapsed());
+
+        let time = std::time::Instant::now();
+        let randomized_tau_powers_g1 : Vec<Vec<G1Affine>> = randomized_tau_powers_g1p
+            .into_par_iter()
+            .map(|powers_for_round|
+                powers_for_round.into_par_iter()
+                    .map(G1Affine::from)
+                    .collect()
+            )
+            .collect();
+        println!("f: {:?}", time.elapsed());
 
         (Self { 
             tau_powers_contrib_inner,
