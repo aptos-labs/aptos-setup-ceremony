@@ -7,7 +7,7 @@ use common::{contribution::ContributionInner, fptx::{FPTXContributionInner, FPTX
 
 fn main() {
     let mut rng = thread_rng();
-    let params = FPTXParams::new(128, 2160).unwrap();
+    let params = FPTXParams::new(128, 216000).unwrap();
 
     let time = std::time::Instant::now();
     println!("Starting \"dummy\" first contrib at {}", chrono::Local::now() );

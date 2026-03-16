@@ -273,7 +273,7 @@ mod tests {
 
 
     #[test]
-    fn test_ftpx_contribute() {
+    fn test_fptx_contribute() {
         let mut rng = thread_rng();
         let params = FPTXParams::new(8, 4).unwrap();
 
@@ -287,9 +287,9 @@ mod tests {
     }
 
     #[test]
-    fn test_ftpx_contribute_2() {
+    fn test_fptx_contribute_2() {
         let mut rng = thread_rng();
-        let params = FPTXParams::new(1, 1).unwrap();
+        let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
         let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);

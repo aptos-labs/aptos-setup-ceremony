@@ -7,7 +7,7 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
 
-use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::{MultipairingEquation, MultipairingEquations}};
+use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::MultipairingEquation};
 
 pub struct PowersOfTauParams {
     pub max_power: usize,
