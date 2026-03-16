@@ -1,6 +1,8 @@
+use std::ops::Neg;
+
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec};
-use ark_ec::{CurveGroup, PrimeGroup, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, CurveGroup, PrimeGroup, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
@@ -25,13 +27,13 @@ pub struct PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
     M2C: MapToCurve<P::G1>,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
+    P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
+    P::G1Affine: AffineRepr,
 {
     #[serde(serialize_with = "par_ark_se_vec", deserialize_with = "par_ark_de_vec")]
-    pub(super) powers: Vec<P::G1>,
+    pub(super) powers: Vec<P::G1Affine>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub(super) tau_g2: P::G2,
+    pub(super) tau_g2: P::G2Affine,
     pub(super) sok: BLSSoK<P, M2C>,
 }
 
@@ -42,18 +44,18 @@ where
     P: Pairing,
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    previous_tau_g2: P::G2,
+    previous_tau_g2: P::G2Affine,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    powers: Vec<P::G1>,
+    powers: Vec<P::G1Affine>,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    tau_g2: P::G2,
+    tau_g2: P::G2Affine,
 }
 
 impl<P, M2C> ContributionInner for PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    P::G1: CurveGroup,
-    P::G2: CurveGroup,
+    P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
+    P::G1Affine: AffineRepr,
     M2C: MapToCurve<P::G1>,
 {
     type P = P;
@@ -70,8 +72,8 @@ where
 
     fn first_contribution(params: &Self::Params) -> Self {
         Self {
-            powers: vec![P::G1::generator(); params.max_power + 1],
-            tau_g2: P::G2::generator(),
+            powers: vec![P::G1Affine::generator(); params.max_power + 1],
+            tau_g2: P::G2Affine::generator(),
             sok: BLSSoK::sign(P::ScalarField::one(), &String::from(""))
         }
     }
@@ -88,13 +90,13 @@ where
             .take(params.max_power + 1)
             .collect();
 
-        let new_powers : Vec<P::G1> = current_contribution_tau_powers_fr
+        let new_powers : Vec<P::G1Affine> = current_contribution_tau_powers_fr
             .iter()
             .zip(&previous.powers)
-            .map(|(current_tau_fr, previous_power_g)| *previous_power_g * current_tau_fr)
+            .map(|(current_tau_fr, previous_power_g)| P::G1Affine::from(*previous_power_g * current_tau_fr))
             .collect();
 
-        let new_tau_g2 = previous.tau_g2 * current_contribution_tau_fr;
+        let new_tau_g2 = P::G2Affine::from(previous.tau_g2 * current_contribution_tau_fr);
 
         (
             Self {
@@ -125,7 +127,7 @@ where
 
         let powers_check_equation_combined = self.powers.iter().skip(1)
             .zip(&self.powers)
-            .map(|(higher, lower)| MultipairingEquation::simple(vec![*higher, *lower], vec![P::G2::generator(), -self.tau_g2]))
+            .map(|(higher, lower)| MultipairingEquation::simple(vec![*higher, *lower], vec![P::G2Affine::generator(), -self.tau_g2]))
             .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
             .compact(rng);
 

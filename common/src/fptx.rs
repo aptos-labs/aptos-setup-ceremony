@@ -1,10 +1,10 @@
 
 use ark_ec::hashing::curve_maps::wb::WBMap;
-use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _, PrimeGroup};
+use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _};
 use ark_ff::UniformRand;
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
-use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, G2Projective, Pairing};
+use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, Pairing};
 use aptos_crypto::arkworks::serialization::ark_se;
 use rand::thread_rng;
 use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec, par_ark_se_vec_vec, par_ark_de_vec_vec};
@@ -211,8 +211,8 @@ impl ContributionInner for FPTXContributionInner {
             .zip(&self.soks_alphas)
             .map(|(((i, alpha_g2), previous_alpha_g2), sok)| { 
                 sok.verify(
-                    G2Projective::from(*previous_alpha_g2), 
-                    G2Projective::from(*alpha_g2), 
+                    G2Affine::from(*previous_alpha_g2), 
+                    G2Affine::from(*alpha_g2), 
                     &HashPreimage {
                         previous_alpha_g2: previous.alphas_g2[i],
                         alpha_g2: *alpha_g2,
@@ -236,9 +236,9 @@ impl ContributionInner for FPTXContributionInner {
                     rng, 
                     tau_powers.par_iter().zip(&self.tau_powers_contrib_inner.powers)
                         .map(|(randomized_power, nonrandomized_power)|
-                            vec![G1Projective::from(*randomized_power), *nonrandomized_power])
+                            vec![*randomized_power, *nonrandomized_power])
                         .collect(),
-                    vec![G2Projective::generator(), -G2Projective::from(*alpha_g2)],
+                    vec![G2Affine::generator(), -G2Affine::from(*alpha_g2)],
                 )
             )
             .collect::<Vec<MultipairingEquation<Pairing>>>()

@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Neg};
 
 use ark_ec::{
-    CurveGroup, hashing::{
+    AffineRepr, CurveGroup, hashing::{
         HashToCurve, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
     }, pairing::Pairing
 };
@@ -21,11 +21,11 @@ pub struct BLSSoK<P, M2C>
 where
     P: Pairing,
     M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
+    P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
+    P::G1Affine: AffineRepr,
 {
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    pub(crate) sig: P::G1,
+    pub(crate) sig: P::G1Affine,
     pub(crate) _phantom: PhantomData<M2C>,
 }
 
@@ -34,8 +34,8 @@ impl<P, M2C> BLSSoK<P, M2C>
 where
     P: Pairing,
     M2C: MapToCurve<P::G1>,
-    P::G2: CurveGroup,
-    P::G1: CurveGroup,
+    P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
+    P::G1Affine: AffineRepr,
 {
     pub fn hash_point(msg: &impl Serialize) -> P::G1Affine {
         let hasher: MapToCurveBasedHasher<P::G1, DefaultFieldHasher<Sha256>, M2C> = MapToCurveBasedHasher::new(&[0u8]).unwrap();
@@ -53,28 +53,28 @@ where
         let hash_point = Self::hash_point(msg);
 
         Self {
-            sig: hash_point * secret_scalar,
+            sig: P::G1Affine::from(hash_point * secret_scalar),
             _phantom: PhantomData
         }
     }
 
     pub fn verify(
         &self,
-        base_point: P::G2,
-        verification_key: P::G2,
+        base_point: P::G2Affine,
+        verification_key: P::G2Affine,
         msg: &impl Serialize,
     ) -> MultipairingEquation<P> {
         let hash_point = Self::hash_point(msg);
         
-        MultipairingEquation::simple(vec![P::G1::from(hash_point), self.sig], vec![verification_key, - base_point], )
+        MultipairingEquation::simple(vec![hash_point, self.sig], vec![verification_key, - base_point])
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::group::{Fr, G2Projective, G1Projective, Pairing};
-    use ark_ec::{CurveGroup, PrimeGroup, hashing::curve_maps::wb::WBMap};
+    use aptos_batch_encryption::group::{Fr, G1Projective, Pairing, G2Affine, G1Affine};
+    use ark_ec::{AffineRepr, CurveGroup,  hashing::curve_maps::wb::WBMap};
     use ark_ff::UniformRand;
     use rand::thread_rng;
 
@@ -84,9 +84,9 @@ mod tests {
     #[test]
     fn test_bls_sign_and_verify() {
         let mut rng = thread_rng();
-        let base_point = G2Projective::generator() * Fr::rand(&mut rng);
+        let base_point = G2Affine::from(G2Affine::generator() * Fr::rand(&mut rng));
         let secret = Fr::rand(&mut rng);
-        let verification_key = base_point * secret;
+        let verification_key = G2Affine::from(base_point * secret);
         let msg = String::from("hi");
 
         let sig : BLSSoK<Pairing, M2C> = BLSSoK::sign(secret, &msg);
@@ -98,13 +98,13 @@ mod tests {
     #[should_panic]
     fn test_bls_sign_and_verify_invalid() {
         let mut rng = thread_rng();
-        let base_point = G2Projective::generator() * Fr::rand(&mut rng);
+        let base_point = G2Affine::from(G2Affine::generator() * Fr::rand(&mut rng));
         let secret = Fr::rand(&mut rng);
-        let verification_key = base_point * secret;
+        let verification_key = G2Affine::from(base_point * secret);
         let msg = String::from("hi");
 
         let mut sig : BLSSoK<Pairing, M2C> = BLSSoK::sign(secret, &msg);
-        sig.sig += G1Projective::generator();
+        sig.sig = G1Affine::from(sig.sig + G1Affine::generator());
 
         sig.verify(base_point, verification_key, &msg).equals_zero().unwrap();
     }
