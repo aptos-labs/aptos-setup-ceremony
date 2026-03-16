@@ -125,11 +125,14 @@ where
             &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, powers: self.powers.clone(), tau_g2: self.tau_g2 }
         );
 
-        let powers_check_equation_combined = self.powers.iter().skip(1)
-            .zip(&self.powers)
-            .map(|(higher, lower)| MultipairingEquation::simple(vec![*higher, *lower], vec![P::G2Affine::generator(), -self.tau_g2]))
-            .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2))
-            .compact(rng);
+        let powers_check_equation_combined = MultipairingEquation::with_shared_g2s(
+            rng, 
+            self.powers.iter().skip(1)
+                .zip(&self.powers)
+                .map(|(higher, lower)| vec![*higher, *lower])
+                .collect(),
+            vec![P::G2Affine::generator(), -self.tau_g2],
+        );
 
         Ok(sok_check_equation.combine(rng, powers_check_equation_combined))
     }
