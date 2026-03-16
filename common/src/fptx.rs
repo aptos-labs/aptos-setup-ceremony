@@ -86,7 +86,7 @@ where
 impl ContributionInner for FPTXContributionInner {
     type P = aptos_batch_encryption::group::Pairing;
     type Params = FPTXParams;
-    /// No secret for now b/c we don't need this to be composable
+    /// No secret for now b/c we don't need to build other ContributionInners on top of this
     type Secrets = ();
     type Output = DigestKey;
 
@@ -121,10 +121,7 @@ impl ContributionInner for FPTXContributionInner {
     }
 
     fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, ()) {
-        let mut random_alphas_fr = Vec::new();
-        for _ in 0..params.num_rounds {
-            random_alphas_fr.push(Fr::rand(rng));
-        }
+        let random_alphas_fr : Vec<Fr> = (0..params.num_rounds).map(|_| Fr::rand(rng)).collect();
 
         let time = std::time::Instant::now();
         let random_alphas_g2 : Vec<G2Affine> = random_alphas_fr.par_iter()
