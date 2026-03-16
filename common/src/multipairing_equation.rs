@@ -133,6 +133,7 @@ impl<P: Pairing> MultipairingEquations<P> {
             random_scalars.push(P::ScalarField::rand(rng));
         }
 
+        // TODO could do batch normalization here
         let (g1s, g2s): (Vec<<P as Pairing>::G1Affine>, Vec<<P as Pairing>::G2Affine>) = self
             .eqns
             .into_par_iter()

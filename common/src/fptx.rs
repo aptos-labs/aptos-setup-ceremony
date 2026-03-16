@@ -173,6 +173,8 @@ impl ContributionInner for FPTXContributionInner {
             .collect();
         println!("e: {:?}", time.elapsed());
 
+        // TODO could do batch normalization here, although it doesn't seem to be a significant
+        // component of the total time to contribute
         let time = std::time::Instant::now();
         let randomized_tau_powers_g1 : Vec<Vec<G1Affine>> = randomized_tau_powers_g1p
             .into_par_iter()
