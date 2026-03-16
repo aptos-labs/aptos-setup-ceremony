@@ -152,9 +152,8 @@ impl<P: Pairing> MultipairingEquations<P> {
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::group::{Fr, G1Projective, G2Projective, Pairing, G1Affine, G2Affine};
+    use aptos_batch_encryption::group::{Fr, Pairing, G1Affine, G2Affine};
     use ark_ec::AffineRepr as _;
-    use ark_ec::PrimeGroup;
     use ark_std::UniformRand;
     use ark_std::Zero;
     use rand::thread_rng;

@@ -3,7 +3,7 @@
 //! are parameterized by it, and the default derive macros have this requirement.
 use std::ops::Neg;
 
-use ark_ec::{AffineRepr, CurveGroup, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 
 use crate::{bls_sok::BLSSoK, powers_of_tau::PowersOfTauContributionInner};
 

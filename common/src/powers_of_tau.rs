@@ -2,7 +2,7 @@ use std::ops::Neg;
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec};
-use ark_ec::{AffineRepr, CurveGroup, PrimeGroup, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};

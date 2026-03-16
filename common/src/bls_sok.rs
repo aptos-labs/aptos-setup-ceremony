@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, ops::Neg};
 
 use ark_ec::{
-    AffineRepr, CurveGroup, hashing::{
+    AffineRepr, hashing::{
         HashToCurve, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
     }, pairing::Pairing
 };
