@@ -144,7 +144,7 @@ where
         )
     }
 
-    fn output(&self) -> Self::Output {
+    fn output(self) -> Self::Output {
         todo!()
     }
 }

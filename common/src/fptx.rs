@@ -205,7 +205,7 @@ impl ContributionInner for FPTXContributionInner {
         let time = std::time::Instant::now();
 
 
-        let sok_check_equation_combined = self.alphas_g2.par_iter().enumerate()
+        let sok_check_equations = self.alphas_g2.par_iter().enumerate()
             .zip(&previous.alphas_g2)
             .zip(&self.soks_alphas)
             .map(|(((i, alpha_g2), previous_alpha_g2), sok)| { 
@@ -226,7 +226,7 @@ impl ContributionInner for FPTXContributionInner {
 
         let time = std::time::Instant::now();
 
-        let alpha_check_equation_combined  = self.alphas_g2.par_iter()
+        let alpha_check_equations  = self.alphas_g2.par_iter()
             .zip(&self.randomized_tau_powers_g1)
             .map_init(
                 || thread_rng(),
@@ -250,22 +250,26 @@ impl ContributionInner for FPTXContributionInner {
         Ok(
             MultipairingEquations::new()
                 .add(pot_equation)
-                .add_eqs(sok_check_equation_combined)
-                .add_eqs(alpha_check_equation_combined)
+                .add_eqs(sok_check_equations)
+                .add_eqs(alpha_check_equations)
                 .compact(rng)
         )
 
     }
 
-    fn output(&self) -> Self::Output {
-        todo!()
+    fn output(self) -> Self::Output {
+        DigestKey::with_randomized_powers_of_tau(
+            self.randomized_tau_powers_g1,
+            self.tau_powers_contrib_inner.tau_g2,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
+    use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _};
+    use aptos_crypto::weighted_config::WeightedConfigArkworks;
+    use rand::{Rng as _, thread_rng};
     use crate::{contribution::ContributionInner, fptx::{FPTXContributionInner, FPTXParams}};
 
 
@@ -302,6 +306,31 @@ mod tests {
             .unwrap()
             .equals_zero()
             .unwrap();
+    }
+
+    #[test]
+    fn test_fptx_output_smoke() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+
+        let mut rng = thread_rng();
+        let tc = WeightedConfigArkworks::new(3, vec![1, 2, 5]).unwrap();
+
+        let (mut ek, _, vks, msk_shares) =
+        FPTXWeighted::setup_for_testing(rng.r#gen(), 8, 1, &tc).unwrap();
+
+        let dk = new_contrib.output();
+        ek.use_digest_key(&dk);
+
+        run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
     }
 
     // TODO test invalid contributions

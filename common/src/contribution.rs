@@ -55,7 +55,7 @@ pub trait ContributionInner : Serialize + DeserializeOwned {
     fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure>;
     /// Output the ceremony result. Note that this is deterministic; given a final contribution and
     /// an output, we want to be able to verify the output by recomputing and testing for equality.
-    fn output(&self) -> Self::Output;
+    fn output(self) -> Self::Output;
 }
 
 
@@ -74,8 +74,8 @@ impl<C: ContributionInner> Contribution<C> {
     /// computes the first contribution of a ceremony. 
     pub fn generate<R: CryptoRngCore>(
         rng: &mut R, 
-        maybe_previous: &Option<Self>, 
-        current_contributor: Contributor,
+        maybe_previous: Option<&Self>, 
+        current_contributor: &Contributor,
         params: &C::Params,
     ) -> Self {
         let (inner, previous_hashes) = if let Some(previous) = maybe_previous {
@@ -94,7 +94,7 @@ impl<C: ContributionInner> Contribution<C> {
 
         Self {
             inner,
-            contributor: current_contributor,
+            contributor: current_contributor.clone(),
             previous_hashes
         }
     }
@@ -128,16 +128,65 @@ impl<C: ContributionInner> Contribution<C> {
         &self.previous_hashes
     }
 
-    pub fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &C::Params) -> Result<(), ContributionVerificationFailure> {
-        if self.previous_hashes != Self::build_previous_hashes(previous) {
-            Err(ContributionVerificationFailure::ContributionHashMismatch)
+    pub fn verify(&self, rng: &mut impl CryptoRngCore, maybe_previous: Option<&Self>, params: &C::Params) -> Result<(), ContributionVerificationFailure> {
+        if let Some(previous) = maybe_previous {
+            if self.previous_hashes != Self::build_previous_hashes(previous) {
+                Err(ContributionVerificationFailure::ContributionHashMismatch)
+            } else {
+                self.inner.verify(rng, &previous.inner, params)?.equals_zero()
+                    .map_err(|_| ContributionVerificationFailure::MultipairingEquationNonZeroResult)
+            }
         } else {
-            self.inner.verify(rng, &previous.inner, params)?.equals_zero()
+            self.inner.verify(rng, &C::first_contribution(params), params)?.equals_zero()
             .map_err(|_| ContributionVerificationFailure::MultipairingEquationNonZeroResult)
         }
     }
 
-    pub fn output(&self) -> C::Output {
+    pub fn output(self) -> C::Output {
         self.inner.output()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::thread_rng;
+
+    use super::Contribution;
+    use crate::{contribution::Contributor, fptx::{FPTXContributionInner, FPTXParams}};
+
+    #[test]
+    fn test_contribute() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+        
+        let (_, current_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
+
+        let new_contrib = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &current_contributor, &params);
+
+        new_contrib.verify(&mut rng, None, &params)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_contribute_2() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let (_, first_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
+        let (_, second_contributor) = Contributor::new("Hjkl Hjkl", "Hjkl@asdf.com", &mut rng);
+
+        let first = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &first_contributor, &params);
+
+        first.verify(&mut rng, None, &params)
+            .unwrap();
+
+        let second = Contribution::<FPTXContributionInner>::generate(&mut rng, Some(&first), &second_contributor, &params);
+
+        second.verify(&mut rng, Some(&first), &params)
+            .unwrap();
+
+        println!("{:?}", second.contributor());
+        println!("{:?}", second.previous_hashes);
+
     }
 }

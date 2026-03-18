@@ -102,7 +102,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "aptos-batch-encryption"
 version = "0.1.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#103e70ae7be80b0635663c0cad238af2f992b9f7"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=rex%2Fcleanup-smoke-tests#4f940756848d0888bd4751347b6d76ddfd361371"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -134,7 +134,7 @@ dependencies = [
 [[package]]
 name = "aptos-crypto"
 version = "0.0.3"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#103e70ae7be80b0635663c0cad238af2f992b9f7"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=rex%2Fcleanup-smoke-tests#4f940756848d0888bd4751347b6d76ddfd361371"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "aptos-crypto-derive"
 version = "0.0.3"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#103e70ae7be80b0635663c0cad238af2f992b9f7"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=rex%2Fcleanup-smoke-tests#4f940756848d0888bd4751347b6d76ddfd361371"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -209,7 +209,7 @@ dependencies = [
 [[package]]
 name = "aptos-dkg"
 version = "0.2.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#103e70ae7be80b0635663c0cad238af2f992b9f7"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=rex%2Fcleanup-smoke-tests#4f940756848d0888bd4751347b6d76ddfd361371"
 dependencies = [
  "anyhow",
  "aptos-crypto",
@@ -249,7 +249,7 @@ dependencies = [
 [[package]]
 name = "aptos-runtimes"
 version = "0.1.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#103e70ae7be80b0635663c0cad238af2f992b9f7"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=rex%2Fcleanup-smoke-tests#4f940756848d0888bd4751347b6d76ddfd361371"
 dependencies = [
  "rayon",
  "tokio",

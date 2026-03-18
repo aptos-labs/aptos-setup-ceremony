@@ -137,14 +137,13 @@ where
         Ok(sok_check_equation.combine(rng, powers_check_equation_combined))
     }
 
-    fn output(&self) -> Self::Output {
+    fn output(self) -> Self::Output {
         ()
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use ark_ec::{CurveGroup, hashing::curve_maps::wb::WBMap};
     use rand::thread_rng;
 
