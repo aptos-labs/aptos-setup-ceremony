@@ -151,11 +151,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::{CurveGroup, hashing::curve_maps::wb::WBMap};
+    use ark_ec::{AffineRepr, CurveGroup, hashing::curve_maps::wb::WBMap};
     use rand::thread_rng;
 
     use crate::{contribution::ContributionInner, hiding_kzg::{HidingKZGContributionInner, HidingKZGParams}};
-    use aptos_batch_encryption::group::{Pairing, G1Projective};
+    use aptos_batch_encryption::group::{G1Affine, G2Affine, Pairing, G1Projective};
 
     type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 
@@ -194,5 +194,105 @@ mod tests {
             .unwrap();
     }
 
-    // TODO test invalid contributions
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.sok_xi.sig = G1Affine::from(new_contrib.sok_xi.sig + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid_2() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.xi_g2 = G2Affine::from(new_contrib.xi_g2 + G2Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid_3() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.xi_g1 = G1Affine::from(new_contrib.xi_g1 + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid_4() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.tau_g2 = G2Affine::from(new_contrib.tau_powers_contrib_inner.tau_g2 + G2Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid_5() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.powers[0] = G1Affine::from(new_contrib.tau_powers_contrib_inner.powers[0] + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_hkzg_contribute_invalid_6() {
+        let mut rng = thread_rng();
+        let params = HidingKZGParams::new(8);
+
+        let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.sok.sig = G1Affine::from(new_contrib.tau_powers_contrib_inner.sok.sig + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
 }
