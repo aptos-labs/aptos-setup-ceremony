@@ -267,8 +267,12 @@ impl ContributionInner for FPTXContributionInner {
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _};
+    use aptos_batch_encryption::{
+        schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _,
+        group::{G1Affine, G2Affine},
+    };
     use aptos_crypto::weighted_config::WeightedConfigArkworks;
+    use ark_ec::AffineRepr;
     use rand::{Rng as _, thread_rng};
     use crate::{contribution::ContributionInner, fptx::{FPTXContributionInner, FPTXParams}};
 
@@ -307,6 +311,113 @@ mod tests {
             .equals_zero()
             .unwrap();
     }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.soks_alphas[0].sig = G1Affine::from(new_contrib.soks_alphas[0].sig + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid_2() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.alphas_g2[0] = G2Affine::from(new_contrib.alphas_g2[0] + G2Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid_3() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        for i in 0..new_contrib.randomized_tau_powers_g1.len() {
+            let mut new_contrib_i = new_contrib.clone();
+            new_contrib_i.randomized_tau_powers_g1[i][0] = G1Affine::from(new_contrib_i.randomized_tau_powers_g1[i][0] + G1Affine::generator());
+
+            new_contrib_i.verify(&mut rng, &first_contrib, &params)
+                .unwrap()
+                .equals_zero()
+                .unwrap();
+        }
+
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid_4() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.tau_g2 = G2Affine::from(new_contrib.tau_powers_contrib_inner.tau_g2 + G2Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid_5() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.powers[0] = G1Affine::from(new_contrib.tau_powers_contrib_inner.powers[0] + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fptx_contribute_invalid_6() {
+        let mut rng = thread_rng();
+        let params = FPTXParams::new(8, 4).unwrap();
+
+        let first_contrib = FPTXContributionInner::first_contribution(&params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+
+        new_contrib.tau_powers_contrib_inner.sok.sig = G1Affine::from(new_contrib.tau_powers_contrib_inner.sok.sig + G1Affine::generator());
+
+        new_contrib.verify(&mut rng, &first_contrib, &params)
+            .unwrap()
+            .equals_zero()
+            .unwrap();
+    }
+
 
     #[test]
     fn test_fptx_output_smoke() {
