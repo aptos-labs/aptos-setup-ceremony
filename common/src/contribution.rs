@@ -17,6 +17,22 @@ pub struct Contributor {
     pub verifying_key: VerifyingKey,
 }
 
+impl Ord for Contributor {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.name.cmp(&other.name) {
+            core::cmp::Ordering::Equal => {}
+            ord => return ord,
+        }
+        self.email.cmp(&other.email)
+    }
+}
+
+impl PartialOrd for Contributor {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Contributor {
     pub fn new(
         name: &str, 

@@ -1,0 +1,13 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { workspace = true }
+chrono = { workspace = true }
+rayon = { workspace = true }
+ed25519-dalek = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+bcs = { workspace = true }

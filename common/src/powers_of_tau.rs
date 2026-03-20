@@ -46,8 +46,6 @@ where
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     previous_tau_g2: P::G2Affine,
     #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
-    powers: Vec<P::G1Affine>,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     tau_g2: P::G2Affine,
 }
 
@@ -102,7 +100,7 @@ where
             Self {
                 powers: new_powers.clone(),
                 tau_g2: new_tau_g2,
-                sok: BLSSoK::sign(current_contribution_tau_fr, &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, powers: new_powers, tau_g2: new_tau_g2 }),
+                sok: BLSSoK::sign(current_contribution_tau_fr, &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, tau_g2: new_tau_g2 }),
             }, 
             current_contribution_tau_powers_fr
         )
@@ -122,7 +120,7 @@ where
         let sok_check_equation = self.sok.verify(
             previous.tau_g2,
             self.tau_g2,
-            &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, powers: self.powers.clone(), tau_g2: self.tau_g2 }
+            &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, tau_g2: self.tau_g2 }
         );
 
         let powers_check_equation_combined = MultipairingEquation::with_shared_g2s(

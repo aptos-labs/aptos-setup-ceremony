@@ -797,6 +797,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -2453,6 +2454,19 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bcs 0.1.6",
+ "chrono",
+ "common",
+ "ed25519-dalek 2.2.0",
+ "rayon",
+ "serde",
 ]
 
 [[package]]
