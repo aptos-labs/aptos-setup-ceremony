@@ -1,13 +1,16 @@
+use std::error::Error;
+
 use chrono::{DateTime, Utc};
 use common::contribution::Contributor;
 
 use anyhow::Result;
 
 
+#[derive(Eq, PartialEq)]
 pub enum Status {
-    WaitingForDownload,
+    WaitingForDownload(u8),
     WaitingForCompute,
-    WaitingForUpload,
+    WaitingForUpload(u8),
     Verifying,
     Stopped
 }
@@ -19,14 +22,16 @@ pub struct ContributorState {
     status: ContributorStatus,
 }
 
-#[derive(Eq, PartialEq)]
 pub enum ContributorStatus {
     DidntJoinQueue,
     Queued {
         joined: DateTime<Utc>,
         pos: usize,
     },
-    Kicked,
+    Kicked {
+        when: DateTime<Utc>,
+        err: anyhow::Error,
+    },
     Finished {
         // artifact
     }
@@ -86,7 +91,7 @@ impl ContributorsDB {
     }
 
     /// Set the current contributor to be "kicked".
-    pub async fn kick_current(&mut self) -> Result<()> {
+    pub async fn kick_current(&mut self, e: anyhow::Error) -> Result<()> {
         todo!()
     }
 
