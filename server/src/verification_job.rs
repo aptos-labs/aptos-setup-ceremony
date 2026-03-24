@@ -1,5 +1,6 @@
 use common::contribution::Contributor;
 use rayon;
+use anyhow::Result;
 
 pub struct VerificationJob {
     

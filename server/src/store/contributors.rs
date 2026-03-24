@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use chrono::{DateTime, Utc};
 use common::contribution::Contributor;
 
@@ -8,24 +6,32 @@ use anyhow::Result;
 
 #[derive(Eq, PartialEq)]
 pub enum Status {
-    WaitingForDownload(u8),
-    WaitingForCompute,
-    WaitingForUpload(u8),
-    Verifying,
-    Stopped
+    WaitingForDownload {
+        start: DateTime<Utc>,
+    },
+    WaitingForCompute {
+        start: DateTime<Utc>,
+    },
+    WaitingForUpload {
+        start: DateTime<Utc>,
+    },
+    Verifying {
+        start: DateTime<Utc>,
+    },
 }
 
-#[derive(Eq, PartialEq)]
 pub struct ContributorState {
-    updated_timestamp: DateTime<Utc>,
-    contributor: Contributor,
-    status: ContributorStatus,
+    pub updated_timestamp: DateTime<Utc>,
+    pub contributor: Contributor,
+    pub status: ContributorStatus,
 }
 
 pub enum ContributorStatus {
     DidntJoinQueue,
     Queued {
         joined: DateTime<Utc>,
+        // Position shouldn't exist in the DB, but should be derived from the list of queued
+        // contributors sorted by join time, where pos 0 means joined first.
         pos: usize,
     },
     Kicked {
@@ -47,6 +53,11 @@ impl ContributorsDB {
     /// Adds a contributor to the DB. Initial status should be `DidntJoinQueue`, updated_timestamp
     /// should be now
     pub async fn register(&mut self, contributor: &Contributor) -> Result<()> {
+        todo!()
+    }
+
+    /// Sets contributor status to Queued with joined: Utc::now().
+    pub async fn enqueue(&mut self, contributor: &Contributor) -> Result<()> {
         todo!()
     }
 
@@ -76,7 +87,7 @@ impl ContributorsDB {
 
     /// The "current" contributor is defined as the first queued contributor, sorted by joined
     /// timestamp.
-    pub async fn get_current(&mut self) -> Result<Contributor> {
+    pub async fn get_current(&mut self) -> Result<ContributorState> {
         todo!()
     }
 
@@ -90,7 +101,7 @@ impl ContributorsDB {
         todo!()
     }
 
-    /// Set the current contributor to be "kicked".
+    /// Set the current contributor to be "kicked", and set global status to WaitingForDownload
     pub async fn kick_current(&mut self, e: anyhow::Error) -> Result<()> {
         todo!()
     }
