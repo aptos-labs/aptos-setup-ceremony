@@ -3,8 +3,8 @@ use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
 use anyhow::{Context, Result, bail};
 
-use crate::{authentication::AuthenticatedMsg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors::{ContributorsDB, Status}}, verification_job::VerificationJob};
-use crate::store::contributors::ContributorStatus;
+use crate::{authentication::AuthenticatedMsg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::store::contributors_db::ContributorStatus;
 
 const PING_TIMEOUT : TimeDelta = TimeDelta::seconds(20);
 const DOWNLOAD_TIMEOUT : TimeDelta = TimeDelta::seconds(60);
@@ -67,7 +67,7 @@ pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut St
                 StatusResponse::WaitingInQueue(pos)
             } else {
                 match state.contributors_db.get_global_status().await? {
-                    crate::store::contributors::Status::WaitingForDownload {..} => 
+                    crate::store::contributors_db::Status::WaitingForDownload {..} => 
                     StatusResponse::ReadyToDownloadPrevious(
                         state.contribution_files_store.get_or_create(
                             &state.contributors_db.get_most_recent_finished_contributor().await?
@@ -75,7 +75,7 @@ pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut St
                             .should_be_finished()
                             .context("While constructing URL for downloading previous finished contribution")?
                     ),
-                    crate::store::contributors::Status::WaitingForCompute {..} => 
+                    crate::store::contributors_db::Status::WaitingForCompute {..} => 
                     StatusResponse::WaitingForContributionWithPrevious(
                         state.contribution_files_store.get_or_create(
                             &state.contributors_db.get_most_recent_finished_contributor().await?
@@ -83,13 +83,13 @@ pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut St
                             .should_be_finished()
                             .context("While constructing URL for downloading previous finished contribution")?
                     ),
-                    crate::store::contributors::Status::WaitingForUpload {..} => 
+                    crate::store::contributors_db::Status::WaitingForUpload {..} => 
                     StatusResponse::ReadyForUpload(
                         state.contribution_files_store.get_or_create(&c.inner).await?
                             .should_not_be_finished()
                             .context("While constructing URL for uploading current contribution")?
                     ),
-                    crate::store::contributors::Status::Verifying { .. } => 
+                    crate::store::contributors_db::Status::Verifying { .. } => 
                     StatusResponse::Verifying,
                 }
             }

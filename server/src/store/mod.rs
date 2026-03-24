@@ -1,4 +1,4 @@
 pub mod contribution_files;
-pub mod contributors;
+pub mod contributors_db;
 
 
