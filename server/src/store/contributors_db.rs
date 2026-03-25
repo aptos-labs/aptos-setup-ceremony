@@ -30,6 +30,15 @@ impl Status {
             Status::Verifying { start } => start,
         }
     }
+
+    pub fn variant_str(&self) -> &'static str {
+        match self {
+            Status::WaitingForDownload { .. } => "waiting_for_download",
+            Status::WaitingForCompute { .. } => "waiting_for_compute",
+            Status::WaitingForUpload { .. } => "waiting_for_upload",
+            Status::Verifying { .. } => "verifying",
+        }
+    }
 }
 
 pub struct ContributorState {
@@ -97,71 +106,88 @@ fn hex_to_verifying_key(hex: &str) -> Result<VerifyingKey> {
     Ok(VerifyingKey::from_bytes(&bytes)?)
 }
 
-fn contributor_from_row(row: &ContributorRow) -> Result<Contributor> {
-    let key = hex_to_verifying_key(&row.verifying_key_hex)?;
-    Ok(Contributor {
-        name: row.name.clone(),
-        email: row.email.clone(),
-        verifying_key: key,
-    })
-}
-
-fn contributor_status_from_row(
-    row: &ContributorRow,
-    pos: Option<usize>,
-) -> Result<ContributorStatus> {
-    match row.status.as_str() {
-        "didnt_join_queue" => Ok(ContributorStatus::DidntJoinQueue),
-        "queued" => {
-            let joined_str = row
-                .queued_joined_at
-                .as_ref()
-                .context("Missing queued_joined_at for queued contributor")?;
-            let joined = DateTime::parse_from_rfc3339(joined_str)?.with_timezone(&Utc);
-            Ok(ContributorStatus::Queued {
-                joined,
-                pos: pos.context("Missing position for queued contributor")?,
-            })
+impl From<&Contributor> for ContributorRow {
+    fn from(c: &Contributor) -> Self {
+        Self {
+            verifying_key_hex: verifying_key_to_hex(&c.verifying_key),
+            name: c.name.clone(),
+            email: c.email.clone(),
+            updated_timestamp: Utc::now().to_rfc3339(),
+            status: "didnt_join_queue".to_string(),
+            queued_joined_at: None,
+            kicked_at: None,
+            kicked_error: None,
+            finished_at: None,
         }
-        "kicked" => {
-            let when_str = row
-                .kicked_at
-                .as_ref()
-                .context("Missing kicked_at for kicked contributor")?;
-            let when = DateTime::parse_from_rfc3339(when_str)?.with_timezone(&Utc);
-            let err_msg = row
-                .kicked_error
-                .as_ref()
-                .context("Missing kicked_error for kicked contributor")?;
-            Ok(ContributorStatus::Kicked {
-                when,
-                err: anyhow::anyhow!("{}", err_msg),
-            })
+    }
+}
+
+impl TryFrom<&ContributorRow> for Contributor {
+    type Error = anyhow::Error;
+
+    fn try_from(row: &ContributorRow) -> Result<Self> {
+        let key = hex_to_verifying_key(&row.verifying_key_hex)?;
+        Ok(Contributor {
+            name: row.name.clone(),
+            email: row.email.clone(),
+            verifying_key: key,
+        })
+    }
+}
+
+impl TryFrom<(&ContributorRow, Option<usize>)> for ContributorStatus {
+    type Error = anyhow::Error;
+
+    fn try_from((row, pos): (&ContributorRow, Option<usize>)) -> Result<Self> {
+        match row.status.as_str() {
+            "didnt_join_queue" => Ok(ContributorStatus::DidntJoinQueue),
+            "queued" => {
+                let joined_str = row
+                    .queued_joined_at
+                    .as_ref()
+                    .context("Missing queued_joined_at for queued contributor")?;
+                let joined = DateTime::parse_from_rfc3339(joined_str)?.with_timezone(&Utc);
+                Ok(ContributorStatus::Queued {
+                    joined,
+                    pos: pos.context("Missing position for queued contributor")?,
+                })
+            }
+            "kicked" => {
+                let when_str = row
+                    .kicked_at
+                    .as_ref()
+                    .context("Missing kicked_at for kicked contributor")?;
+                let when = DateTime::parse_from_rfc3339(when_str)?.with_timezone(&Utc);
+                let err_msg = row
+                    .kicked_error
+                    .as_ref()
+                    .context("Missing kicked_error for kicked contributor")?;
+                Ok(ContributorStatus::Kicked {
+                    when,
+                    err: anyhow::anyhow!("{}", err_msg),
+                })
+            }
+            "finished" => Ok(ContributorStatus::Finished {}),
+            other => bail!("Unknown contributor status: {}", other),
         }
-        "finished" => Ok(ContributorStatus::Finished {}),
-        other => bail!("Unknown contributor status: {}", other),
     }
 }
 
-fn global_status_from_row(row: &GlobalStatusRow) -> Result<Status> {
-    let start = DateTime::parse_from_rfc3339(&row.start)?.with_timezone(&Utc);
-    match row.status.as_str() {
-        "waiting_for_download" => Ok(Status::WaitingForDownload { start }),
-        "waiting_for_compute" => Ok(Status::WaitingForCompute { start }),
-        "waiting_for_upload" => Ok(Status::WaitingForUpload { start }),
-        "verifying" => Ok(Status::Verifying { start }),
-        other => bail!("Unknown global status: {}", other),
+impl TryFrom<&GlobalStatusRow> for Status {
+    type Error = anyhow::Error;
+
+    fn try_from(row: &GlobalStatusRow) -> Result<Self> {
+        let start = DateTime::parse_from_rfc3339(&row.start)?.with_timezone(&Utc);
+        match row.status.as_str() {
+            "waiting_for_download" => Ok(Status::WaitingForDownload { start }),
+            "waiting_for_compute" => Ok(Status::WaitingForCompute { start }),
+            "waiting_for_upload" => Ok(Status::WaitingForUpload { start }),
+            "verifying" => Ok(Status::Verifying { start }),
+            other => bail!("Unknown global status: {}", other),
+        }
     }
 }
 
-fn status_variant_str(status: &Status) -> &'static str {
-    match status {
-        Status::WaitingForDownload { .. } => "waiting_for_download",
-        Status::WaitingForCompute { .. } => "waiting_for_compute",
-        Status::WaitingForUpload { .. } => "waiting_for_upload",
-        Status::Verifying { .. } => "verifying",
-    }
-}
 
 
 pub struct ContributorsDB {
@@ -212,16 +238,16 @@ impl ContributorsDB {
     /// Adds a contributor to the DB. Initial status should be `DidntJoinQueue`, updated_timestamp
     /// should be now
     pub async fn register(&mut self, contributor: &Contributor) -> Result<()> {
-        let hex = verifying_key_to_hex(&contributor.verifying_key);
-        let now = Utc::now().to_rfc3339();
+        let row = ContributorRow::from(contributor);
         sqlx::query(
             "INSERT INTO contributors (verifying_key_hex, name, email, updated_timestamp, status)
-             VALUES (?, ?, ?, ?, 'didnt_join_queue')",
+             VALUES (?, ?, ?, ?, ?)",
         )
-        .bind(&hex)
-        .bind(&contributor.name)
-        .bind(&contributor.email)
-        .bind(&now)
+        .bind(&row.verifying_key_hex)
+        .bind(&row.name)
+        .bind(&row.email)
+        .bind(&row.updated_timestamp)
+        .bind(&row.status)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -229,7 +255,7 @@ impl ContributorsDB {
 
     /// Sets contributor status to Queued with joined: Utc::now().
     pub async fn enqueue(&mut self, contributor: &Contributor) -> Result<()> {
-        let hex = verifying_key_to_hex(&contributor.verifying_key);
+        let row = ContributorRow::from(contributor);
         let now = Utc::now().to_rfc3339();
         let result = sqlx::query(
             "UPDATE contributors
@@ -239,7 +265,7 @@ impl ContributorsDB {
         )
         .bind(&now)
         .bind(&now)
-        .bind(&hex)
+        .bind(&row.verifying_key_hex)
         .execute(&self.pool)
         .await?;
 
@@ -277,9 +303,9 @@ impl ContributorsDB {
 
         let mut result = Vec::with_capacity(rows.len());
         for row in &rows {
-            let contributor = contributor_from_row(row)?;
+            let contributor = Contributor::try_from(row)?;
             let pos = positions.get(row.verifying_key_hex.as_str()).copied();
-            let status = contributor_status_from_row(row, pos)?;
+            let status = ContributorStatus::try_from((row, pos))?;
             let updated_timestamp =
                 DateTime::parse_from_rfc3339(&row.updated_timestamp)?.with_timezone(&Utc);
             result.push(ContributorState {
@@ -294,7 +320,7 @@ impl ContributorsDB {
 
     /// Set global status.
     pub async fn set_global_status(&mut self, status: Status) -> Result<()> {
-        let variant = status_variant_str(&status);
+        let variant = status.variant_str();
         let start = &status.start().to_rfc3339();
         sqlx::query("UPDATE global_status SET status = ?, start = ? WHERE id = 1")
             .bind(variant)
@@ -311,7 +337,7 @@ impl ContributorsDB {
                 .fetch_one(&self.pool)
                 .await
                 .context("Global status row not found")?;
-        global_status_from_row(&row)
+        Status::try_from(&row)
     }
 
     /// Get contributor status
@@ -319,10 +345,10 @@ impl ContributorsDB {
         &mut self,
         contributor: &Contributor,
     ) -> Result<ContributorStatus> {
-        let hex = verifying_key_to_hex(&contributor.verifying_key);
+        let key_hex = ContributorRow::from(contributor).verifying_key_hex;
         let row: ContributorRow =
             sqlx::query_as("SELECT * FROM contributors WHERE verifying_key_hex = ?")
-                .bind(&hex)
+                .bind(&key_hex)
                 .fetch_one(&self.pool)
                 .await
                 .context("Contributor not found")?;
@@ -343,7 +369,7 @@ impl ContributorsDB {
             None
         };
 
-        contributor_status_from_row(&row, pos)
+        ContributorStatus::try_from((&row, pos))
     }
 
     pub async fn get_most_recent_finished_contributor(&mut self) -> Result<Contributor> {
@@ -353,7 +379,7 @@ impl ContributorsDB {
         .fetch_one(&self.pool)
         .await
         .context("No finished contributors")?;
-        contributor_from_row(&row)
+        Contributor::try_from(&row)
     }
 
     /// The "current" contributor is defined as the first queued contributor, sorted by joined
@@ -366,7 +392,7 @@ impl ContributorsDB {
         .await
         .context("No queued contributors")?;
 
-        let contributor = contributor_from_row(&row)?;
+        let contributor = Contributor::try_from(&row)?;
         let joined_str = row
             .queued_joined_at
             .as_ref()
@@ -384,11 +410,11 @@ impl ContributorsDB {
 
     /// Update the `updated_timestamp` field of the specified contributor in the DB.
     pub async fn update_timestamp(&mut self, contributor: &Contributor) -> Result<Contributor> {
-        let hex = verifying_key_to_hex(&contributor.verifying_key);
+        let key_hex = ContributorRow::from(contributor).verifying_key_hex;
         let now = Utc::now().to_rfc3339();
         sqlx::query("UPDATE contributors SET updated_timestamp = ? WHERE verifying_key_hex = ?")
             .bind(&now)
-            .bind(&hex)
+            .bind(&key_hex)
             .execute(&self.pool)
             .await?;
         Ok(contributor.clone())
