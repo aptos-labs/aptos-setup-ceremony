@@ -14,10 +14,11 @@ bcs = { workspace = true }
 reqwest = { workspace = true }
 gcp_auth = { workspace = true }
 urlencoding = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }
 async-trait = { workspace = true }
 serde_json = { workspace = true }
 rand = { workspace = true }
-tokio = { workspace = true }
