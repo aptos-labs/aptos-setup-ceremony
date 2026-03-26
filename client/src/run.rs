@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::fs;
+use std::str::FromStr as _;
 
 use common::contribution::{Contributor, AsAndFromHex};
 use common::messages::Msg;
@@ -33,8 +34,10 @@ fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contribut
     Ok(serde_json::from_slice(&fs::read(file)?)?)
 }
 
-pub async fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
-    let my_keypair_file = config_dir.join(cli::KEYPAIR_FILE);
+pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
+    // TODO change this back for prod?
+    //let my_keypair_file = config_dir.join(cli::KEYPAIR_FILE);
+    let my_keypair_file = PathBuf::from_str("./keypair.json")?;
 
     match cli.command {
         Command::GenerateKeypair { name, email, force} => {
