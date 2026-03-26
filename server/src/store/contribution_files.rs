@@ -1,8 +1,12 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use common::contribution::Contributor;
 use anyhow::{Result, bail};
 use gcp_auth::TokenProvider;
+use google_cloud_auth::signer::Signer;
+use google_cloud_storage::builder::storage::SignedUrlBuilder;
+use google_cloud_storage::http::Method;
 
 fn object_name(contributor: &Contributor) -> String {
     let hex_key = contributor
@@ -61,6 +65,18 @@ impl ContributionFileHandle {
             }
         }
     }
+
+    pub async fn as_client_url(&self, store: &ContributionFilesStore) -> Result<String> {
+        match self {
+            ContributionFileHandle::InProgress { upload_session_url, .. } => {
+                Ok(upload_session_url.clone())
+            }
+            ContributionFileHandle::Complete { contributor } => {
+                let obj_name = object_name(contributor);
+                store.generate_signed_download_url(&obj_name).await
+            }
+        }
+    }
 }
 
 pub struct ContributionFilesStore {
@@ -68,17 +84,20 @@ pub struct ContributionFilesStore {
     base_url: String,
     client: reqwest::Client,
     auth: Arc<dyn TokenProvider>,
+    signer: Signer,
 }
 
 impl ContributionFilesStore {
     pub async fn init(bucket_id: &str) -> Result<Self> {
         let client = reqwest::Client::new();
         let auth = gcp_auth::provider().await?;
+        let signer = google_cloud_auth::credentials::Builder::default().build_signer()?;
         Ok(Self {
             bucket_id: bucket_id.to_string(),
             base_url: "https://storage.googleapis.com".to_string(),
             client,
             auth,
+            signer,
         })
     }
 
@@ -145,13 +164,23 @@ impl ContributionFilesStore {
         Ok(location)
     }
 
+    pub async fn generate_signed_download_url(&self, obj_name: &str) -> Result<String> {
+        let url = SignedUrlBuilder::for_object(&self.bucket_id, obj_name)
+            .with_method(Method::GET)
+            .with_expiration(Duration::from_secs(3600))
+            .sign_with(&self.signer)
+            .await?;
+        Ok(url)
+    }
+
     #[cfg(test)]
-    fn new_with_base_url(bucket_id: &str, base_url: &str, auth: Arc<dyn TokenProvider>) -> Self {
+    fn new_with_base_url(bucket_id: &str, base_url: &str, auth: Arc<dyn TokenProvider>, signer: Signer) -> Self {
         Self {
             bucket_id: bucket_id.to_string(),
             base_url: base_url.to_string(),
             client: reqwest::Client::new(),
             auth,
+            signer,
         }
     }
 }

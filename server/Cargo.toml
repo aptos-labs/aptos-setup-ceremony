@@ -14,6 +14,8 @@ bcs = { workspace = true }
 reqwest = { workspace = true }
 gcp_auth = { workspace = true }
 urlencoding = { workspace = true }
+google-cloud-auth = { workspace = true }
+google-cloud-storage = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }
