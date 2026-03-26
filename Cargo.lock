@@ -1045,6 +1045,7 @@ dependencies = [
  "serde_json",
  "server",
  "tabled",
+ "tokio",
 ]
 
 [[package]]
@@ -4660,6 +4661,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "tabled",
  "tokio",
  "urlencoding",
  "wiremock",

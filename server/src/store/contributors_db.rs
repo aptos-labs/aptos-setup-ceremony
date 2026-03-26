@@ -3,10 +3,12 @@ use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
 
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteArguments, SqliteRow};
 use sqlx::{Arguments, FromRow, Row, Sqlite, SqlitePool};
+use tabled::Tabled;
 
-#[derive(Eq, PartialEq)]
+#[derive(Tabled, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     WaitingForDownload {
         start: DateTime<Utc>,
@@ -74,27 +76,50 @@ impl<'q> sqlx::IntoArguments<'q, Sqlite> for &Status {
     }
 }
 
+#[derive(Tabled, Serialize, Deserialize)]
 pub struct ContributorState {
     pub updated_timestamp: DateTime<Utc>,
+    #[tabled(inline)]
     pub contributor: Contributor,
+    #[tabled(inline)]
     pub status: ContributorStatus,
 }
 
+
+pub fn anyhow_to_string<S: serde::Serializer>(err: &anyhow::Error, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&format!("{}", err))
+}
+
+pub fn str_to_anyhow<'de, D: serde::de::Deserializer<'de>>(data: D) -> Result<anyhow::Error, D::Error> {
+    let s: String = serde::de::Deserialize::deserialize(data)?;
+    Ok(anyhow::Error::msg(s))
+}
+
+#[derive(Tabled, Serialize, Deserialize)]
 pub enum ContributorStatus {
+    #[tabled(inline)]
     DidntJoinQueue,
+    #[tabled(inline)]
     Queued {
         joined: DateTime<Utc>,
         // Position doesn't exist in the DB, but is derived from the list of queued contributors
         // sorted by join time, where pos 0 means joined first.
         pos: usize,
     },
+    #[tabled(inline)]
     Kicked {
         when: DateTime<Utc>,
+        #[serde(deserialize_with = "str_to_anyhow", serialize_with = "anyhow_to_string")]
         err: anyhow::Error,
     },
+    #[tabled(inline)]
     Finished {
         when: DateTime<Utc>,
     },
+}
+
+impl ContributorStatus {
+
 }
 
 impl<'r> FromRow<'r, SqliteRow> for ContributorState {

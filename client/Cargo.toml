@@ -24,4 +24,5 @@ ed25519-dalek = { workspace = true }
 csv = { workspace = true }
 tabled.workspace = true
 hex = { workspace = true }
+tokio = { workspace = true }
 

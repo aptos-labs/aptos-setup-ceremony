@@ -1,30 +1,20 @@
-pub mod verification_job;
-pub mod store;
-pub mod authentication;
-pub mod handlers;
-pub mod messages;
-pub mod error;
-
 use std::sync::Arc;
 
-use authentication::AuthenticatedMsg;
-use error::ErrorWithCode;
+use server::error::ErrorWithCode;
 use figment::{Figment, providers::{Env, Format, Toml}};
-use handlers::{Config, State, handle};
+use server::handlers::{Config, State, handle};
 use hyper::{Response, body::Bytes};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use http_body_util::Full;
-use common::messages::Msg;
-use store::{contribution_files::ContributionFilesStore, contributors_db::ContributorsDB};
+use server::store::{contribution_files::ContributionFilesStore, contributors_db::ContributorsDB};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
-pub type Request = hyper::Request<hyper::body::Incoming>;
 
 async fn request_handler(
-    request: Request,
+    request: server::Request,
     state: Arc<Mutex<State>>,
     config: Arc<Config>,
 ) -> Result<Response<Full<Bytes>>, std::convert::Infallible> {
@@ -50,12 +40,12 @@ async fn request_handler(
 }
 
 async fn handle_request(
-    request: Request,
+    request: server::Request,
     state: Arc<Mutex<State>>,
     config: Arc<Config>,
 ) -> Result<serde_json::Value, ErrorWithCode> {
-    let authenticated_msg: AuthenticatedMsg<Msg> = AuthenticatedMsg::from_request(request).await?;
-    authenticated_msg.verify_correctly_authenticated(&config)?;
+    let authenticated_msg = server::authentication::from_request(request).await?;
+    server::authentication::verify_correctly_authenticated(&authenticated_msg, &config)?;
     let mut state = state.lock().await;
     handle(authenticated_msg.inner, &mut state, &config).await
 }

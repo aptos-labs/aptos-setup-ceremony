@@ -1,68 +1,48 @@
 use common::contribution::Contributor;
-use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
+use common::messages::{AuthenticatedMsg, Msg};
 use hyper::{Method, StatusCode};
-use serde::{Deserialize, Serialize};
 use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, handlers::Config};
-use common::messages::Msg;
 use anyhow::{Context, Result};
 use http_body_util::BodyExt;
 
 
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct AuthenticatedMsg<Contents: Serialize> {
-    #[serde(flatten)]
-    pub inner: Contents,
-    signature: Signature,
+fn verify_authenticated_by_admin<Contents: serde::Serialize>(msg: &AuthenticatedMsg<Contents>, config: &Config) -> Result<(), ErrorWithCode> {
+    msg.verify_sig(&config.admin_verifying_key)
+        .context("You must be authenticated as the same contributor in the message")
+        .use_code_on_error(StatusCode::UNAUTHORIZED)
 }
 
-impl<Contents: Serialize> AuthenticatedMsg<Contents> {
-    pub fn verify_sig(&self, verifying_key: &VerifyingKey) -> Result<()> {
-        Ok(verifying_key.verify(&bcs::to_bytes(&self.inner)?, &self.signature)?)
-    }
+fn verify_authenticated_by_contributor<Contents: serde::Serialize>(msg: &AuthenticatedMsg<Contents>, contributor: &Contributor) -> Result<(), ErrorWithCode> {
+    msg.verify_sig(&contributor.verifying_key)
+        .context("You must be admin to do this")
+        .use_code_on_error(StatusCode::UNAUTHORIZED)
+}
 
-    pub fn verify_authenticated_by_admin(&self, config: &Config) -> Result<(), ErrorWithCode> {
-        self.verify_sig(&config.admin_verifying_key)
-            .context("You must be authenticated as the same contributor in the message")
-            .use_code_on_error(StatusCode::UNAUTHORIZED)
-    }
-
-    pub fn verify_authenticated_by_contributor(&self, contributor: &Contributor) -> Result<(), ErrorWithCode> {
-        self.verify_sig(&contributor.verifying_key)
-            .context("You must be admin to do this")
-            .use_code_on_error(StatusCode::UNAUTHORIZED)
+pub async fn from_request(request: Request) -> Result<AuthenticatedMsg<Msg>, ErrorWithCode> {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    match (method, uri.path()) {
+        (Method::POST, "/msg") => {
+            let body = request.collect().await.unwrap().to_bytes();
+            serde_json::from_slice::<AuthenticatedMsg<Msg>>(&body)
+                .context("While parsing request body")
+                .use_code_on_error(StatusCode::BAD_REQUEST)
+        },
+        _ => Err(anyhow::anyhow!("Invalid route."))
+            .use_code_on_error(StatusCode::NOT_FOUND)
     }
 }
 
-
-impl AuthenticatedMsg<Msg> {
-    pub async fn from_request(request: Request) -> Result<Self, ErrorWithCode> {
-        let method = request.method().clone();
-        let uri = request.uri().clone();
-        match (method, uri.path()) {
-            (Method::POST, "/msg") => { 
-                let body = request.collect().await.unwrap().to_bytes();
-                serde_json::from_slice::<AuthenticatedMsg<Msg>>(&body)
-                    .context("While parsing request body")
-                    .use_code_on_error(StatusCode::BAD_REQUEST)
-            },
-            _ => Err(anyhow::anyhow!("Invalid route."))
-                .use_code_on_error(StatusCode::NOT_FOUND)
-        }
-    }
-
-    pub fn verify_correctly_authenticated(&self, config: &Config) -> Result<(), ErrorWithCode> {
-        match &self.inner {
-            Msg::Join { contributor } => self.verify_authenticated_by_contributor(contributor),
-            Msg::GetStatus { contributor } => self.verify_authenticated_by_contributor(contributor),
-            Msg::UpdateDownloadProgress { contributor, .. } => self.verify_authenticated_by_contributor(contributor),
-            Msg::UpdateComputeProgress { contributor, .. } => self.verify_authenticated_by_contributor(contributor),
-            Msg::UpdateUploadProgress { contributor, .. } => self.verify_authenticated_by_contributor(contributor),
-            // admin commands
-            Msg::Register { .. } => self.verify_authenticated_by_admin(config),
-            Msg::Report => self.verify_authenticated_by_admin(config),
-            Msg::DownloadAll => self.verify_authenticated_by_admin(config),
-        }
-
+pub fn verify_correctly_authenticated(msg: &AuthenticatedMsg<Msg>, config: &Config) -> Result<(), ErrorWithCode> {
+    match &msg.inner {
+        Msg::Join { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::GetStatus { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::UpdateDownloadProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::UpdateComputeProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::UpdateUploadProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
+        // admin commands
+        Msg::Register { .. } => verify_authenticated_by_admin(msg, config),
+        Msg::Report => verify_authenticated_by_admin(msg, config),
+        Msg::DownloadAll => verify_authenticated_by_admin(msg, config),
     }
 }

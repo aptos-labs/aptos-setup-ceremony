@@ -2,7 +2,7 @@ use chrono::{TimeDelta, Utc};
 use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
 use anyhow::{Context, Result, bail};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
 
 use crate::{error::ErrorWithCode, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
@@ -63,13 +63,14 @@ pub struct State {
     pub current_verification_job: Option<VerificationJob>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum StatusResponse {
     DidntJoin,
-    Kicked(anyhow::Error),
+    Kicked(String),
     WaitingInQueue(usize),
-    ReadyToDownloadPrevious(ContributionFileHandle),
-    WaitingForContributionWithPrevious(ContributionFileHandle),
-    ReadyForUpload(ContributionFileHandle),
+    ReadyToDownloadPrevious(String),
+    WaitingForContributionWithPrevious(String),
+    ReadyForUpload(String),
     Verifying,
     Finished,
 }
@@ -105,6 +106,7 @@ pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Con
                         ).await?
                             .should_be_finished()
                             .context("While constructing URL for downloading previous finished contribution")?
+                            .as_client_url(&state.contribution_files_store).await?
                     ),
                     crate::store::contributors_db::Status::WaitingForCompute {..} => 
                     StatusResponse::WaitingForContributionWithPrevious(
@@ -113,19 +115,21 @@ pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Con
                         ).await?
                             .should_be_finished()
                             .context("While constructing URL for downloading previous finished contribution")?
+                            .as_client_url(&state.contribution_files_store).await?
                     ),
                     crate::store::contributors_db::Status::WaitingForUpload {..} => 
                     StatusResponse::ReadyForUpload(
                         state.contribution_files_store.get_or_create(c).await?
                             .should_not_be_finished()
                             .context("While constructing URL for uploading current contribution")?
+                            .as_client_url(&state.contribution_files_store).await?
                     ),
                     crate::store::contributors_db::Status::Verifying { .. } => 
                     StatusResponse::Verifying,
                 }
             }
         },
-        ContributorStatus::Kicked { err, .. } => StatusResponse::Kicked(err),
+        ContributorStatus::Kicked { err, .. } => StatusResponse::Kicked(format!("{}", err)),
         ContributorStatus::Finished { .. } => StatusResponse::Finished,
     })
 }
@@ -226,10 +230,16 @@ pub async fn handle_register(c: &Contributor, state: &mut State, _config: &Confi
     Ok(())
 }
 
-pub async fn handle_report(state: &mut State, _config: &Config) -> Result<(Status,Vec<ContributorState>)> {
+#[derive(Serialize, Deserialize)]
+pub struct ReportResponse {
+    pub status: Status,
+    pub contributors: Vec<ContributorState>,
+}
+
+pub async fn handle_report(state: &mut State, _config: &Config) -> Result<ReportResponse> {
     let contributors = state.contributors_db.get_contributors().await?;
     let status = state.contributors_db.get_global_status().await?;
-    Ok((status, contributors))
+    Ok(ReportResponse { status, contributors })
 }
 
 pub async fn handle_download_all(state: &mut State, _config: &Config) -> Result<Vec<String>> {
@@ -252,26 +262,7 @@ pub async fn handle(msg: Msg, state: &mut State, config: &Config) -> Result<serd
             json!(null)
         }
         Msg::GetStatus { contributor } => {
-            let status = handle_get_status(&contributor, state, config).await?;
-            match status {
-                StatusResponse::DidntJoin => json!({"status": "didnt_join"}),
-                StatusResponse::Kicked(err) => json!({"status": "kicked", "error": format!("{:#}", err)}),
-                StatusResponse::WaitingInQueue(pos) => json!({"status": "waiting_in_queue", "position": pos}),
-                StatusResponse::ReadyToDownloadPrevious(handle) => json!({
-                    "status": "ready_to_download_previous",
-                    "url": handle.as_client_url(&state.contribution_files_store).await?,
-                }),
-                StatusResponse::WaitingForContributionWithPrevious(handle) => json!({
-                    "status": "waiting_for_contribution",
-                    "url": handle.as_client_url(&state.contribution_files_store).await?,
-                }),
-                StatusResponse::ReadyForUpload(handle) => json!({
-                    "status": "ready_for_upload",
-                    "url": handle.as_client_url(&state.contribution_files_store).await?,
-                }),
-                StatusResponse::Verifying => json!({"status": "verifying"}),
-                StatusResponse::Finished => json!({"status": "finished"}),
-            }
+            json!(handle_get_status(&contributor, state, config).await?)
         }
         Msg::UpdateDownloadProgress { finished, contributor } => {
             handle_update_download_progress(finished, contributor, state, config).await?;
@@ -290,20 +281,7 @@ pub async fn handle(msg: Msg, state: &mut State, config: &Config) -> Result<serd
             json!(null)
         }
         Msg::Report => {
-            let (status, contributors) = handle_report(state, config).await?;
-            json!({
-                "status": status.variant_str(),
-                "contributors": contributors.iter().map(|c| json!({
-                    "name": c.contributor.name,
-                    "email": c.contributor.email,
-                    "status": match &c.status {
-                        ContributorStatus::DidntJoinQueue => json!("didnt_join_queue"),
-                        ContributorStatus::Queued { pos, .. } => json!({"queued": {"position": pos}}),
-                        ContributorStatus::Kicked { err, .. } => json!({"kicked": {"error": format!("{:#}", err)}}),
-                        ContributorStatus::Finished { when } => json!({"finished": {"when": when.to_rfc3339()}}),
-                    },
-                })).collect::<Vec<_>>(),
-            })
+            json!(handle_report(state, config).await?)
         }
         Msg::DownloadAll => {
             let urls = handle_download_all(state, config).await?;

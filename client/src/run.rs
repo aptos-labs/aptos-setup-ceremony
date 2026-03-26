@@ -2,10 +2,12 @@ use std::path::PathBuf;
 use std::fs;
 
 use common::contribution::{Contributor, AsAndFromHex};
+use common::messages::Msg;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use serde_json;
-use anyhow;
+use anyhow::{self, bail};
+use server::handlers::ReportResponse;
 use tabled::{Table, Tabled};
 use hex;
 
@@ -19,32 +21,37 @@ struct TabledKeypair {
     contributor: Contributor,
     #[tabled(format("{:?}", hex::encode(self.signing_key.as_bytes())))]
     signing_key: SigningKey,
-
-
 }
 
-pub fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
-    let keypair_file = config_dir.join(cli::KEYPAIR_FILE);
+
+fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contributor)> {
+    if !fs::exists(&file)? {
+        bail!("Your keypair file does not exist. Please run `aptos-setup-ceremony identify`.");
+    }
+
+    Ok(serde_json::from_slice(&fs::read(file)?)?)
+}
+
+pub async fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
+    let my_keypair_file = config_dir.join(cli::KEYPAIR_FILE);
 
     match cli.command {
         Command::GenerateKeypair { name, email, force} => {
-            if fs::exists(&keypair_file)? && !force {
-                eprintln!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", keypair_file);
-                return Ok(());
+            if fs::exists(&my_keypair_file)? && !force {
+                bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
             let mut rng = thread_rng();
             let keypair_json = serde_json::to_string(&Contributor::new(&name, &email, &mut rng))?;
-            fs::write(&keypair_file, keypair_json)?;
-            eprintln!("Keypair file written to {:?}", keypair_file);
+            fs::write(&my_keypair_file, keypair_json)?;
+            eprintln!("Keypair file written to {:?}", my_keypair_file);
         },
         Command::Identify { contributor_keypair_hex, force } => {
-            if fs::exists(&keypair_file)? && !force {
-                eprintln!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", keypair_file);
-                return Ok(());
+            if fs::exists(&my_keypair_file)? && !force {
+                bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
             let keypair_json = serde_json::to_string(&<(SigningKey, Contributor)>::from_hex(&contributor_keypair_hex)?)?;
-            fs::write(&keypair_file, keypair_json)?;
-            eprintln!("Keypair file written to {:?}", keypair_file);
+            fs::write(&my_keypair_file, keypair_json)?;
+            eprintln!("Keypair file written to {:?}", my_keypair_file);
         },
         Command::Contribute => todo!(),
         Command::Admin { command } => match command {
@@ -66,11 +73,27 @@ pub fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
                 println!("{table}");
             }
             AdminCommand::RegisterAll { file } => {
-                let _keypairs = read_keypairs_file(&file)?;
+                let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
+                let keypairs = read_keypairs_file(&file)?;
 
-                
+                for (_, contributor) in keypairs {
+                        Msg::Register { contributor }.sign(&my_sk).send().await?;
+                }
             },
-            AdminCommand::Report => todo!(),
+            AdminCommand::Report => {
+                let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
+
+                let ReportResponse { status, contributors } = Msg::Report.sign(&my_sk).send_and_receive::<ReportResponse>().await?;
+
+                let table = Table::new(contributors).to_string();
+                println!("{table}");
+
+                println!("Current status:");
+                let table = Table::new(Vec::from([status])).to_string();
+                println!("{table}");
+
+
+            }
             AdminCommand::DownloadAll => todo!(),
         }
     }

@@ -8,7 +8,8 @@ use clap::Parser;
 use crate::cli::Cli;
 
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
     let config_dir = dirs::config_dir()
         .map(|d| d.join("aptos-setup-ceremony"))
@@ -16,5 +17,7 @@ fn main() {
         
     std::fs::create_dir_all(&config_dir).expect("Should be able to create dir");
 
-    run::run(cli, config_dir).unwrap();
+    if let Err(e) = run::run(cli, config_dir).await {
+        eprintln!("{}", e);
+    }
 }

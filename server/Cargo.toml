@@ -24,6 +24,7 @@ google-cloud-auth = { workspace = true }
 google-cloud-gax = { workspace = true }
 google-cloud-storage = { workspace = true }
 figment = { workspace = true }
+tabled = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }
