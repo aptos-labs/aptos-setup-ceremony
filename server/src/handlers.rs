@@ -39,21 +39,6 @@ pub enum StatusResponse {
 }
 
 
-pub async fn lookup(key: &VerifyingKey, state: &mut State, _config: &Config) -> Result<()> {
-    match state.contributors_db.get_contributor_status(&c).await? {
-        ContributorStatus::DidntJoinQueue 
-        | ContributorStatus::Kicked {..} => {
-            state.contributors_db.enqueue(&c).await
-        },
-        ContributorStatus::Queued {..} => {
-            bail!("Already in queue")
-        }
-        ContributorStatus::Finished {  } => {
-            bail!("Already finished contributing")
-        }
-    }
-}
-
 pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
     match state.contributors_db.get_contributor_status(&c).await? {
         ContributorStatus::DidntJoinQueue 
@@ -63,7 +48,7 @@ pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -
         ContributorStatus::Queued {..} => {
             bail!("Already in queue")
         }
-        ContributorStatus::Finished {  } => {
+        ContributorStatus::Finished { .. } => {
             bail!("Already finished contributing")
         }
     }

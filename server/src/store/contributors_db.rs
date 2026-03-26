@@ -93,7 +93,7 @@ pub enum ContributorStatus {
         err: anyhow::Error,
     },
     Finished {
-        // artifact
+        when: DateTime<Utc>,
     },
 }
 
@@ -163,7 +163,20 @@ impl<'r> FromRow<'r, SqliteRow> for ContributorState {
                     err: anyhow::anyhow!("{}", err_msg),
                 }
             }
-            "finished" => ContributorStatus::Finished {},
+            "finished" => {
+                let when_str: Option<String> = row.try_get("finished_at")?;
+                let when_str = when_str.ok_or_else(|| sqlx::Error::ColumnDecode {
+                    index: "finished_at".to_string(),
+                    source: "Missing finished_at for finished contributor".into(),
+                })?;
+                let when = DateTime::parse_from_rfc3339(&when_str)
+                    .map_err(|e| sqlx::Error::ColumnDecode {
+                        index: "finished_at".to_string(),
+                        source: Box::new(e),
+                    })?
+                    .with_timezone(&Utc);
+                ContributorStatus::Finished { when }
+            }
             other => {
                 return Err(sqlx::Error::ColumnDecode {
                     index: "status".to_string(),
@@ -516,7 +529,7 @@ mod tests {
         // finish_current -> first contributor is Finished
         db.finish_current().await.unwrap();
         let status = db.get_contributor_status(&c1).await.unwrap();
-        assert!(matches!(status, ContributorStatus::Finished {}));
+        assert!(matches!(status, ContributorStatus::Finished { .. }));
 
         // Second contributor becomes current
         let current = db.get_current().await.unwrap();

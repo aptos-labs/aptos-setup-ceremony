@@ -9,7 +9,7 @@ pub struct VerificationJob {
 }
 
 impl VerificationJob {
-    pub fn start(contributor: &Contributor, previous: &Contributor, contribution_files_store: &ContributionFilesStore) -> Self {
+    pub fn start(contributor: &Contributor) -> Self { //, previous: &Contributor, contribution_files_store: &ContributionFilesStore) -> Self {
         rayon::spawn(|| {});
         todo!()
     }
