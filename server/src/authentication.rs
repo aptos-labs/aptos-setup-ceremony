@@ -2,7 +2,8 @@ use common::contribution::Contributor;
 use ed25519_dalek::{Signature, VerifyingKey, Verifier as _};
 use hyper::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
-use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, handlers::Config, messages::Msg};
+use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, handlers::Config};
+use common::messages::Msg;
 use anyhow::{Context, Result};
 use http_body_util::BodyExt;
 

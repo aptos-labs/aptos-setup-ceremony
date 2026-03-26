@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 use common::contribution::{Contributor, AsAndFromHex};
-use server::messages::Msg;
+use common::messages::Msg;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use serde_json;

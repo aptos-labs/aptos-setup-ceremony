@@ -5,8 +5,9 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer};
 use serde_json::json;
 
-use crate::{error::ErrorWithCode, messages::Msg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::{error::ErrorWithCode, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
 use crate::store::contributors_db::ContributorStatus;
+use common::messages::Msg;
 
 const PING_TIMEOUT : TimeDelta = TimeDelta::seconds(20);
 const DOWNLOAD_TIMEOUT : TimeDelta = TimeDelta::seconds(60);
