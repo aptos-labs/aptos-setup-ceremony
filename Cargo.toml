@@ -39,6 +39,7 @@ wiremock = "0.6"
 async-trait = "0.1"
 serde_json = "1.0"
 google-cloud-auth = "1.7"
+google-cloud-gax = "1.8"
 google-cloud-storage = "1.9"
 
 
