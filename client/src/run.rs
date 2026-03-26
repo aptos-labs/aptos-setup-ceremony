@@ -12,7 +12,7 @@ use server::handlers::ReportResponse;
 use tabled::{Table, Tabled};
 use hex;
 
-use crate::cli::{self, AdminCommand, Cli, Command};
+use crate::cli::{AdminCommand, Cli, Command};
 use crate::contribute;
 use crate::csv::{read_keypairs_file, read_users_file, write_keypairs_file};
 
