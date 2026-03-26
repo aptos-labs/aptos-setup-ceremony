@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["common", "server"]
+members = ["client","common", "server"]
 
 [profile.release]
 debug = true
@@ -41,6 +41,8 @@ async-trait = "0.1"
 serde_json = "1.0"
 hyper = { version = "1.8.1", features = ["full"] }
 hyper-util = { version = "0.1.20", features = ["full"] }
+clap = { version = "4.6.0", features = ["derive"] }
+clap_derive = "4.6.0"
 
 
 
