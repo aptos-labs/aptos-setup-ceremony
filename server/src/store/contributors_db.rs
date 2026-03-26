@@ -333,11 +333,18 @@ impl ContributorsDB {
 
     /// Set global status.
     pub async fn set_global_status(&mut self, status: Status) -> Result<()> {
+        Self::set_global_status_with(&self.pool, &status).await
+    }
+
+    async fn set_global_status_with<'e, E>(executor: E, status: &Status) -> Result<()>
+    where
+        E: sqlx::Executor<'e, Database = Sqlite>,
+    {
         sqlx::query_with(
             "UPDATE global_status SET status = ?, start = ? WHERE id = 1",
-            &status,
+            status,
         )
-        .execute(&self.pool)
+        .execute(executor)
         .await?;
         Ok(())
     }
@@ -404,6 +411,8 @@ impl ContributorsDB {
     /// Set the current contributor to be finished.
     pub async fn finish_current(&mut self) -> Result<()> {
         let now = Utc::now().to_rfc3339();
+        let mut tx = self.pool.begin().await?;
+
         let result = sqlx::query(
             "UPDATE contributors SET status = 'finished', finished_at = ?, updated_timestamp = ?
              WHERE verifying_key_hex = (
@@ -413,17 +422,22 @@ impl ContributorsDB {
         )
         .bind(&now)
         .bind(&now)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
 
         if result.rows_affected() == 0 {
             bail!("No queued contributor to finish");
         }
 
-        self.set_global_status(Status::WaitingForDownload {
-            start: Utc::now(),
-        })
+        Self::set_global_status_with(
+            &mut *tx,
+            &Status::WaitingForDownload {
+                start: Utc::now(),
+            },
+        )
         .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
@@ -431,6 +445,8 @@ impl ContributorsDB {
     pub async fn kick_current(&mut self, e: anyhow::Error) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let err_msg = format!("{:#}", e);
+        let mut tx = self.pool.begin().await?;
+
         let result = sqlx::query(
             "UPDATE contributors SET status = 'kicked', kicked_at = ?, kicked_error = ?, updated_timestamp = ?
              WHERE verifying_key_hex = (
@@ -441,17 +457,22 @@ impl ContributorsDB {
         .bind(&now)
         .bind(&err_msg)
         .bind(&now)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
 
         if result.rows_affected() == 0 {
             bail!("No queued contributor to kick");
         }
 
-        self.set_global_status(Status::WaitingForDownload {
-            start: Utc::now(),
-        })
+        Self::set_global_status_with(
+            &mut *tx,
+            &Status::WaitingForDownload {
+                start: Utc::now(),
+            },
+        )
         .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }
