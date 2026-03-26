@@ -23,6 +23,7 @@ http-body-util = "0.1.3"
 google-cloud-auth = { workspace = true }
 google-cloud-gax = { workspace = true }
 google-cloud-storage = { workspace = true }
+figment = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }

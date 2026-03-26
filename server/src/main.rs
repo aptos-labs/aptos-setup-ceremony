@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use authentication::AuthenticatedMsg;
 use error::ErrorWithCode;
+use figment::{Figment, providers::{Env, Format, Toml}};
 use handlers::{Config, State, handle};
 use hyper::{Response, body::Bytes};
 use hyper::server::conn::http1;
@@ -16,6 +17,7 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use http_body_util::Full;
 use messages::Msg;
+use store::{contribution_files::ContributionFilesStore, contributors_db::ContributorsDB};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
@@ -60,28 +62,42 @@ async fn handle_request(
 
 #[tokio::main]
 async fn main() {
-    // TODO: initialize Config and State from environment/args
-    todo!("Initialize Config and State, then start server");
+    let config: Config = Figment::new()
+        .merge(Toml::file("config.toml"))
+        .merge(Env::prefixed("SERVER_"))
+        .extract()
+        .expect("Failed to load config");
 
-    #[allow(unreachable_code)]
-    {
-        let state: Arc<Mutex<State>> = todo!();
-        let config: Arc<Config> = todo!();
+    let contributors_db = ContributorsDB::new(&config.db_path)
+        .await
+        .expect("Failed to initialize database");
 
-        let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
-        loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            let io = TokioIo::new(stream);
-            let state = state.clone();
-            let config = config.clone();
-            tokio::task::spawn(async move {
-                if let Err(e) = http1::Builder::new()
-                    .serve_connection(io, service_fn(|req| request_handler(req, state.clone(), config.clone())))
-                    .await
-                {
-                    eprintln!("Error serving connection: {e:?}");
-                }
-            });
-        }
+    let contribution_files_store = ContributionFilesStore::init(&config.gcp_project_id, &config.bucket_id)
+        .await
+        .expect("Failed to initialize contribution files store");
+
+    let addr = format!("0.0.0.0:{}", config.port);
+    let config = Arc::new(config);
+    let state = Arc::new(Mutex::new(State {
+        contributors_db,
+        contribution_files_store,
+        current_verification_job: None,
+    }));
+
+    let listener = TcpListener::bind(&addr).await.unwrap();
+    eprintln!("Listening on {addr}");
+    loop {
+        let (stream, _) = listener.accept().await.unwrap();
+        let io = TokioIo::new(stream);
+        let state = state.clone();
+        let config = config.clone();
+        tokio::task::spawn(async move {
+            if let Err(e) = http1::Builder::new()
+                .serve_connection(io, service_fn(|req| request_handler(req, state.clone(), config.clone())))
+                .await
+            {
+                eprintln!("Error serving connection: {e:?}");
+            }
+        });
     }
 }

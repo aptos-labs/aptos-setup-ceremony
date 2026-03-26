@@ -2,18 +2,17 @@ use ark_ec::pairing::Pairing;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tabled::Tabled;
 
 use crate::{errors::{ContributionVerificationFailure, DeserializationError}, multipairing_equation::MultipairingEquation};
 
 // TODO switch this file to use SHA2 instead of blake3
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Tabled, Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Contributor {
     pub name: String,
     pub email: String,
-    // note: currently verifying key is unused. Plan to use it later when implementing the queue
-    // manager, to authenticate all messages sent. Could potentially include a signature in
-    // [`Contribution`] itself; need to think through benefits/drawbacks
+    #[tabled(format("{:?}", hex::encode(self.verifying_key.as_bytes())))]
     pub verifying_key: VerifyingKey,
 }
 
@@ -60,10 +59,18 @@ impl Contributor {
         }
     }
 
-    pub fn as_hex(&self) -> anyhow::Result<String> {
+}
+
+pub trait AsAndFromHex: Sized {
+    fn as_hex(&self) -> anyhow::Result<String>;
+    fn from_hex(hex: &str) -> anyhow::Result<Self>;
+}
+
+impl AsAndFromHex for (SigningKey, Contributor) {
+    fn as_hex(&self) -> anyhow::Result<String> {
         Ok(hex::encode(bcs::to_bytes(&self)?))
     }
-    pub fn from_hex(hex: &str) -> anyhow::Result<Self> {
+    fn from_hex(hex: &str) -> anyhow::Result<Self> {
         Ok(bcs::from_bytes(&hex::decode(hex)?)?)
 
     }

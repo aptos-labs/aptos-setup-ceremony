@@ -1,7 +1,8 @@
 use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+const SERVER_ADDRESS : &'static str = "http://localhost:8888";
 
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -31,4 +32,16 @@ pub enum Msg {
     },
 }
 
+impl Msg {
+    pub async fn send<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+        let client = reqwest::Client::new();
+        let res = client.post(SERVER_ADDRESS)
+            .json(&self)
+            .send()
+        .await?
+        .error_for_status()?;
+
+        Ok(serde_json::from_str(&res.text().await?)?)
+    }
+}
 

@@ -1,0 +1,11 @@
+db_path = "sqlite:ceremony.db"
+bucket_id = "test-ceremony-bucket"
+gcp_project_id = "test-project"
+admin_verifying_key = "22c7d84051a19d0e6233fc679bb7a5fe6bfb87b5e88ea06d65cedb81b5bec153"
+
+# All fields below are optional (shown with defaults)
+# port = 3000
+# ping_timeout_secs = 20
+# download_timeout_secs = 60
+# contribute_timeout_secs = 720
+# upload_timeout_secs = 120
