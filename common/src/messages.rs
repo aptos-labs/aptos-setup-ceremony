@@ -2,7 +2,7 @@ use crate::contribution::Contributor;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, Verifier as _};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-const SERVER_ADDRESS : &str = "http://localhost:8888";
+const SERVER_ADDRESS : &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
 
 
 #[derive(Serialize, Deserialize, Clone)]

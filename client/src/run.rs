@@ -12,6 +12,7 @@ use tabled::{Table, Tabled};
 use hex;
 
 use crate::cli::{self, AdminCommand, Cli, Command};
+use crate::contribute;
 use crate::csv::{read_keypairs_file, read_users_file, write_keypairs_file};
 
 
@@ -53,7 +54,11 @@ pub async fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
             fs::write(&my_keypair_file, keypair_json)?;
             eprintln!("Keypair file written to {:?}", my_keypair_file);
         },
-        Command::Contribute => todo!(),
+        Command::Contribute => {
+            let (my_sk, me) = try_read_keypair_file(my_keypair_file)?;
+
+            contribute::contribute(my_sk, &me).await?;
+        },
         Command::Admin { command } => match command {
             AdminCommand::GenerateAllKeypairs { file } => {
                 let mut rng = thread_rng();

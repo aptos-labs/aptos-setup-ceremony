@@ -1033,6 +1033,7 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bcs 0.1.6",
  "clap 4.6.0",
  "clap_derive",
  "common",
@@ -1041,6 +1042,8 @@ dependencies = [
  "ed25519-dalek 2.2.0",
  "hex",
  "rand 0.8.5",
+ "rayon",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "server",

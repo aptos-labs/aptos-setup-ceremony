@@ -444,11 +444,11 @@ impl ContributorsDB {
 
     /// The "current" contributor is defined as the first queued contributor, sorted by joined
     /// timestamp.
-    pub async fn get_current(&mut self) -> Result<ContributorState> {
-        let state: ContributorState = sqlx::query_as(&select_with_pos(
+    pub async fn get_current(&mut self) -> Result<Option<ContributorState>> {
+        let state: Option<ContributorState> = sqlx::query_as(&select_with_pos(
             "WHERE c1.status = 'queued' ORDER BY c1.queued_joined_at ASC LIMIT 1",
         ))
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await
         .context("No queued contributors")?;
         Ok(state)
@@ -565,7 +565,7 @@ mod tests {
         assert!(matches!(status, ContributorStatus::Queued { pos: 1, .. }));
 
         // get_current returns first contributor
-        let current = db.get_current().await.unwrap();
+        let current = db.get_current().await.unwrap().unwrap();
         assert_eq!(current.contributor, c1);
 
         // update_timestamp succeeds
@@ -577,7 +577,7 @@ mod tests {
         assert!(matches!(status, ContributorStatus::Finished { .. }));
 
         // Second contributor becomes current
-        let current = db.get_current().await.unwrap();
+        let current = db.get_current().await.unwrap().unwrap();
         assert_eq!(current.contributor, c2);
 
         // kick_current on second -> Kicked

@@ -25,4 +25,8 @@ csv = { workspace = true }
 tabled.workspace = true
 hex = { workspace = true }
 tokio = { workspace = true }
+reqwest = { workspace = true }
+bcs = { workspace = true }
+rayon = { workspace = true }
+
 

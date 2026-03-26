@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{process, sync::Arc};
 
-use server::error::ErrorWithCode;
+use server::{error::ErrorWithCode, handlers::handle_tick};
 use figment::{Figment, providers::{Env, Format, Toml}};
 use server::handlers::{Config, State, handle};
 use hyper::{Response, body::Bytes};
@@ -62,6 +62,11 @@ async fn handle_request(
 
 #[tokio::main]
 async fn main() {
+     std::panic::set_hook(Box::new(|info| {
+        eprintln!("Fatal panic: {info}");
+        process::abort();
+    }));
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -94,6 +99,18 @@ async fn main() {
         contributors_db,
         contribution_files_store,
     }));
+
+    let state_cloned = state.clone();
+    let config_cloned = config.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        loop {
+            ticker.tick().await;
+            let mut state_locked = state_cloned.lock().await;
+            handle_tick(&mut state_locked, &config_cloned).await
+            .expect("Should never fail to tick");
+        }
+    });
 
     let listener = TcpListener::bind(&addr).await.unwrap();
     info!("Listening on {addr}");

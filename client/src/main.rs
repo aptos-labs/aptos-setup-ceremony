@@ -1,6 +1,8 @@
 pub mod run;
 pub mod cli;
 pub mod csv;
+pub mod contribute;
+pub mod upload;
 
 
 use clap::Parser;

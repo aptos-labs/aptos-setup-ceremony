@@ -63,7 +63,7 @@ pub struct State {
     pub contribution_files_store: ContributionFilesStore,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum StatusResponse {
     DidntJoin,
     Kicked(String),
@@ -73,6 +73,15 @@ pub enum StatusResponse {
     ReadyForUpload(String),
     Verifying,
     Finished,
+}
+
+impl StatusResponse {
+    pub fn ready(&self) -> bool {
+        match self {
+            StatusResponse::ReadyToDownloadPrevious(_) => true,
+            _ => false,
+        }
+    }
 }
 
 
@@ -194,7 +203,12 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 
 
 pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
-    let current_contributor = state.contributors_db.get_current().await?;
+    tracing::info!("Tick");
+    let Some(current_contributor) = state.contributors_db.get_current().await? else {
+        tracing::info!("No current contributor, doing nothing");
+        return Ok(());
+    };
+
     let status = state.contributors_db.get_global_status().await?;
 
     let current_time = Utc::now();
@@ -260,26 +274,26 @@ pub async fn handle(msg: Msg, state: &mut State, config: &Config) -> Result<serd
     Ok(match msg {
         Msg::Join { contributor } => {
             handle_join(&contributor, state, config).await?;
-            json!(null)
+            json!("ok")
         }
         Msg::GetStatus { contributor } => {
             json!(handle_get_status(&contributor, state, config).await?)
         }
         Msg::UpdateDownloadProgress { finished, contributor } => {
             handle_update_download_progress(finished, contributor, state, config).await?;
-            json!(null)
+            json!("ok")
         }
         Msg::UpdateComputeProgress { finished, contributor } => {
             handle_update_compute_progress(finished, contributor, state, config).await?;
-            json!(null)
+            json!("ok")
         }
         Msg::UpdateUploadProgress { finished, contributor } => {
             handle_update_upload_progress(finished, contributor, state, config).await?;
-            json!(null)
+            json!("ok")
         }
         Msg::Register { contributor } => {
             handle_register(&contributor, state, config).await?;
-            json!(null)
+            json!("ok")
         }
         Msg::Report => {
             json!(handle_report(state, config).await?)
