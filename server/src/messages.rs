@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Msg {
     Report,
+    DownloadAll,
     Register {
         contributor: Contributor,
     },

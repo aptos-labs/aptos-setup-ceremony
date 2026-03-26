@@ -39,11 +39,13 @@ enum AdminCommand {
         email: String,
         #[arg(short, long)]
         verifying_key_hex: Option<String>,
-    }
+    },
+    Report,
+    DownloadAll
 }
 
 fn main() {
-    //let cli = Cli::parse();
+    let cli = Cli::parse();
     let mut rng = thread_rng();
     let (sk, c)  = Contributor::new("Rex Fernando", "rex1fernando@gmail.com", &mut rng);
 

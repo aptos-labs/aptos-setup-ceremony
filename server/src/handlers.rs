@@ -2,8 +2,9 @@ use chrono::{TimeDelta, Utc};
 use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
 use anyhow::{Context, Result, bail};
+use serde_json::json;
 
-use crate::{authentication::AuthenticatedMsg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::{error::ErrorWithCode, messages::Msg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
 use crate::store::contributors_db::ContributorStatus;
 
 const PING_TIMEOUT : TimeDelta = TimeDelta::seconds(20);
@@ -196,9 +197,82 @@ pub async fn handle_report(state: &mut State, _config: &Config) -> Result<(Statu
     Ok((status, contributors))
 }
 
+pub async fn handle_download_all(state: &mut State, _config: &Config) -> Result<Vec<String>> {
+    let contributors = state.contributors_db.get_finished_contributors().await?;
+    let mut urls = Vec::with_capacity(contributors.len());
+    for c in &contributors {
+        let handle = state.contribution_files_store.get_or_create(c).await?;
+        let url = handle.should_be_finished()?.as_client_url(&state.contribution_files_store).await?;
+        urls.push(url);
+    }
+    Ok(urls)
+}
 
 // TODO handle_remove? Need a way to cancel rayon task, in case verification is in progres...
 
-
-
-
+pub async fn handle(msg: Msg, state: &mut State, config: &Config) -> Result<serde_json::Value, ErrorWithCode> {
+    Ok(match msg {
+        Msg::Join { contributor } => {
+            handle_join(&contributor, state, config).await?;
+            json!(null)
+        }
+        Msg::GetStatus { contributor } => {
+            let status = handle_get_status(&contributor, state, config).await?;
+            match status {
+                StatusResponse::DidntJoin => json!({"status": "didnt_join"}),
+                StatusResponse::Kicked(err) => json!({"status": "kicked", "error": format!("{:#}", err)}),
+                StatusResponse::WaitingInQueue(pos) => json!({"status": "waiting_in_queue", "position": pos}),
+                StatusResponse::ReadyToDownloadPrevious(handle) => json!({
+                    "status": "ready_to_download_previous",
+                    "url": handle.as_client_url(&state.contribution_files_store).await?,
+                }),
+                StatusResponse::WaitingForContributionWithPrevious(handle) => json!({
+                    "status": "waiting_for_contribution",
+                    "url": handle.as_client_url(&state.contribution_files_store).await?,
+                }),
+                StatusResponse::ReadyForUpload(handle) => json!({
+                    "status": "ready_for_upload",
+                    "url": handle.as_client_url(&state.contribution_files_store).await?,
+                }),
+                StatusResponse::Verifying => json!({"status": "verifying"}),
+                StatusResponse::Finished => json!({"status": "finished"}),
+            }
+        }
+        Msg::UpdateDownloadProgress { finished, contributor } => {
+            handle_update_download_progress(finished, contributor, state, config).await?;
+            json!(null)
+        }
+        Msg::UpdateComputeProgress { finished, contributor } => {
+            handle_update_compute_progress(finished, contributor, state, config).await?;
+            json!(null)
+        }
+        Msg::UpdateUploadProgress { finished, contributor } => {
+            handle_update_upload_progress(finished, contributor, state, config).await?;
+            json!(null)
+        }
+        Msg::Register { contributor } => {
+            handle_register(&contributor, state, config).await?;
+            json!(null)
+        }
+        Msg::Report => {
+            let (status, contributors) = handle_report(state, config).await?;
+            json!({
+                "status": status.variant_str(),
+                "contributors": contributors.iter().map(|c| json!({
+                    "name": c.contributor.name,
+                    "email": c.contributor.email,
+                    "status": match &c.status {
+                        ContributorStatus::DidntJoinQueue => json!("didnt_join_queue"),
+                        ContributorStatus::Queued { pos, .. } => json!({"queued": {"position": pos}}),
+                        ContributorStatus::Kicked { err, .. } => json!({"kicked": {"error": format!("{:#}", err)}}),
+                        ContributorStatus::Finished { when } => json!({"finished": {"when": when.to_rfc3339()}}),
+                    },
+                })).collect::<Vec<_>>(),
+            })
+        }
+        Msg::DownloadAll => {
+            let urls = handle_download_all(state, config).await?;
+            json!(urls)
+        }
+    })
+}

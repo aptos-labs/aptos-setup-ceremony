@@ -387,6 +387,15 @@ impl ContributorsDB {
         Ok(state.status)
     }
 
+    pub async fn get_finished_contributors(&self) -> Result<Vec<Contributor>> {
+        let states: Vec<ContributorState> = sqlx::query_as(&select_with_pos(
+            "WHERE c1.status = 'finished' ORDER BY c1.finished_at ASC",
+        ))
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(states.into_iter().map(|s| s.contributor).collect())
+    }
+
     pub async fn get_most_recent_finished_contributor(&mut self) -> Result<Contributor> {
         let state: ContributorState = sqlx::query_as(&select_with_pos(
             "WHERE c1.status = 'finished' ORDER BY c1.finished_at DESC LIMIT 1",

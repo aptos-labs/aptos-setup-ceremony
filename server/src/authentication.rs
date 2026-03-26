@@ -59,7 +59,8 @@ impl AuthenticatedMsg<Msg> {
             Msg::UpdateUploadProgress { contributor, .. } => self.verify_authenticated_by_contributor(&contributor),
             // admin commands
             Msg::Register { .. } => self.verify_authenticated_by_admin(config),
-            Msg::Report => self.verify_authenticated_by_admin(config)
+            Msg::Report => self.verify_authenticated_by_admin(config),
+            Msg::DownloadAll => self.verify_authenticated_by_admin(config),
         }
 
     }
