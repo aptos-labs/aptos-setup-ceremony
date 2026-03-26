@@ -52,6 +52,8 @@ figment = { version = "0.10", features = ["env", "toml"] }
 dirs = "6.0.0"
 tabled = "0.20.0"
 csv = "1.4.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 
 [patch.crates-io]

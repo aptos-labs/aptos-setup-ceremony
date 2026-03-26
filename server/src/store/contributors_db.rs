@@ -81,7 +81,7 @@ pub struct ContributorState {
     pub updated_timestamp: DateTime<Utc>,
     #[tabled(inline)]
     pub contributor: Contributor,
-    #[tabled(inline)]
+    #[tabled(format("{} {:?}", self.status.status_string(), self.status.when()))]
     pub status: ContributorStatus,
 }
 
@@ -97,29 +97,41 @@ pub fn str_to_anyhow<'de, D: serde::de::Deserializer<'de>>(data: D) -> Result<an
 
 #[derive(Tabled, Serialize, Deserialize)]
 pub enum ContributorStatus {
-    #[tabled(inline)]
     DidntJoinQueue,
-    #[tabled(inline)]
     Queued {
         joined: DateTime<Utc>,
         // Position doesn't exist in the DB, but is derived from the list of queued contributors
         // sorted by join time, where pos 0 means joined first.
         pos: usize,
     },
-    #[tabled(inline)]
     Kicked {
         when: DateTime<Utc>,
         #[serde(deserialize_with = "str_to_anyhow", serialize_with = "anyhow_to_string")]
         err: anyhow::Error,
     },
-    #[tabled(inline)]
     Finished {
         when: DateTime<Utc>,
     },
 }
 
 impl ContributorStatus {
+    pub fn when(&self) -> Option<DateTime<Utc>> {
+        match &self {
+            ContributorStatus::DidntJoinQueue => None,
+            ContributorStatus::Queued { joined, .. } => Some(*joined),
+            ContributorStatus::Kicked { when, .. } => Some(*when),
+            ContributorStatus::Finished { when } => Some(*when),
+        }
+    }
 
+    pub fn status_string(&self) -> String {
+        match &self {
+            ContributorStatus::DidntJoinQueue => String::from("didn't join queue"),
+            ContributorStatus::Queued {..} => String::from("queued"),
+            ContributorStatus::Kicked {..} => String::from("kicked"),
+            ContributorStatus::Finished {..} => String::from("finished"),
+        }
+    }
 }
 
 impl<'r> FromRow<'r, SqliteRow> for ContributorState {
@@ -421,14 +433,13 @@ impl ContributorsDB {
         Ok(states.into_iter().map(|s| s.contributor).collect())
     }
 
-    pub async fn get_most_recent_finished_contributor(&mut self) -> Result<Contributor> {
-        let state: ContributorState = sqlx::query_as(&select_with_pos(
+    pub async fn get_most_recent_finished_contributor(&mut self) -> Result<Option<Contributor>> {
+        let state: Option<ContributorState> = sqlx::query_as(&select_with_pos(
             "WHERE c1.status = 'finished' ORDER BY c1.finished_at DESC LIMIT 1",
         ))
-        .fetch_one(&self.pool)
-        .await
-        .context("No finished contributors")?;
-        Ok(state.contributor)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(state.map(|s| s.contributor))
     }
 
     /// The "current" contributor is defined as the first queued contributor, sorted by joined
@@ -489,7 +500,7 @@ impl ContributorsDB {
     }
 
     /// Set the current contributor to be "kicked", and set global status to WaitingForDownload
-    pub async fn kick_current(&mut self, e: anyhow::Error) -> Result<()> {
+    pub async fn kick_current(&mut self, e: &anyhow::Error) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let err_msg = format!("{:#}", e);
         let mut tx = self.pool.begin().await?;
@@ -570,7 +581,7 @@ mod tests {
         assert_eq!(current.contributor, c2);
 
         // kick_current on second -> Kicked
-        db.kick_current(anyhow::anyhow!("test error"))
+        db.kick_current(&anyhow::anyhow!("test error"))
             .await
             .unwrap();
         let status = db.get_contributor_status(&c2).await.unwrap();
@@ -582,6 +593,6 @@ mod tests {
 
         // get_most_recent_finished_contributor returns first contributor
         let finished = db.get_most_recent_finished_contributor().await.unwrap();
-        assert_eq!(finished, c1);
+        assert_eq!(finished, Some(c1));
     }
 }

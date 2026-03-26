@@ -11,6 +11,7 @@ use http_body_util::Full;
 use server::store::{contribution_files::ContributionFilesStore, contributors_db::ContributorsDB};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
+use tracing::{info, warn, error, debug};
 
 
 async fn request_handler(
@@ -18,9 +19,12 @@ async fn request_handler(
     state: Arc<Mutex<State>>,
     config: Arc<Config>,
 ) -> Result<Response<Full<Bytes>>, std::convert::Infallible> {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
     let result = handle_request(request, state, config).await;
     Ok(match result {
         Ok(value) => {
+            info!(%method, %uri, status = 200, "request handled");
             let body = serde_json::to_string(&value).unwrap();
             Response::builder()
                 .status(200)
@@ -31,6 +35,11 @@ async fn request_handler(
         Err(err) => {
             let code = err.code();
             let body = format!("{:#}", err.error);
+            if code.is_server_error() {
+                error!(%method, %uri, status = code.as_u16(), error = %body, "request failed");
+            } else {
+                warn!(%method, %uri, status = code.as_u16(), error = %body, "request rejected");
+            }
             Response::builder()
                 .status(code)
                 .body(Full::new(Bytes::from(body)))
@@ -45,6 +54,7 @@ async fn handle_request(
     config: Arc<Config>,
 ) -> Result<serde_json::Value, ErrorWithCode> {
     let authenticated_msg = server::authentication::from_request(request).await?;
+    debug!(msg = ?authenticated_msg.inner, "authenticated request");
     server::authentication::verify_correctly_authenticated(&authenticated_msg, &config)?;
     let mut state = state.lock().await;
     handle(authenticated_msg.inner, &mut state, &config).await
@@ -52,16 +62,28 @@ async fn handle_request(
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        )
+        .init();
+
+    rustls::crypto::aws_lc_rs::default_provider().install_default()
+        .expect("Failed to install rustls crypto provider");
+
     let config: Config = Figment::new()
         .merge(Toml::file("config.toml"))
         .merge(Env::prefixed("SERVER_"))
         .extract()
         .expect("Failed to load config");
 
+    info!("Initializing database at {}", config.db_path);
     let contributors_db = ContributorsDB::new(&config.db_path)
         .await
         .expect("Failed to initialize database");
 
+    info!("Initializing GCS store (project={}, bucket={})", config.gcp_project_id, config.bucket_id);
     let contribution_files_store = ContributionFilesStore::init(&config.gcp_project_id, &config.bucket_id)
         .await
         .expect("Failed to initialize contribution files store");
@@ -71,11 +93,10 @@ async fn main() {
     let state = Arc::new(Mutex::new(State {
         contributors_db,
         contribution_files_store,
-        current_verification_job: None,
     }));
 
     let listener = TcpListener::bind(&addr).await.unwrap();
-    eprintln!("Listening on {addr}");
+    info!("Listening on {addr}");
     loop {
         let (stream, _) = listener.accept().await.unwrap();
         let io = TokioIo::new(stream);
@@ -86,7 +107,7 @@ async fn main() {
                 .serve_connection(io, service_fn(|req| request_handler(req, state.clone(), config.clone())))
                 .await
             {
-                eprintln!("Error serving connection: {e:?}");
+                error!("Error serving connection: {e:?}");
             }
         });
     }

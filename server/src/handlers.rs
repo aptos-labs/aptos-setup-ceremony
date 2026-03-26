@@ -1,5 +1,5 @@
 use chrono::{TimeDelta, Utc};
-use common::contribution::Contributor;
+use common::{contribution::Contributor, fptx::FPTXParams};
 use ed25519_dalek::VerifyingKey;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -42,13 +42,14 @@ pub struct Config {
     pub upload_timeout_secs: i64,
     #[serde(default = "default_port")]
     pub port: u16,
+    pub params: FPTXParams,
 }
 
 fn default_ping_timeout() -> i64 { 20 }
 fn default_download_timeout() -> i64 { 60 }
 fn default_contribute_timeout() -> i64 { 720 }
 fn default_upload_timeout() -> i64 { 120 }
-fn default_port() -> u16 { 3000 }
+fn default_port() -> u16 { 8888 }
 
 impl Config {
     pub fn ping_timeout(&self) -> TimeDelta { TimeDelta::seconds(self.ping_timeout_secs) }
@@ -60,7 +61,6 @@ impl Config {
 pub struct State {
     pub contributors_db: ContributorsDB,
     pub contribution_files_store: ContributionFilesStore,
-    pub current_verification_job: Option<VerificationJob>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -68,8 +68,8 @@ pub enum StatusResponse {
     DidntJoin,
     Kicked(String),
     WaitingInQueue(usize),
-    ReadyToDownloadPrevious(String),
-    WaitingForContributionWithPrevious(String),
+    ReadyToDownloadPrevious(Option<String>),
+    WaitingForContributionWithPrevious(Option<String>),
     ReadyForUpload(String),
     Verifying,
     Finished,
@@ -101,21 +101,21 @@ pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Con
                 match state.contributors_db.get_global_status().await? {
                     crate::store::contributors_db::Status::WaitingForDownload {..} => 
                     StatusResponse::ReadyToDownloadPrevious(
-                        state.contribution_files_store.get_or_create(
-                            &state.contributors_db.get_most_recent_finished_contributor().await?
-                        ).await?
-                            .should_be_finished()
-                            .context("While constructing URL for downloading previous finished contribution")?
-                            .as_client_url(&state.contribution_files_store).await?
+                        match state.contributors_db.get_most_recent_finished_contributor().await? {
+                            Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
+                                .should_be_finished()?
+                                .as_client_url(&state.contribution_files_store).await?),
+                            None => None,
+                        }
                     ),
                     crate::store::contributors_db::Status::WaitingForCompute {..} => 
                     StatusResponse::WaitingForContributionWithPrevious(
-                        state.contribution_files_store.get_or_create(
-                            &state.contributors_db.get_most_recent_finished_contributor().await?
-                        ).await?
-                            .should_be_finished()
-                            .context("While constructing URL for downloading previous finished contribution")?
-                            .as_client_url(&state.contribution_files_store).await?
+                        match state.contributors_db.get_most_recent_finished_contributor().await? {
+                            Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
+                                .should_be_finished()?
+                                .as_client_url(&state.contribution_files_store).await?),
+                            None => None,
+                        }
                     ),
                     crate::store::contributors_db::Status::WaitingForUpload {..} => 
                     StatusResponse::ReadyForUpload(
@@ -166,7 +166,7 @@ pub async fn handle_update_compute_progress(finished: bool, c: Contributor, stat
     Ok(())
 }
 
-pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state: &mut State, _config: &Config) -> Result<()> {
+pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state: &mut State, config: &Config) -> Result<()> {
     let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c).await? else {
         bail!("Not the current active contributor");
     };
@@ -176,14 +176,15 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 
     state.contributors_db.update_timestamp(&c).await?;
     if finished {
+        let maybe_previous = state.contributors_db.get_most_recent_finished_contributor().await?;
         state.contributors_db.set_global_status(Status::Verifying { start: Utc::now() }).await?;
-        state.current_verification_job = Some(VerificationJob::start(&c)); 
-        match state.current_verification_job.as_ref().unwrap().finished().await {
+        let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &config.params).await?; 
+        match current_verification_job.finished().await {
             Ok(_) => {
                 state.contributors_db.finish_current().await?;
             },
             Err(e) => {
-                state.contributors_db.kick_current(e).await?;
+                state.contributors_db.kick_current(&e).await?;
             }
         }
     }
@@ -199,23 +200,23 @@ pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
     let current_time = Utc::now();
 
     if current_time - current_contributor.updated_timestamp > PING_TIMEOUT {
-        state.contributors_db.kick_current(anyhow::anyhow!("Timed out")).await?;
+        state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
         return Ok(());
     } 
     match status {
         Status::WaitingForDownload { start } => {
             if current_time - start > DOWNLOAD_TIMEOUT {
-                state.contributors_db.kick_current(anyhow::anyhow!("Timed out")).await?;
+                state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForCompute { start } => {
             if current_time - start > COMPUTE_TIMEOUT {
-                state.contributors_db.kick_current(anyhow::anyhow!("Timed out")).await?;
+                state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForUpload { start } => {
             if current_time - start > UPLOAD_TIMEOUT {
-                state.contributors_db.kick_current(anyhow::anyhow!("Timed out")).await?;
+                state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::Verifying { .. } => (),

@@ -1,7 +1,11 @@
-db_path = "sqlite:ceremony.db"
+db_path = "sqlite:ceremony.sqlite3?mode=rwc"
 bucket_id = "test-ceremony-bucket"
 gcp_project_id = "test-project"
 admin_verifying_key = "22c7d84051a19d0e6233fc679bb7a5fe6bfb87b5e88ea06d65cedb81b5bec153"
+
+[[params]]
+batch_size = 128
+num_rounds = 4
 
 # All fields below are optional (shown with defaults)
 # port = 3000

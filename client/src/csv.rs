@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use common::contribution::{Contributor, AsAndFromHex};
 use ed25519_dalek::SigningKey;
 

@@ -19,7 +19,7 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 
     pub async fn send(&self) -> anyhow::Result<()> {
         let client = reqwest::Client::new();
-        client.post(SERVER_ADDRESS)
+        client.post(String::from(SERVER_ADDRESS) + "/msg")
             .json(&self)
             .send()
         .await?
@@ -30,7 +30,7 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 
     pub async fn send_and_receive<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let client = reqwest::Client::new();
-        let res = client.post(SERVER_ADDRESS)
+        let res = client.post(String::from(SERVER_ADDRESS) + "/msg")
             .json(&self)
             .send()
         .await?
