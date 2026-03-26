@@ -2,4 +2,4 @@
 */target
 common/test.contrib
 massif.out.*
-*.csv
+*.csv.keypairs
