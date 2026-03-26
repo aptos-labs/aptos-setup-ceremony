@@ -76,10 +76,10 @@ pub enum StatusResponse {
 
 
 pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
-    match state.contributors_db.get_contributor_status(&c).await? {
+    match state.contributors_db.get_contributor_status(c).await? {
         ContributorStatus::DidntJoinQueue 
         | ContributorStatus::Kicked {..} => {
-            state.contributors_db.enqueue(&c).await
+            state.contributors_db.enqueue(c).await
         },
         ContributorStatus::Queued {..} => {
             bail!("Already in queue")
@@ -91,7 +91,7 @@ pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -
 }
 
 pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Config) -> Result<StatusResponse> {
-    Ok(match state.contributors_db.get_contributor_status(&c).await? {
+    Ok(match state.contributors_db.get_contributor_status(c).await? {
         ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
         ContributorStatus::Queued { joined: _, pos } => {
             if pos > 0 {
@@ -116,7 +116,7 @@ pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Con
                     ),
                     crate::store::contributors_db::Status::WaitingForUpload {..} => 
                     StatusResponse::ReadyForUpload(
-                        state.contribution_files_store.get_or_create(&c).await?
+                        state.contribution_files_store.get_or_create(c).await?
                             .should_not_be_finished()
                             .context("While constructing URL for uploading current contribution")?
                     ),
@@ -222,7 +222,7 @@ pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
 
 
 pub async fn handle_register(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
-    state.contributors_db.register(&c).await?;
+    state.contributors_db.register(c).await?;
     Ok(())
 }
 

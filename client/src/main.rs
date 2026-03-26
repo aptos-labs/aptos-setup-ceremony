@@ -4,7 +4,6 @@ pub mod csv;
 
 
 use clap::Parser;
-use dirs;
 
 use crate::cli::Cli;
 

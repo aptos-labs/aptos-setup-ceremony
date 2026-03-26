@@ -35,7 +35,7 @@ where
         g1s: Vec<Vec<P::G1Affine>>,
         shared_g2s: Vec<P::G2Affine>,
     ) -> Self {
-        assert!(g1s.len() > 0);
+        assert!(!g1s.is_empty());
 
         let random_challenge: Vec<P::ScalarField> =
             (0..g1s.len()).map(|_| P::ScalarField::rand(rng)).collect();
@@ -108,6 +108,12 @@ where
 
 pub struct MultipairingEquations<P: Pairing> {
     pub eqns: Vec<MultipairingEquation<P>>,
+}
+
+impl<P: Pairing> Default for MultipairingEquations<P> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<P: Pairing> MultipairingEquations<P> {

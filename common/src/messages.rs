@@ -1,7 +1,7 @@
 use crate::contribution::Contributor;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-const SERVER_ADDRESS : &'static str = "http://localhost:8888";
+const SERVER_ADDRESS : &str = "http://localhost:8888";
 
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

@@ -136,7 +136,7 @@ where
     }
 
     fn output(self) -> Self::Output {
-        ()
+        
     }
 }
 

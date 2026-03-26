@@ -122,7 +122,7 @@ impl<C: ContributionInner> Contribution<C> {
         params: &C::Params,
     ) -> Self {
         let (inner, previous_hashes) = if let Some(previous) = maybe_previous {
-            let previous_hashes = Self::build_previous_hashes(&previous);
+            let previous_hashes = Self::build_previous_hashes(previous);
 
             (
                 C::generate(rng, &previous.inner, params).0,
@@ -153,8 +153,7 @@ impl<C: ContributionInner> Contribution<C> {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, DeserializationError> {
-        bcs::from_bytes(bytes)
-        .or_else(|e| Err(DeserializationError(e)))
+        bcs::from_bytes(bytes).map_err(|e| DeserializationError(e))
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {

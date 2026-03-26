@@ -55,7 +55,7 @@ pub fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
                     .map(|(name, email)| Contributor::new(&name, &email, &mut rng))
                     .collect();
 
-                write_keypairs_file(&(String::from(file)+".keypairs"), keypairs)?;
+                write_keypairs_file(&(file+".keypairs"), keypairs)?;
             }
             AdminCommand::ReadKeypairsFile { file } => {
                 let keypairs : Vec<TabledKeypair> = read_keypairs_file(&file)?

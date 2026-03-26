@@ -41,7 +41,7 @@ impl FPTXParams {
     pub fn new(batch_size: usize, num_rounds: usize) -> Result<Self,BatchSizeNotPowerOfTwo> {
         let mut i = batch_size;
         while i > 1 {
-            (i % 2 == 0)
+            i.is_multiple_of(2)
                 .then_some(())
                 .ok_or(BatchSizeNotPowerOfTwo)?;
             i >>= 1;
@@ -58,7 +58,9 @@ fn tau_powers_randomized_fr(
 ) -> Vec<Vec<Fr>> {
     assert_eq!(params.num_rounds, random_alphas.len());
 
-    let tau_powers_randomized_fr = random_alphas
+    
+
+    random_alphas
         .into_par_iter()
         .map(|alpha| {
             tau_powers_fr
@@ -66,9 +68,7 @@ fn tau_powers_randomized_fr(
                 .map(|tau_power| alpha * tau_power)
                 .collect::<Vec<Fr>>()
         })
-        .collect::<Vec<Vec<Fr>>>();
-
-    tau_powers_randomized_fr
+        .collect::<Vec<Vec<Fr>>>()
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -229,7 +229,7 @@ impl ContributionInner for FPTXContributionInner {
         let alpha_check_equations  = self.alphas_g2.par_iter()
             .zip(&self.randomized_tau_powers_g1)
             .map_init(
-                || thread_rng(),
+                thread_rng,
                 |rng, (alpha_g2, tau_powers)| 
                 MultipairingEquation::with_shared_g2s(
                     rng, 

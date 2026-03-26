@@ -1,7 +1,7 @@
 
 use clap::{Parser, Subcommand};
 
-pub const KEYPAIR_FILE : &'static str = "keypair.json";
+pub const KEYPAIR_FILE : &str = "keypair.json";
 
 #[derive(Parser)]
 #[command(name = "aptos-setup-ceremony", about = "Use this program to contribute to the Aptos setup ceremony.")]

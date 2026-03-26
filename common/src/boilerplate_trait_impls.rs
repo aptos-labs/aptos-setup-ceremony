@@ -36,7 +36,7 @@ where
     P::G1Affine: AffineRepr,
 {
     fn clone(&self) -> Self {
-        Self { sig: self.sig.clone(), _phantom: self._phantom.clone() }
+        Self { sig: self.sig, _phantom: self._phantom }
     }
 }
 
@@ -81,7 +81,7 @@ where
     P::G1Affine: AffineRepr,
 {
     fn clone(&self) -> Self {
-        Self { powers: self.powers.clone(), tau_g2: self.tau_g2.clone(), sok: self.sok.clone() }
+        Self { powers: self.powers.clone(), tau_g2: self.tau_g2, sok: self.sok.clone() }
     }
 }
 
@@ -128,8 +128,8 @@ where
     fn clone(&self) -> Self {
         Self {
             tau_powers_contrib_inner: self.tau_powers_contrib_inner.clone(),
-            xi_g1: self.xi_g1.clone(),
-            xi_g2: self.xi_g2.clone(),
+            xi_g1: self.xi_g1,
+            xi_g2: self.xi_g2,
             sok_xi: self.sok_xi.clone(),
         }
     }
