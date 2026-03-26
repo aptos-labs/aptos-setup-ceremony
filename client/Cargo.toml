@@ -13,3 +13,5 @@ bench = false
 [dependencies]
 clap = { workspace = true }
 clap_derive = { workspace = true }
+common = { workspace = true }
+rand = { workspace = true }

@@ -84,8 +84,8 @@ pub enum ContributorStatus {
     DidntJoinQueue,
     Queued {
         joined: DateTime<Utc>,
-        // Position shouldn't exist in the DB, but should be derived from the list of queued
-        // contributors sorted by join time, where pos 0 means joined first.
+        // Position doesn't exist in the DB, but is derived from the list of queued contributors
+        // sorted by join time, where pos 0 means joined first.
         pos: usize,
     },
     Kicked {

@@ -3,7 +3,7 @@ use common::contribution::Contributor;
 use ed25519_dalek::VerifyingKey;
 use anyhow::{Context, Result, bail};
 
-use crate::{authentication::AuthenticatedMsg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::{authentication::AuthenticatedMsg, store::{contribution_files::{ContributionFileHandle, ContributionFilesStore}, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
 use crate::store::contributors_db::ContributorStatus;
 
 const PING_TIMEOUT : TimeDelta = TimeDelta::seconds(20);
@@ -36,6 +36,22 @@ pub enum StatusResponse {
     ReadyForUpload(ContributionFileHandle),
     Verifying,
     Finished,
+}
+
+
+pub async fn lookup(key: &VerifyingKey, state: &mut State, _config: &Config) -> Result<()> {
+    match state.contributors_db.get_contributor_status(&c).await? {
+        ContributorStatus::DidntJoinQueue 
+        | ContributorStatus::Kicked {..} => {
+            state.contributors_db.enqueue(&c).await
+        },
+        ContributorStatus::Queued {..} => {
+            bail!("Already in queue")
+        }
+        ContributorStatus::Finished {  } => {
+            bail!("Already finished contributing")
+        }
+    }
 }
 
 pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
@@ -187,6 +203,12 @@ pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
 pub async fn handle_register(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
     state.contributors_db.register(&c).await?;
     Ok(())
+}
+
+pub async fn handle_report(state: &mut State, _config: &Config) -> Result<(Status,Vec<ContributorState>)> {
+    let contributors = state.contributors_db.get_contributors().await?;
+    let status = state.contributors_db.get_global_status().await?;
+    Ok((status, contributors))
 }
 
 

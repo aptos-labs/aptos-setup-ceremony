@@ -47,6 +47,26 @@ impl Contributor {
             verifying_key,
         })
     }
+
+    pub fn new_with_verifying_key(
+        name: &str, 
+        email: &str,
+        verifying_key: VerifyingKey,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            email: email.into(),
+            verifying_key,
+        }
+    }
+
+    pub fn as_hex(&self) -> anyhow::Result<String> {
+        Ok(hex::encode(bcs::to_bytes(&self)?))
+    }
+    pub fn from_hex(hex: &str) -> anyhow::Result<Self> {
+        Ok(bcs::from_bytes(&hex::decode(hex)?)?)
+
+    }
 }
 
 pub trait ContributionInner : Serialize + DeserializeOwned {
