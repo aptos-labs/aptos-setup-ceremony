@@ -1,8 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs;
 
 use common::contribution::{Contributor, AsAndFromHex};
-use common::messages::Msg;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use serde_json;
@@ -67,7 +66,7 @@ pub fn run(cli: Cli, config_dir: PathBuf) -> anyhow::Result<()> {
                 println!("{table}");
             }
             AdminCommand::RegisterAll { file } => {
-                let keypairs = read_keypairs_file(&file)?;
+                let _keypairs = read_keypairs_file(&file)?;
 
                 
             },

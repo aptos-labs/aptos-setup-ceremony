@@ -1,10 +1,5 @@
-use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use common::contribution::Contributor;
-use rand::thread_rng;
-use dirs;
-use serde_json;
 
 pub const KEYPAIR_FILE : &'static str = "keypair.json";
 

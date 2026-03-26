@@ -2,14 +2,13 @@ use common::contribution::Contributor;
 use rayon;
 use anyhow::Result;
 
-use crate::store::contribution_files::{self, ContributionFilesStore};
 
 pub struct VerificationJob {
     
 }
 
 impl VerificationJob {
-    pub fn start(contributor: &Contributor) -> Self { //, previous: &Contributor, contribution_files_store: &ContributionFilesStore) -> Self {
+    pub fn start(_contributor: &Contributor) -> Self { //, previous: &Contributor, contribution_files_store: &ContributionFilesStore) -> Self {
         rayon::spawn(|| {});
         todo!()
     }

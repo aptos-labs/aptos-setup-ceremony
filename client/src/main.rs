@@ -2,13 +2,9 @@ pub mod run;
 pub mod cli;
 pub mod csv;
 
-use std::fs;
 
-use clap::{Parser, Subcommand};
-use common::contribution::Contributor;
-use rand::thread_rng;
+use clap::Parser;
 use dirs;
-use serde_json;
 
 use crate::cli::Cli;
 
