@@ -9,6 +9,7 @@ use google_cloud_gax::error::rpc::Code;
 use google_cloud_storage::builder::storage::SignedUrlBuilder;
 use google_cloud_storage::client::{Storage, StorageControl};
 use google_cloud_storage::http::Method;
+use google_cloud_storage::model::Bucket;
 
 fn object_name(contributor: &Contributor) -> String {
     let hex_key = contributor
@@ -120,10 +121,13 @@ impl ContributionFilesStore {
         match self.control_client.get_bucket().set_name(name).send().await {
             Ok(_) => Ok(()),
             Err(e) if e.status().is_some_and(|s| s.code == Code::NotFound) => {
+                let mut bucket = Bucket::default();
+                bucket.project = format!("projects/{}", self.project_id);
                 match self.control_client
                     .create_bucket()
-                    .set_parent(format!("projects/{}", self.project_id))
+                    .set_parent("projects/_")
                     .set_bucket_id(self.bucket_id.clone())
+                    .set_bucket(bucket)
                     .send()
                     .await
                 {
@@ -214,7 +218,8 @@ impl ContributionFilesStore {
     }
 
     pub async fn generate_signed_download_url(&self, obj_name: &str) -> Result<String> {
-        let url = SignedUrlBuilder::for_object(&self.bucket_id, obj_name)
+        let bucket = format!("projects/_/buckets/{}", self.bucket_id);
+        let url = SignedUrlBuilder::for_object(&bucket, obj_name)
             .with_method(Method::GET)
             .with_expiration(Duration::from_secs(3600))
             .sign_with(&self.signer)
