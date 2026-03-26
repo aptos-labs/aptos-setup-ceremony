@@ -16,6 +16,10 @@ gcp_auth = { workspace = true }
 urlencoding = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+serde_json.workspace = true
+http-body-util = "0.1.3"
 
 [dev-dependencies]
 wiremock = { workspace = true }

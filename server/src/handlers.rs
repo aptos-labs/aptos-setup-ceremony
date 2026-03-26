@@ -38,15 +38,11 @@ pub enum StatusResponse {
     Finished,
 }
 
-pub async fn handle_join(c: &AuthenticatedMsg<Contributor>, state: &mut State, _config: &Config) -> Result<()> {
-    c.verify_authenticated_by_contributor()?;
-
-    match state.contributors_db.get_contributor_status(&c.inner).await? {
-        ContributorStatus::DidntJoinQueue => {
-            state.contributors_db.enqueue(&c.inner).await
-        },
-        ContributorStatus::Kicked {..} => {
-            state.contributors_db.enqueue(&c.inner).await
+pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
+    match state.contributors_db.get_contributor_status(&c).await? {
+        ContributorStatus::DidntJoinQueue 
+        | ContributorStatus::Kicked {..} => {
+            state.contributors_db.enqueue(&c).await
         },
         ContributorStatus::Queued {..} => {
             bail!("Already in queue")
@@ -57,10 +53,8 @@ pub async fn handle_join(c: &AuthenticatedMsg<Contributor>, state: &mut State, _
     }
 }
 
-pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut State, _config: &Config) -> Result<StatusResponse> {
-    c.verify_authenticated_by_contributor()?;
-
-    Ok(match state.contributors_db.get_contributor_status(&c.inner).await? {
+pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Config) -> Result<StatusResponse> {
+    Ok(match state.contributors_db.get_contributor_status(&c).await? {
         ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
         ContributorStatus::Queued { joined: _, pos } => {
             if pos > 0 {
@@ -85,7 +79,7 @@ pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut St
                     ),
                     crate::store::contributors_db::Status::WaitingForUpload {..} => 
                     StatusResponse::ReadyForUpload(
-                        state.contribution_files_store.get_or_create(&c.inner).await?
+                        state.contribution_files_store.get_or_create(&c).await?
                             .should_not_be_finished()
                             .context("While constructing URL for uploading current contribution")?
                     ),
@@ -99,10 +93,8 @@ pub async fn handle_get_status(c: &AuthenticatedMsg<Contributor>, state: &mut St
     })
 }
 
-pub async fn handle_update_download_progress(finished: bool, c: AuthenticatedMsg<Contributor>, state: &mut State, _config: &Config) -> Result<()> {
-    c.verify_authenticated_by_contributor()?;
-
-    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c.inner).await? else {
+pub async fn handle_update_download_progress(finished: bool, c: Contributor, state: &mut State, _config: &Config) -> Result<()> {
+    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c).await? else {
         bail!("Not the current active contributor");
     };
     let Status::WaitingForDownload{..} =  state.contributors_db.get_global_status().await? else {
@@ -112,15 +104,13 @@ pub async fn handle_update_download_progress(finished: bool, c: AuthenticatedMsg
     if finished {
         state.contributors_db.set_global_status(Status::WaitingForCompute { start: Utc::now() } ).await?;
     }
-    state.contributors_db.update_timestamp(&c.inner).await?;
+    state.contributors_db.update_timestamp(&c).await?;
 
     Ok(())
 }
 
-pub async fn handle_update_compute_progress(finished: bool, c: AuthenticatedMsg<Contributor>, state: &mut State, _config: &Config) -> Result<()> {
-    c.verify_authenticated_by_contributor()?;
-
-    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c.inner).await? else {
+pub async fn handle_update_compute_progress(finished: bool, c: Contributor, state: &mut State, _config: &Config) -> Result<()> {
+    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c).await? else {
         bail!("Not the current active contributor");
     };
     let Status::WaitingForCompute { .. } = state.contributors_db.get_global_status().await? else {
@@ -130,25 +120,23 @@ pub async fn handle_update_compute_progress(finished: bool, c: AuthenticatedMsg<
     if finished {
         state.contributors_db.set_global_status(Status::WaitingForUpload { start: Utc::now() }).await?;
     }
-    state.contributors_db.update_timestamp(&c.inner).await?;
+    state.contributors_db.update_timestamp(&c).await?;
 
     Ok(())
 }
 
-pub async fn handle_update_upload_progress(finished: bool, c: AuthenticatedMsg<Contributor>, state: &mut State, _config: &Config) -> Result<()> {
-    c.verify_authenticated_by_contributor()?;
-
-    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c.inner).await? else {
+pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state: &mut State, _config: &Config) -> Result<()> {
+    let ContributorStatus::Queued { joined: _, pos: 0 } = state.contributors_db.get_contributor_status(&c).await? else {
         bail!("Not the current active contributor");
     };
     let Status::WaitingForUpload { .. } = state.contributors_db.get_global_status().await? else {
         bail!("Not currently waiting for upload");
     };
 
-    state.contributors_db.update_timestamp(&c.inner).await?;
+    state.contributors_db.update_timestamp(&c).await?;
     if finished {
         state.contributors_db.set_global_status(Status::Verifying { start: Utc::now() }).await?;
-        state.current_verification_job = Some(VerificationJob::start(&c.inner)); 
+        state.current_verification_job = Some(VerificationJob::start(&c)); 
         match state.current_verification_job.as_ref().unwrap().finished().await {
             Ok(_) => {
                 state.contributors_db.finish_current().await?;
@@ -196,11 +184,8 @@ pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
 }
 
 
-pub async fn handle_register(c: &AuthenticatedMsg<Contributor>, state: &mut State, config: &Config) -> Result<()> {
-    c.verify_authenticated_by_admin(config)?;
-
-    state.contributors_db.register(&c.inner).await?;
-
+pub async fn handle_register(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
+    state.contributors_db.register(&c).await?;
     Ok(())
 }
 

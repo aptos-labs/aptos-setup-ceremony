@@ -1,43 +1,31 @@
-use chrono::{DateTime, Utc};
 use common::contribution::Contributor;
-use ed25519_dalek::Signature;
+use serde::{Deserialize, Serialize};
 
-pub struct Authenticator {
-    
-}
 
-impl Authenticator {
-    pub fn is_authorized(state: &State, msg: &Msg) -> Result<()> {
-        todo!()
-    }
-}
 
-pub struct AuthenticatedMsg {
-    msg: Msg,
-    sig: Signature,
-}
-
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Msg {
-    Tick(DateTime<Utc>),
     Register {
         contributor: Contributor,
     },
-    Enqueue {
+    Join {
         contributor: Contributor,
     },
-    RequestPosition {
+    GetStatus {
         contributor: Contributor,
     },
-    NotifyDownloadProgress {
-        progress_percent: u8,
+    UpdateDownloadProgress {
+        finished: bool,
+        contributor: Contributor,
     },
-    NotifyComputeProgress {
-        progress_percent: u8,
+    UpdateComputeProgress {
+        finished: bool,
+        contributor: Contributor,
     },
-    NotifyUploadProgress {
-        progress_percent: u8,
+    UpdateUploadProgress {
+        finished: bool,
+        contributor: Contributor,
     },
-    UploadFailed,
-    VerificationSucceeded,
-    VerificationFailed,
 }
+
+
