@@ -1,9 +1,6 @@
-pub mod run;
-pub mod cli;
-pub mod csv;
-pub mod contribute;
-pub mod upload;
-
+mod run;
+mod cli;
+mod csv;
 
 use std::process;
 

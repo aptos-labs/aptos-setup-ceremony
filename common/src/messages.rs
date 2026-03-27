@@ -4,7 +4,12 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use anyhow::Context;
 
-const SERVER_ADDRESS : &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
+const DEFAULT_SERVER_ADDRESS: &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
+
+fn server_address() -> String {
+    std::env::var("CEREMONY_SERVER_ADDRESS")
+        .unwrap_or_else(|_| DEFAULT_SERVER_ADDRESS.to_string())
+}
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -21,7 +26,7 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 
     pub async fn send(&self) -> anyhow::Result<()> {
         let client = reqwest::Client::new();
-        let res = client.post(String::from(SERVER_ADDRESS) + "/msg")
+        let res = client.post(server_address() + "/msg")
             .json(&self)
             .send()
         .await?;
@@ -37,7 +42,7 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 
     pub async fn send_and_receive<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let client = reqwest::Client::new();
-        let res = client.post(String::from(SERVER_ADDRESS) + "/msg")
+        let res = client.post(server_address() + "/msg")
             .json(&self)
             .send()
         .await?;

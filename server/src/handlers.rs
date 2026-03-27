@@ -9,10 +9,6 @@ use crate::{error::ErrorWithCode, store::{contribution_files::ContributionFilesS
 use crate::store::contributors_db::ContributorStatus;
 use common::messages::Msg;
 
-const PING_TIMEOUT : TimeDelta = TimeDelta::seconds(20);
-const DOWNLOAD_TIMEOUT : TimeDelta = TimeDelta::seconds(60);
-const COMPUTE_TIMEOUT : TimeDelta = TimeDelta::seconds(720);
-const UPLOAD_TIMEOUT : TimeDelta = TimeDelta::seconds(120);
 
 fn deserialize_verifying_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<VerifyingKey, D::Error> {
     let hex_str = String::deserialize(deserializer)?;
@@ -192,7 +188,7 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 }
 
 
-pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
+pub async fn handle_tick(state: &mut State, config: &Config) -> Result<()> {
     tracing::info!("Tick");
     let Some(current_contributor) = state.contributors_db.get_current().await? else {
         tracing::info!("No current contributor, doing nothing");
@@ -203,23 +199,23 @@ pub async fn handle_tick(state: &mut State, _config: &Config) -> Result<()> {
 
     let current_time = Utc::now();
 
-    if current_time - current_contributor.updated_timestamp > PING_TIMEOUT {
+    if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
         state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
         return Ok(());
-    } 
+    }
     match status {
         Status::WaitingForDownload { start } => {
-            if current_time - start > DOWNLOAD_TIMEOUT {
+            if current_time - start > config.download_timeout() {
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForCompute { start } => {
-            if current_time - start > COMPUTE_TIMEOUT {
+            if current_time - start > config.contribute_timeout() {
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForUpload { start } => {
-            if current_time - start > UPLOAD_TIMEOUT {
+            if current_time - start > config.upload_timeout() {
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }

@@ -1,5 +1,5 @@
 
-use std::process::exit;
+use std::{process, time::Duration};
 
 use anyhow::{Context, bail};
 use common::{contribution::{Contribution, Contributor}, fptx::{FPTXContributionInner, FPTXParams}, messages::{AuthenticatedMsg, Msg}};
@@ -37,14 +37,18 @@ impl PingLoop {
 
 
 
-pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Option<String>> {
+pub enum QueueOutcome {
+    ReadyToDownload(Option<String>),
+    AlreadyFinished,
+    Verifying,
+}
+
+pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<QueueOutcome> {
     let mut interval = tokio::time::interval(PING_INTERVAL);
-    let mut response;
+    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
     // loop that handles being in queue
     loop {
-        interval.tick().await;
-        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
         match response {
             StatusResponse::DidntJoin => {
                 Msg::Join { contributor: me.clone() }.sign(my_sk).send().await?;
@@ -60,19 +64,26 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
             StatusResponse::ReadyToDownloadPrevious(_) => break,
             StatusResponse::Finished => {
                 eprintln!("You have already contributed to this ceremony.");
-                exit(0)
+                return Ok(QueueOutcome::AlreadyFinished);
+            },
+            StatusResponse::Verifying => {
+                eprintln!("Server already has your contribution and is verifying.");
+                return Ok(QueueOutcome::Verifying);
             },
             _ => {
-                bail!("Unexpected status response: {:?}", response);
-            }
+                eprintln!("Server thinks we are in the middle of contributing/uploading. Waiting ~25 secs for timeout...");
+                tokio::time::sleep(Duration::from_secs(25)).await;
+            },
         }
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
     }
 
     let StatusResponse::ReadyToDownloadPrevious(maybe_url) = response else {
         unreachable!()
     };
 
-    Ok(maybe_url)
+    Ok(QueueOutcome::ReadyToDownload(maybe_url))
 }
 
 pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
@@ -146,12 +157,10 @@ pub async fn wait_for_server_verification(
     me: &Contributor,
 ) -> anyhow::Result<()> {
     let mut interval = tokio::time::interval(PING_INTERVAL);
-    let mut response;
+    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
     // loop while server is verifying
     loop {
-        interval.tick().await;
-        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
         match response {
             StatusResponse::Kicked(e) => {
                 bail!("Kicked: {}", e);
@@ -168,11 +177,20 @@ pub async fn wait_for_server_verification(
                 bail!("Unexpected status response: {:?}", response);
             }
         }
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
     }
 }
 
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
-    let maybe_url = join_and_wait_in_queue(&my_sk, me).await?;
+    let maybe_url = match join_and_wait_in_queue(&my_sk, me).await? {
+        QueueOutcome::AlreadyFinished => return Ok(()),
+        QueueOutcome::ReadyToDownload(maybe_url) => maybe_url,
+        QueueOutcome::Verifying => {
+            wait_for_server_verification(&my_sk, me).await?;
+            process::exit(0);
+        }
+    };
 
     let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_url {
         Some(url) => {
