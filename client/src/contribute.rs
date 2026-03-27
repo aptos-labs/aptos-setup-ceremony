@@ -56,7 +56,7 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
             },
             StatusResponse::Kicked(e) => {
                 Msg::Join { contributor: me.clone() }.sign(my_sk).send().await?;
-                eprintln!("Was kicked. Reason was {}. Rejoining queue.", e);
+                eprintln!("{}: Was kicked. Reason was {}. Rejoining queue.", me.name, e);
             },
             StatusResponse::WaitingInQueue(pos) => {
                 eprintln!("You are at position {} in the queue.", pos);
