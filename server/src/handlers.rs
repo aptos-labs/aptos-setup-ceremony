@@ -1,12 +1,11 @@
 use chrono::{TimeDelta, Utc};
 use common::{contribution::Contributor, fptx::FPTXParams};
 use ed25519_dalek::VerifyingKey;
-use anyhow::{Context, Result, anyhow, bail};
-use hyper::StatusCode;
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
 
-use crate::{error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::{error::ErrorWithCode, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
 use crate::store::contributors_db::ContributorStatus;
 use common::messages::Msg;
 

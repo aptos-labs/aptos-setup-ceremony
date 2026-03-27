@@ -1,10 +1,8 @@
-use std::any;
-
 use crate::contribution::Contributor;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, Verifier as _};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use anyhow::{Context, Error, Result, bail};
+use anyhow::Context;
 
 const SERVER_ADDRESS : &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
 
