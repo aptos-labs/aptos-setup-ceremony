@@ -3,3 +3,5 @@
 common/test.contrib
 massif.out.*
 *.csv.keypairs
+*.sqlite3
+*.json
