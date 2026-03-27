@@ -20,7 +20,7 @@ impl VerificationJob {
     ) -> Result<Self> {
         let current_contribution : Contribution<FPTXContributionInner> = contribution_files_store.download_contribution(&current).await?;
         let maybe_previous_contribution : Option<Contribution<FPTXContributionInner>> = match maybe_previous {
-            Some(previous) => contribution_files_store.download_contribution(&previous).await?,
+            Some(previous) => Some(contribution_files_store.download_contribution(&previous).await?),
             None => None
         };
 

@@ -1,6 +1,6 @@
 db_path = "sqlite:ceremony.sqlite3?mode=rwc"
 bucket_id = "test-ceremony-bucket"
-gcp_project_id = "test-project"
+gcp_project_id = "benchmark-zkid-circuit"
 admin_verifying_key = "22c7d84051a19d0e6233fc679bb7a5fe6bfb87b5e88ea06d65cedb81b5bec153"
 
 [params]

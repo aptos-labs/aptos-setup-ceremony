@@ -1,11 +1,12 @@
 use chrono::{TimeDelta, Utc};
 use common::{contribution::Contributor, fptx::FPTXParams};
 use ed25519_dalek::VerifyingKey;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
+use hyper::StatusCode;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
 
-use crate::{error::ErrorWithCode, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
+use crate::{error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
 use crate::store::contributors_db::ContributorStatus;
 use common::messages::Msg;
 
@@ -271,6 +272,10 @@ pub async fn handle_download_all(state: &mut State, _config: &Config) -> Result<
 // TODO handle_remove? Need a way to cancel rayon task, in case verification is in progres...
 
 pub async fn handle(msg: Msg, state: &mut State, config: &Config) -> Result<serde_json::Value, ErrorWithCode> {
+    return Err(
+        anyhow!("hi!!!!!")
+    ).use_code_on_error(StatusCode::INTERNAL_SERVER_ERROR);
+
     Ok(match msg {
         Msg::Join { contributor } => {
             handle_join(&contributor, state, config).await?;

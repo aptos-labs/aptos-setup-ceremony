@@ -190,6 +190,16 @@ impl ContributionFilesStore {
             .send()
             .await?;
 
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!(
+                "GCS resumable upload initiation failed with status {}: {}",
+                status,
+                body,
+            );
+        }
+
         let location = resp
             .headers()
             .get("Location")

@@ -1,6 +1,10 @@
+use std::any;
+
 use crate::contribution::Contributor;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, Verifier as _};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+use anyhow::{Context, Error, Result, bail};
 
 const SERVER_ADDRESS : &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
 
@@ -19,13 +23,18 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 
     pub async fn send(&self) -> anyhow::Result<()> {
         let client = reqwest::Client::new();
-        client.post(String::from(SERVER_ADDRESS) + "/msg")
+        let res = client.post(String::from(SERVER_ADDRESS) + "/msg")
             .json(&self)
             .send()
-        .await?
-        .error_for_status()?;
-
-        Ok(())
+        .await?;
+        let status = res.status();
+        let text = res.text().await
+            .with_context(|| "While trying to fetch response text")?;
+        if status.is_client_error() || status.is_server_error() {
+            anyhow::bail!("Server returned an error: {}, with body: {}", status, text)
+        } else {
+            Ok(())
+        }
     }
 
     pub async fn send_and_receive<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
@@ -33,10 +42,16 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
         let res = client.post(String::from(SERVER_ADDRESS) + "/msg")
             .json(&self)
             .send()
-        .await?
-        .error_for_status()?;
+        .await?;
+        let status = res.status();
+        let text = res.text().await
+            .with_context(|| "While trying to fetch response text")?;
+        if status.is_client_error() || status.is_server_error() {
+            anyhow::bail!("Server returned an error: {}, with body: {}", status, text)
+        } else {
+            Ok(serde_json::from_str(&text)?)
+        }
 
-        Ok(serde_json::from_str(&res.text().await?)?)
     }
 }
 

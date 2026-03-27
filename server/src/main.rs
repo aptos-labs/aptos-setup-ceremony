@@ -93,6 +93,9 @@ async fn main() {
         .await
         .expect("Failed to initialize contribution files store");
 
+    contribution_files_store.ensure_bucket_exists().await
+        .expect("Failed to ensure GCS bucket exists");
+
     let addr = format!("0.0.0.0:{}", config.port);
     let config = Arc::new(config);
     let state = Arc::new(Mutex::new(State {

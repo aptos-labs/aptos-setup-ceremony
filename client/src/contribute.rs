@@ -23,9 +23,9 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
                 eprintln!("Joining queue.");
                 interval.tick().await;
             },
-            StatusResponse::Kicked(_) => {
+            StatusResponse::Kicked(e) => {
                 Msg::Join { contributor: me.clone() }.sign(&my_sk).send().await?;
-                eprintln!("Was kicked. Rejoining queue.");
+                eprintln!("Was kicked. Reason was {}. Rejoining queue.", e);
                 interval.tick().await;
             },
             StatusResponse::WaitingInQueue(pos) => {
@@ -33,6 +33,10 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
                 interval.tick().await;
             }
             StatusResponse::ReadyToDownloadPrevious(_) => break,
+            StatusResponse::Finished => {
+                eprintln!("You have already contributed to this ceremony.");
+                return Ok(());
+            },
             _ => {
                 bail!("Unexpected status response: {:?}", response);
             }
@@ -62,7 +66,7 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
             let bytes = reqwest::get(url).await?.bytes().await?;
             handle.abort();
-            bcs::from_bytes(&bytes)?
+            Some(bcs::from_bytes(&bytes)?)
         }
         None => None,
     };
