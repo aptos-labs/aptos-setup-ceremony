@@ -87,6 +87,7 @@ pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -
 }
 
 pub async fn handle_get_status(c: &Contributor, state: &mut State, _config: &Config) -> Result<StatusResponse> {
+    state.contributors_db.update_timestamp(&c).await?;
     Ok(match state.contributors_db.get_contributor_status(c).await? {
         ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
         ContributorStatus::Queued { joined: _, pos } => {
@@ -200,22 +201,46 @@ pub async fn handle_tick(state: &mut State, config: &Config) -> Result<()> {
     let current_time = Utc::now();
 
     if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
+        tracing::info!(
+            "Kicking contributor {}: ping time {} exceeded timeout of {}", 
+            current_contributor.contributor.name, 
+            current_time - current_contributor.updated_timestamp, 
+            config.ping_timeout()
+        );
         state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
         return Ok(());
     }
     match status {
         Status::WaitingForDownload { start } => {
             if current_time - start > config.download_timeout() {
+                tracing::info!(
+                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    current_contributor.contributor.name, 
+                    current_time - start, 
+                    config.download_timeout()
+                );
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForCompute { start } => {
             if current_time - start > config.contribute_timeout() {
+                tracing::info!(
+                    "Kicking contributor {}: compute time {} exceeded timeout of {}", 
+                    current_contributor.contributor.name, 
+                    current_time - start, 
+                    config.contribute_timeout()
+                );
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
         Status::WaitingForUpload { start } => {
             if current_time - start > config.upload_timeout() {
+                tracing::info!(
+                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    current_contributor.contributor.name, 
+                    current_time - start, 
+                    config.upload_timeout()
+                );
                 state.contributors_db.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }

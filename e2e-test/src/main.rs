@@ -277,7 +277,7 @@ async fn main() -> Result<()> {
         bucket_id: "e2e-test-ceremony-bucket".to_string(),
         gcp_project_id: "benchmark-zkid-circuit".to_string(),
         admin_verifying_key: admin_vk,
-        ping_timeout_secs: 10,
+        ping_timeout_secs: 20,
         download_timeout_secs: 30,
         contribute_timeout_secs: 300,
         upload_timeout_secs: 30,
