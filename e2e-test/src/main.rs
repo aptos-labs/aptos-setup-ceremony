@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use common::contribution::Contributor;
@@ -42,60 +43,68 @@ async fn test_contribute(
     me: &Contributor,
     crash_at: Option<CrashPhase>,
 ) -> Result<()> {
-    let maybe_url = match contribute::join_and_wait_in_queue(sk, me).await? {
+    match contribute::join_and_wait_in_queue(sk, me).await? {
         QueueOutcome::AlreadyFinished => return Ok(()),
-        QueueOutcome::ReadyToDownload(url) => url,
-    };
+        QueueOutcome::Verifying => {
+            if matches!(crash_at, Some(CrashPhase::Verify)) {
+                info!("[{}] Simulating crash during VERIFY", me.name);
+                bail!("Simulated crash during verify");
+            }
+            contribute::wait_for_server_verification(sk, me).await?;
+            return Ok(());
+        }
+        QueueOutcome::ReadyToDownload(maybe_url) => {
+            // -- Download phase --
+            if matches!(crash_at, Some(CrashPhase::Download)) {
+                info!("[{}] Simulating crash during DOWNLOAD", me.name);
+                bail!("Simulated crash during download");
+            }
 
-    // -- Download phase --
-    if matches!(crash_at, Some(CrashPhase::Download)) {
-        info!("[{}] Simulating crash during DOWNLOAD", me.name);
-        bail!("Simulated crash during download");
+            let maybe_previous = match maybe_url {
+                Some(url) => Some(contribute::download_previous(&url, sk, me).await?),
+                None => None,
+            };
+
+            Msg::UpdateDownloadProgress { finished: true, contributor: me.clone() }
+                .sign(sk)
+                .send()
+                .await?;
+
+            // -- Compute phase --
+            if matches!(crash_at, Some(CrashPhase::Compute)) {
+                info!("[{}] Simulating crash during COMPUTE", me.name);
+                bail!("Simulated crash during compute");
+            }
+
+            let my_contribution = contribute::compute_my_contribution(maybe_previous, sk, me).await?;
+
+            Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }
+                .sign(sk)
+                .send()
+                .await?;
+
+            // -- Upload phase --
+            if matches!(crash_at, Some(CrashPhase::Upload)) {
+                info!("[{}] Simulating crash during UPLOAD", me.name);
+                bail!("Simulated crash during upload");
+            }
+
+            contribute::upload_my_contribution(&my_contribution, sk, me).await?;
+
+            Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }
+                .sign(sk)
+                .send()
+                .await?;
+
+            // -- Verify phase --
+            if matches!(crash_at, Some(CrashPhase::Verify)) {
+                info!("[{}] Simulating crash during VERIFY", me.name);
+                bail!("Simulated crash during verify");
+            }
+
+            contribute::wait_for_server_verification(sk, me).await?;
+        }
     }
-
-    let maybe_previous = match maybe_url {
-        Some(url) => Some(contribute::download_previous(&url, sk, me).await?),
-        None => None,
-    };
-
-    Msg::UpdateDownloadProgress { finished: true, contributor: me.clone() }
-        .sign(sk)
-        .send()
-        .await?;
-
-    // -- Compute phase --
-    if matches!(crash_at, Some(CrashPhase::Compute)) {
-        info!("[{}] Simulating crash during COMPUTE", me.name);
-        bail!("Simulated crash during compute");
-    }
-
-    let my_contribution = contribute::compute_my_contribution(maybe_previous, sk, me).await?;
-
-    Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }
-        .sign(sk)
-        .send()
-        .await?;
-
-    // -- Upload phase --
-    if matches!(crash_at, Some(CrashPhase::Upload)) {
-        info!("[{}] Simulating crash during UPLOAD", me.name);
-        bail!("Simulated crash during upload");
-    }
-
-    contribute::upload_my_contribution(&my_contribution, sk, me).await?;
-
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }
-        .sign(sk)
-        .send()
-        .await?;
-
-    // -- Verify phase --
-    if matches!(crash_at, Some(CrashPhase::Verify)) {
-        info!("[{}] Simulating crash during VERIFY", me.name);
-        bail!("Simulated crash during verify");
-    }
-
-    contribute::wait_for_server_verification(sk, me).await?;
 
     Ok(())
 }
@@ -114,7 +123,9 @@ async fn run_contributor(
                 return Ok(());
             }
             Err(e) => {
-                warn!("[{}] Error: {}. Retrying...", contributor.name, e);
+                warn!("[{}] Error: {}. Waiting for timeout...", contributor.name, e);
+                tokio::time::sleep(Duration::from_secs(25)).await;
+                warn!("Retrying");
             }
         }
     }
