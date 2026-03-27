@@ -1,93 +1,102 @@
 
-use anyhow::bail;
-use common::{contribution::{Contribution, Contributor}, fptx::{FPTXContributionInner, FPTXParams}, messages::Msg};
+use std::process::exit;
+
+use anyhow::{Context, bail};
+use common::{contribution::{Contribution, Contributor}, fptx::{FPTXContributionInner, FPTXParams}, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, task::JoinHandle};
 
 use crate::upload;
 
+const PING_INTERVAL : tokio::time::Duration = tokio::time::Duration::from_secs(5);
+
+struct PingLoop {
+    handle: JoinHandle<()>,
+}
+
+impl PingLoop {
+    fn start(msg: AuthenticatedMsg<Msg>) -> Self {
+        let handle = tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(PING_INTERVAL);
+            loop {
+                ticker.tick().await;
+                    msg.send().await
+                    .expect("Should never fail to ping");
+            }
+        });
+
+        Self { handle } 
+    }
+
+    fn stop(&self) {
+        self.handle.abort();
+    }
+}
 
 
 
-pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
+pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Option<String>> {
+    let mut interval = tokio::time::interval(PING_INTERVAL);
+    let mut response;
 
     // loop that handles being in queue
     loop {
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
         match response {
             StatusResponse::DidntJoin => {
                 Msg::Join { contributor: me.clone() }.sign(&my_sk).send().await?;
                 eprintln!("Joining queue.");
-                interval.tick().await;
             },
             StatusResponse::Kicked(e) => {
                 Msg::Join { contributor: me.clone() }.sign(&my_sk).send().await?;
                 eprintln!("Was kicked. Reason was {}. Rejoining queue.", e);
-                interval.tick().await;
             },
             StatusResponse::WaitingInQueue(pos) => {
                 eprintln!("You are at position {} in the queue.", pos);
-                interval.tick().await;
             }
             StatusResponse::ReadyToDownloadPrevious(_) => break,
             StatusResponse::Finished => {
                 eprintln!("You have already contributed to this ceremony.");
-                return Ok(());
+                exit(0)
             },
             _ => {
                 bail!("Unexpected status response: {:?}", response);
             }
         }
-
-        response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
     }
 
     let StatusResponse::ReadyToDownloadPrevious(maybe_url) = response else {
         unreachable!()
     };
 
-    let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_url {
-        Some(url) => {
+    Ok(maybe_url)
+}
 
-            // ping loop while downloading
-            let me_cloned = me.clone();
-            let my_sk_cloned = my_sk.clone();
-            let handle = tokio::spawn(async move {
-                let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
-                loop {
-                    ticker.tick().await;
-                    Msg::UpdateDownloadProgress { finished: false, contributor: me_cloned.clone() }.sign(&my_sk_cloned).send().await
-                    .expect("Should never fail to ping");
-                }
-            });
+pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+    // ping loop while downloading
+    let ping_loop = PingLoop::start(
+        Msg::UpdateDownloadProgress { finished: false, contributor: me.clone() }.sign(&my_sk)
+    );
 
-            let bytes = reqwest::get(url).await?.bytes().await?;
-            handle.abort();
-            Some(bcs::from_bytes(&bytes)?)
-        }
-        None => None,
-    };
+    let bytes = reqwest::get(url)
+        .await
+        .context("Error while downloading previous contribution.")?
+        .bytes().await
+        .context("Error while downloading previous contribution.")?;
+    ping_loop.stop();
 
+    Ok(bcs::from_bytes(&bytes)
+        .context("Error while deserializing previous contribution.")
+        ?)
+}
 
-    // tell server we're done downloading
-    Msg::UpdateDownloadProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
-
-
-
-    // ping loop while computing
-    let me_cloned = me.clone();
-    let my_sk_cloned = my_sk.clone();
-    let handle = tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
-        loop {
-            ticker.tick().await;
-            Msg::UpdateComputeProgress { finished: false, contributor: me_cloned.clone() }.sign(&my_sk_cloned).send().await
-                .expect("Should never fail to ping");
-        }
-    });
+pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+    let ping_loop = PingLoop::start(
+        Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
+    );
 
     let (tx, rx) = oneshot::channel::<Contribution<FPTXContributionInner>>();
     let me_cloned = me.clone();
@@ -102,27 +111,24 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
     });
 
     let my_contribution = rx.await?;
-    handle.abort();
 
-    // tell server we're done computing
-    Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
+    ping_loop.stop();
 
+    Ok(my_contribution)
+}
+
+pub async fn upload_my_contribution(
+    my_contribution: &Contribution<FPTXContributionInner>, 
+    my_sk: &SigningKey, 
+    me: &Contributor) -> anyhow::Result<()> {
     let response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
     let StatusResponse::ReadyForUpload(session_url) = response else {
         bail!("Finished compute, but server didn't give us the session url for upload");
     };
 
-    // ping loop while uploading
-    let me_cloned = me.clone();
-    let my_sk_cloned = my_sk.clone();
-    let handle = tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
-        loop {
-            ticker.tick().await;
-            Msg::UpdateUploadProgress { finished: false, contributor: me_cloned.clone() }.sign(&my_sk_cloned).send().await
-                .expect("Should never fail to ping");
-        }
-    });
+    let ping_loop = PingLoop::start(
+        Msg::UpdateUploadProgress { finished: false, contributor: me.clone() }.sign(&my_sk)
+    );
 
     const CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB
 
@@ -131,17 +137,22 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
         &my_contribution,
         CHUNK_SIZE).await?;
 
-    handle.abort();
+    ping_loop.stop();
 
-    // tell server we're done uploading
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
+    Ok(())
+}
 
-
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
+pub async fn wait_for_server_verification(
+    my_sk: &SigningKey,
+    me: &Contributor,
+) -> anyhow::Result<()> {
+    let mut interval = tokio::time::interval(PING_INTERVAL);
+    let mut response;
 
     // loop while server is verifying
     loop {
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
         match response {
             StatusResponse::Kicked(e) => {
                 bail!("Kicked: {}", e);
@@ -158,8 +169,41 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
                 bail!("Unexpected status response: {:?}", response);
             }
         }
-
-        response = Msg::GetStatus { contributor: me.clone() }.sign(&my_sk).send_and_receive::<StatusResponse>().await?;
     }
+}
+
+pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
+    let maybe_url = join_and_wait_in_queue(&my_sk, me).await?;
+
+    let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_url {
+        Some(url) => {
+            Some(download_previous(&url, &my_sk, me).await?)
+        }
+        None => None,
+    };
+
+
+    // tell server we're done downloading
+    Msg::UpdateDownloadProgress { finished: true, contributor: me.clone() }
+        .sign(&my_sk)
+        .send()
+    .await?;
+
+
+    let my_contribution = compute_my_contribution(maybe_previous, &my_sk, me).await?;
+
+    // tell server we're done computing
+    Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
+
+
+    upload_my_contribution(&my_contribution, &my_sk, me).await?;
+
+    // tell server we're done uploading
+    Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
+
+
+    wait_for_server_verification(&my_sk, me).await?;
+
+    Ok(())
 }
 

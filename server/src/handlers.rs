@@ -76,16 +76,6 @@ pub enum StatusResponse {
     Finished,
 }
 
-impl StatusResponse {
-    pub fn ready(&self) -> bool {
-        match self {
-            StatusResponse::ReadyToDownloadPrevious(_) => true,
-            _ => false,
-        }
-    }
-}
-
-
 pub async fn handle_join(c: &Contributor, state: &mut State, _config: &Config) -> Result<()> {
     match state.contributors_db.get_contributor_status(c).await? {
         ContributorStatus::DidntJoinQueue 
