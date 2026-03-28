@@ -156,6 +156,19 @@ impl ContributionFilesStore {
         }
     }
 
+    pub async fn create_or_overwrite(&self, c: &Contributor) -> Result<ContributionFileHandle> {
+        let obj_name = object_name(c);
+        if self.object_exists(&obj_name).await? {
+            self.delete_object(&obj_name).await?;
+        } 
+        let upload_session_url = self.initiate_resumable_upload(&obj_name).await?;
+        Ok(ContributionFileHandle::InProgress {
+            contributor: c.clone(),
+            upload_session_url,
+        })
+
+    }
+
     async fn get_token(&self) -> Result<String> {
         let scopes = &["https://www.googleapis.com/auth/devstorage.read_write"];
         let token = self.auth.token(scopes).await?;
@@ -172,6 +185,39 @@ impl ContributionFilesStore {
         );
         let resp = self.client.get(&url).bearer_auth(&token).send().await?;
         Ok(resp.status().is_success())
+    }
+
+    /// Deletes a GCS object; used for test cleanup.
+    async fn delete_object(&self, obj_name: &str) -> Result<()> {
+        let auth = gcp_auth::provider().await.unwrap();
+        let token = auth
+            .token(&["https://www.googleapis.com/auth/devstorage.read_write"])
+            .await
+            .unwrap();
+        let url = format!(
+            "{}/storage/v1/b/{}/o/{}",
+            self.base_url,
+            urlencoding::encode(&self.bucket_id),
+            urlencoding::encode(obj_name),
+        );
+        let resp = self.client
+            .delete(&url)
+            .bearer_auth(token.as_str())
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!(
+                "GCS deletion failed with status {}: {}",
+                status,
+                body,
+            );
+        }
+
+
+        Ok(())
     }
 
     async fn initiate_resumable_upload(&self, obj_name: &str) -> Result<String> {
@@ -236,20 +282,6 @@ impl ContributionFilesStore {
             .await?;
         Ok(url)
     }
-
-    #[cfg(test)]
-    fn new_with_base_url(bucket_id: &str, project_id: &str, base_url: &str, auth: Arc<dyn TokenProvider>, signer: Signer, gcs_client: Storage, control_client: StorageControl) -> Self {
-        Self {
-            bucket_id: bucket_id.to_string(),
-            project_id: project_id.to_string(),
-            base_url: base_url.to_string(),
-            client: reqwest::Client::new(),
-            auth,
-            signer,
-            gcs_client,
-            control_client,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -275,25 +307,6 @@ mod tests {
         }
     }
 
-    /// Deletes a GCS object; used for test cleanup.
-    async fn delete_object(bucket: &str, obj_name: &str) {
-        let auth = gcp_auth::provider().await.unwrap();
-        let token = auth
-            .token(&["https://www.googleapis.com/auth/devstorage.read_write"])
-            .await
-            .unwrap();
-        let url = format!(
-            "https://storage.googleapis.com/storage/v1/b/{}/o/{}",
-            urlencoding::encode(bucket),
-            urlencoding::encode(obj_name),
-        );
-        reqwest::Client::new()
-            .delete(&url)
-            .bearer_auth(token.as_str())
-            .send()
-            .await
-            .unwrap();
-    }
 
     /// Uploads all `bytes` to a GCS resumable upload session URL, finalising the object.
     async fn finalize_resumable_upload(session_url: &str, bytes: Vec<u8>) {
@@ -376,7 +389,7 @@ mod tests {
         assert!(client_url.starts_with("https://"), "client URL should be https: {}", client_url);
 
         // --- Cleanup ---
-        delete_object(TEST_BUCKET, &obj_name).await;
+        store.delete_object(&obj_name).await.unwrap();
     }
 }
 

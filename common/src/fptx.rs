@@ -33,8 +33,8 @@ pub struct FPTXContributionInner {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXParams {
-    batch_size: usize,
-    num_rounds: usize,
+    pub(crate) batch_size: usize,
+    pub(crate) num_rounds: usize,
 }
 
 impl FPTXParams {

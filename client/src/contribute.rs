@@ -2,7 +2,7 @@
 use std::{process, time::Duration};
 
 use anyhow::{Context, bail};
-use common::{contribution::{Contribution, Contributor}, fptx::{FPTXContributionInner, FPTXParams}, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::PARAMS, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -113,10 +113,8 @@ pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXCon
 
     rayon::spawn(move || {
         let mut rng = thread_rng();
-        // TODO don't hardcode this
-        let params = FPTXParams::new(128, 4).unwrap();
         tx.send(
-            Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &params)
+            Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
         ).expect("Should never fail to send")
     });
 

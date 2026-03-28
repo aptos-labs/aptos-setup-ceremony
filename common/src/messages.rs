@@ -93,5 +93,18 @@ impl Msg {
             signature,
         }
     }
+
+    pub fn description(&self) -> String {
+        match self {
+            Msg::Report => String::from("Report"),
+            Msg::DownloadAll => String::from("DownloadAll"),
+            Msg::Register { contributor } => format!("Register from {}", contributor.name),
+            Msg::Join { contributor } => format!("Join from {}", contributor.name),
+            Msg::GetStatus { contributor } => format!("GetStatus from {}", contributor.name),
+            Msg::UpdateDownloadProgress { finished, contributor } => format!("UpdateDownloadProgress({}) from {}", finished, contributor.name),
+            Msg::UpdateComputeProgress { finished, contributor } => format!("UpdateComputeProgress({}) from {}", finished, contributor.name),
+            Msg::UpdateUploadProgress { finished, contributor } =>  format!("UpdateUploadProgress({}) from {}", finished, contributor.name),
+        }
+    }
 }
 

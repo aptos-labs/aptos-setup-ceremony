@@ -8,4 +8,5 @@ pub mod powers_of_tau;
 pub mod multipairing_equation;
 pub mod boilerplate_trait_impls;
 pub mod messages;
+pub mod constants;
 pub(crate) mod parallel_ark_serde;

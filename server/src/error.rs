@@ -1,6 +1,7 @@
 use hyper::StatusCode;
 
 
+
 /// The point of this struct is to have an error which knows which HTTP code to return.
 #[derive(Debug)]
 pub struct ErrorWithCode {
@@ -20,6 +21,7 @@ impl ErrorWithCode {
         self.code.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
+
 
 impl<T> From<T> for ErrorWithCode
 where
@@ -69,13 +71,6 @@ impl<T> UseCodeOnError<T> for Result<T, anyhow::Error> {
     }
 }
 
-// TODO: is this trait necessary?
-impl<T> UseCodeOnError<T> for Result<T, ErrorWithCode> {
-    fn use_code_on_error(self, _code: StatusCode) -> Result<T, ErrorWithCode> {
-        self
-    }
-}
-
 
 
 
@@ -91,3 +86,4 @@ macro_rules! bail {
         return anyhow::Result::Err($crate::error::ErrorWithCode{error: anyhow::anyhow!($fmt, $($arg)*), code: None})
     };
 }
+

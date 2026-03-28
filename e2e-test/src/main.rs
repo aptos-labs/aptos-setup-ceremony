@@ -1,22 +1,12 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{bail, Result};
 use common::contribution::Contributor;
-use common::fptx::FPTXParams;
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
-use hyper::server::conn::http1;
-use hyper::service::service_fn;
-use hyper::{Response, body::Bytes};
-use hyper_util::rt::TokioIo;
-use http_body_util::Full;
 use rand::thread_rng;
-use server::handlers::{Config, ReportResponse, State, handle, handle_tick};
-use server::store::contribution_files::ContributionFilesStore;
-use server::store::contributors_db::ContributorsDB;
-use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use server::handlers::ReportResponse;
+use server::config::Config;
 use tokio::task::JoinSet;
 use tracing::{info, warn, error};
 
@@ -123,120 +113,13 @@ async fn run_contributor(
                 return Ok(());
             }
             Err(e) => {
-                warn!("[{}] Error: {}. Waiting for timeout...", contributor.name, e);
-                tokio::time::sleep(Duration::from_secs(25)).await;
-                warn!("Retrying");
+                //warn!("[{}] Error: {}. Waiting for timeout...", contributor.name, e);
+                //tokio::time::sleep(Duration::from_secs(25)).await;
+                //warn!("Retrying");
+                warn!("[{}] Error: {}. Retrying...", contributor.name, e);
             }
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// In-process server
-// ---------------------------------------------------------------------------
-
-async fn start_server(config: Arc<Config>) -> Result<(u16, tokio::task::JoinHandle<()>)> {
-    info!("Initializing database (in-memory)");
-    let contributors_db = ContributorsDB::new(&config.db_path).await?;
-
-    info!(
-        "Initializing GCS store (project={}, bucket={})",
-        config.gcp_project_id, config.bucket_id
-    );
-    let contribution_files_store =
-        ContributionFilesStore::init(&config.gcp_project_id, &config.bucket_id).await?;
-    contribution_files_store.ensure_bucket_exists().await?;
-
-    let state = Arc::new(Mutex::new(State {
-        contributors_db,
-        contribution_files_store,
-    }));
-
-    // Tick loop
-    let tick_state = state.clone();
-    let tick_config = config.clone();
-    tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
-        loop {
-            ticker.tick().await;
-            let mut state_locked = tick_state.lock().await;
-            if let Err(e) = handle_tick(&mut state_locked, &tick_config).await {
-                error!("Tick error: {e:?}");
-            }
-        }
-    });
-
-    // HTTP server
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
-    let port = listener.local_addr()?.port();
-    info!("Server listening on 127.0.0.1:{port}");
-
-    let server_handle = tokio::spawn(async move {
-        loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            let io = TokioIo::new(stream);
-            let state = state.clone();
-            let config = config.clone();
-            tokio::task::spawn(async move {
-                let _ = http1::Builder::new()
-                    .serve_connection(
-                        io,
-                        service_fn(|req| {
-                            let state = state.clone();
-                            let config = config.clone();
-                            async move { request_handler(req, state, config).await }
-                        }),
-                    )
-                    .await;
-            });
-        }
-    });
-
-    Ok((port, server_handle))
-}
-
-async fn request_handler(
-    request: server::Request,
-    state: Arc<Mutex<State>>,
-    config: Arc<Config>,
-) -> Result<Response<Full<Bytes>>, std::convert::Infallible> {
-    let method = request.method().clone();
-    let uri = request.uri().clone();
-    let result = handle_request(request, state, config).await;
-    Ok(match result {
-        Ok(value) => {
-            let body = serde_json::to_string(&value).unwrap();
-            Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(Full::new(Bytes::from(body)))
-                .unwrap()
-        }
-        Err(err) => {
-            let code = err.code();
-            let body = format!("{:#}", err.error);
-            if code.is_server_error() {
-                error!(%method, %uri, status = code.as_u16(), error = %body, "request failed");
-            } else {
-                warn!(%method, %uri, status = code.as_u16(), error = %body, "request rejected");
-            }
-            Response::builder()
-                .status(code)
-                .body(Full::new(Bytes::from(body)))
-                .unwrap()
-        }
-    })
-}
-
-async fn handle_request(
-    request: server::Request,
-    state: Arc<Mutex<State>>,
-    config: Arc<Config>,
-) -> Result<serde_json::Value, server::error::ErrorWithCode> {
-    let authenticated_msg = server::authentication::from_request(request).await?;
-    server::authentication::verify_correctly_authenticated(&authenticated_msg, &config)?;
-    let mut state = state.lock().await;
-    handle(authenticated_msg.inner, &mut state, &config).await
 }
 
 // ---------------------------------------------------------------------------
@@ -282,11 +165,10 @@ async fn main() -> Result<()> {
         contribute_timeout_secs: 300,
         upload_timeout_secs: 30,
         port: 0,
-        params: FPTXParams::new(128, 4).unwrap(),
     });
 
     // ---- Start server ----
-    let (port, _server_handle) = start_server(config).await?;
+    let (port, _server_handle) = server::serve::start_server(config).await?;
     let server_addr = format!("http://127.0.0.1:{port}");
     info!("Setting CEREMONY_SERVER_ADDRESS={server_addr}");
     unsafe { std::env::set_var("CEREMONY_SERVER_ADDRESS", &server_addr) };

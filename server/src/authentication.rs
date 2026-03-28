@@ -1,7 +1,7 @@
 use common::contribution::Contributor;
 use common::messages::{AuthenticatedMsg, Msg};
 use hyper::{Method, StatusCode};
-use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, handlers::Config};
+use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, config::Config};
 use anyhow::{Context, Result};
 use http_body_util::BodyExt;
 

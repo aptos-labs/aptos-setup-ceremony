@@ -12,7 +12,7 @@ use server::handlers::ReportResponse;
 use tabled::{Table, Tabled};
 use hex;
 
-use crate::cli::{AdminCommand, Cli, Command};
+use crate::cli::{self, AdminCommand, Cli, Command};
 use crate::csv::{read_keypairs_file, read_users_file, write_keypairs_file};
 use client::contribute;
 
@@ -37,7 +37,7 @@ fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contribut
 pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
     // TODO change this back for prod?
     //let my_keypair_file = config_dir.join(cli::KEYPAIR_FILE);
-    let my_keypair_file = PathBuf::from_str("./keypair.json")?;
+    let my_keypair_file = PathBuf::from_str(cli::KEYPAIR_FILE)?;
 
     match cli.command {
         Command::GenerateKeypair { name, email, force} => {
