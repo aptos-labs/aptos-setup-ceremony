@@ -61,7 +61,7 @@ async fn deserialize_authenticate_and_handle(
     let authenticated_msg = crate::authentication::from_request(request).await?;
     debug!(msg = ?authenticated_msg.inner, "authenticated request");
     crate::authentication::verify_correctly_authenticated(&authenticated_msg, &config)?;
-    handle(authenticated_msg.inner, &mut state, &config).await
+    handle(authenticated_msg.inner, state, &config).await
 }
 
 /// Initializes the database, GCS store, tick loop, and HTTP listener.
@@ -79,7 +79,7 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
     contribution_files_store.ensure_bucket_exists().await?;
 
     let state = Arc::new(State {
-        contributors_db,
+        contributors_db: Arc::new(Mutex::new(contributors_db)),
         contribution_files_store,
     });
 
@@ -90,8 +90,8 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
         let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
         loop {
             ticker.tick().await;
-            //let mut state_locked = tick_state.lock().await;
-            if let Err(e) = handle_tick(&mut state, &tick_config).await {
+            // TODO why do I have to clone twice here??
+            if let Err(e) = handle_tick(tick_state.clone(), &tick_config).await {
                 error!("Tick error: {e:?}");
             }
         }

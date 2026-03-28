@@ -400,7 +400,7 @@ impl ContributorsDB {
     }
 
     /// Get global status.
-    pub async fn get_global_status(&mut self) -> Result<Status> {
+    pub async fn get_global_status(&self) -> Result<Status> {
         let status: Status =
             sqlx::query_as("SELECT status, start FROM global_status WHERE id = 1")
                 .fetch_one(&self.pool)

@@ -14,7 +14,7 @@ fn deserialize_verifying_key<'de, D: Deserializer<'de>>(deserializer: D) -> Resu
 }
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     pub db_path: String,
     pub bucket_id: String,
