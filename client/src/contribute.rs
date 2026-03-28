@@ -87,6 +87,7 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
 }
 
 pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+    eprintln!("Downloading previous contribution...");
     // ping loop while downloading
     let ping_loop = PingLoop::start(
         Msg::UpdateDownloadProgress { finished: false, contributor: me.clone() }.sign(my_sk)
@@ -104,6 +105,7 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
 }
 
 pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+    eprintln!("Finished downloading, computing new contribution...");
     let ping_loop = PingLoop::start(
         Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
     );
@@ -129,6 +131,8 @@ pub async fn upload_my_contribution(
     my_contribution: &Contribution<FPTXContributionInner>, 
     my_sk: &SigningKey, 
     me: &Contributor) -> anyhow::Result<()> {
+    eprintln!("Finished computing contribution, uploading...");
+
     let response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
     let StatusResponse::ReadyForUpload(session_url) = response else {
         bail!("Finished compute, but server didn't give us the session url for upload");
@@ -154,6 +158,7 @@ pub async fn wait_for_server_verification(
     my_sk: &SigningKey,
     me: &Contributor,
 ) -> anyhow::Result<()> {
+    eprintln!("Finished uploading, waiting for server verification...");
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 

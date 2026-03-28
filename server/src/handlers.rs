@@ -110,7 +110,7 @@ pub async fn handle_update_download_progress(finished: bool, c: Contributor, sta
     };
 
     if finished {
-        db_locked.set_global_status(Status::WaitingForCompute { start: Utc::now() } ).await?;
+        db_locked.set_global_status(&Status::WaitingForCompute { start: Utc::now() } ).await?;
     }
     db_locked.update_timestamp(&c).await?;
 
@@ -129,7 +129,7 @@ pub async fn handle_update_compute_progress(finished: bool, c: Contributor, stat
     };
 
     if finished {
-        db_locked.set_global_status(Status::WaitingForUpload { start: Utc::now() }).await?;
+        db_locked.set_global_status(&Status::WaitingForUpload { start: Utc::now() }).await?;
     }
     db_locked.update_timestamp(&c).await?;
 
@@ -151,7 +151,7 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
     db_locked.update_timestamp(&c).await?;
 
     if finished {
-        db_locked.set_global_status(Status::Verifying { start: Utc::now() }).await?;
+        db_locked.set_global_status(&Status::Verifying { start: Utc::now() }).await?;
         let state_cloned = state.clone();
         let config_cloned = config.clone();
         tokio::spawn(handle_verify(c, state_cloned, config_cloned));
@@ -165,13 +165,14 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Result<()> {
     let mut db_locked = state.contributors_db.lock().await;
     let maybe_previous = db_locked.get_most_recent_finished_contributor().await?;
+    drop(db_locked);
     let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
     match current_verification_job.finished().await {
         Ok(_) => {
-            db_locked.finish_current().await?;
+            state.contributors_db.lock().await.finish_current().await?;
         },
         Err(e) => {
-            db_locked.kick_current(
+            state.contributors_db.lock().await.kick_current(
                 &e
                 .context("Verification of your contribution failed.")
             ).await?;
