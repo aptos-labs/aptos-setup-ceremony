@@ -165,7 +165,9 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Result<()> {
     let mut db_locked = state.contributors_db.lock().await;
     let maybe_previous = db_locked.get_most_recent_finished_contributor().await?;
-    drop(db_locked);
+    // drop lock before starting verification job, so we can respond to other requests during
+    // verification
+    drop(db_locked); 
     let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
     match current_verification_job.finished().await {
         Ok(_) => {
