@@ -237,6 +237,8 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                 db_locked.kick_current(&anyhow::anyhow!("Timed out")).await?;
             }
         }
+        // We don't timeout contributors during verification, since even if they go offline we can
+        // verify and mark their contribution as complete
         Status::Verifying { .. } => (),
     }
 
