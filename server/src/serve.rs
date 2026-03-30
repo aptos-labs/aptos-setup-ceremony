@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use common::constants::{TEST_CONTRIBUTOR, TEST_PARAMS, UPLOAD_CHUNK_SIZE};
+use common::contribution::Contribution;
+use common::fptx::FPTXContributionInner;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Response, body::Bytes};
 use hyper_util::rt::TokioIo;
 use http_body_util::Full;
+use rand::thread_rng;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -77,6 +81,22 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
     let contribution_files_store =
         ContributionFilesStore::init(&config.gcp_project_id, &config.bucket_id).await?;
     contribution_files_store.ensure_bucket_exists().await?;
+
+
+    info!(
+        "Generating test contribution for client download/compute/upload tests"
+    );
+    let mut rng = thread_rng();
+    let test_contribution : Contribution<FPTXContributionInner> = Contribution::generate(&mut rng, None, &TEST_CONTRIBUTOR, &TEST_PARAMS);
+    let session_url = contribution_files_store
+        .create_or_overwrite(&TEST_CONTRIBUTOR).await?
+        .should_not_be_finished()?
+        .as_client_url(&contribution_files_store).await?;
+    common::upload::upload_chunked(
+        &session_url,
+        &test_contribution,
+        UPLOAD_CHUNK_SIZE).await?;
+
 
     let state = Arc::new(State {
         contributors_db: Arc::new(Mutex::new(contributors_db)),

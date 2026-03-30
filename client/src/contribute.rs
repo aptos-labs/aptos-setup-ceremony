@@ -1,14 +1,12 @@
 
-use std::{process, time::Duration};
+use std::{process, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::PARAMS, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
 use tokio::{sync::oneshot, task::JoinHandle};
-
-use crate::upload;
 
 const PING_INTERVAL : tokio::time::Duration = tokio::time::Duration::from_secs(5);
 
@@ -142,12 +140,11 @@ pub async fn upload_my_contribution(
         Msg::UpdateUploadProgress { finished: false, contributor: me.clone() }.sign(my_sk)
     );
 
-    const CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB
 
-    upload::upload_chunked(
+    common::upload::upload_chunked(
         &session_url,
         my_contribution,
-        CHUNK_SIZE).await?;
+        UPLOAD_CHUNK_SIZE).await?;
 
     ping_loop.stop();
 
@@ -185,7 +182,56 @@ pub async fn wait_for_server_verification(
     }
 }
 
+pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<()> {
+
+    let download_url : String = Msg::GetTestContributionDownloadLink { contributor: me.clone() }
+        .sign(my_sk)
+        .send_and_receive()
+    .await?;
+
+    eprintln!("Testing your download speed...");
+
+    let start = Instant::now();
+    let bytes = reqwest::get(&download_url)
+        .await
+        .context("Error while downloading test contribution.")?
+        .bytes().await
+        .context("Error while downloading test contribution.")?;
+    let download_duration = start.elapsed();
+    eprintln!("Download took {:?}", download_duration);
+
+    eprintln!("Testing your compute speed...");
+
+    let test_contrib_downloaded : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
+    let my_test_contrib = Contribution::generate(&mut thread_rng(), Some(&test_contrib_downloaded), me, &TEST_PARAMS);
+    let compute_duration = start.elapsed();
+    eprintln!("Compute took {:?}", compute_duration);
+
+
+    let session_url : String = Msg::GetTestContributionUploadLink { contributor: me.clone() }
+        .sign(my_sk)
+        .send_and_receive()
+    .await?;
+
+    eprintln!("Testing your upload speed...");
+
+    let start = Instant::now();
+    common::upload::upload_chunked(
+        &session_url, 
+        &my_test_contrib, 
+        UPLOAD_CHUNK_SIZE).await?;
+    let upload_duration = start.elapsed();
+    eprintln!("Upload took {:?}", upload_duration);
+
+
+    Ok(())
+}
+
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
+    eprintln!("Hello {}.", me.name);
+
+    test_my_speed(&my_sk, me).await?;
+
     let maybe_url = match join_and_wait_in_queue(&my_sk, me).await? {
         QueueOutcome::AlreadyFinished => return Ok(()),
         QueueOutcome::ReadyToDownload(maybe_url) => maybe_url,

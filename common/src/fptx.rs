@@ -33,8 +33,8 @@ pub struct FPTXContributionInner {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXParams {
-    pub(crate) batch_size: usize,
-    pub(crate) num_rounds: usize,
+    pub batch_size: usize,
+    pub num_rounds: usize,
 }
 
 impl FPTXParams {
@@ -192,10 +192,12 @@ impl ContributionInner for FPTXContributionInner {
     }
 
     fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
+
         if self.alphas_g2.len() != params.num_rounds ||
             self.soks_alphas.len() != params.num_rounds ||
             self.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
             self.randomized_tau_powers_g1.len() != params.num_rounds {
+            eprintln!("asdfasdf");
             return Err(ContributionVerificationFailure::ParamsMismatch)
         }
 

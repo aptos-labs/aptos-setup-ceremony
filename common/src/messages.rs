@@ -83,6 +83,12 @@ pub enum Msg {
         finished: bool,
         contributor: Contributor,
     },
+    GetTestContributionDownloadLink {
+        contributor: Contributor,
+    },
+    GetTestContributionUploadLink {
+        contributor: Contributor,
+    },
 }
 
 impl Msg {
@@ -104,6 +110,8 @@ impl Msg {
             Msg::UpdateDownloadProgress { finished, contributor } => format!("UpdateDownloadProgress({}) from {}", finished, contributor.name),
             Msg::UpdateComputeProgress { finished, contributor } => format!("UpdateComputeProgress({}) from {}", finished, contributor.name),
             Msg::UpdateUploadProgress { finished, contributor } =>  format!("UpdateUploadProgress({}) from {}", finished, contributor.name),
+            Msg::GetTestContributionDownloadLink { .. } => format!("GetTestContributionDownloadLink"),
+            Msg::GetTestContributionUploadLink { .. } => format!("GetTestContributionUploadLink"),
         }
     }
 }

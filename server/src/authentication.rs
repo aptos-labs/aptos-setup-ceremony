@@ -1,4 +1,4 @@
-use common::contribution::Contributor;
+use common::contribution::{self, Contributor};
 use common::messages::{AuthenticatedMsg, Msg};
 use hyper::{Method, StatusCode};
 use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, config::Config};
@@ -44,5 +44,7 @@ pub fn verify_correctly_authenticated(msg: &AuthenticatedMsg<Msg>, config: &Conf
         Msg::Register { .. } => verify_authenticated_by_admin(msg, config),
         Msg::Report => verify_authenticated_by_admin(msg, config),
         Msg::DownloadAll => verify_authenticated_by_admin(msg, config),
+        Msg::GetTestContributionDownloadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::GetTestContributionUploadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
     }
 }

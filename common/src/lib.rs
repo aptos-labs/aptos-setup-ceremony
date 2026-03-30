@@ -9,4 +9,5 @@ pub mod multipairing_equation;
 pub mod boilerplate_trait_impls;
 pub mod messages;
 pub mod constants;
+pub mod upload;
 pub(crate) mod parallel_ark_serde;

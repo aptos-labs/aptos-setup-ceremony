@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use common::{constants::PARAMS, contribution::Contributor};
+use common::{constants::{PARAMS, TEST_CONTRIBUTOR, test_upload_contributor}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner};
 use anyhow::{Result, anyhow, Context};
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -169,13 +169,15 @@ async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Re
     // verification
     drop(db_locked); 
     let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
-    match current_verification_job.finished().await {
+    let verification_result = current_verification_job.finished().await?;
+    tracing::info!("Verification finished: {:?}", verification_result);
+    match verification_result {
         Ok(_) => {
             state.contributors_db.lock().await.finish_current().await?;
         },
         Err(e) => {
             state.contributors_db.lock().await.kick_current(
-                &e
+                &anyhow::Error::new(e)
                 .context("Verification of your contribution failed.")
             ).await?;
         }
@@ -279,6 +281,17 @@ pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<
     Ok(urls)
 }
 
+pub async fn handle_get_test_contribution_download_link(state: Arc<State>, _config: &Config) -> Result<String> {
+    let handle = state.contribution_files_store.get_or_create(&TEST_CONTRIBUTOR).await?;
+    let url = handle.should_be_finished()?.as_client_url(&state.contribution_files_store).await?;
+    Ok(url)
+}
+
+pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config: &Config) -> Result<String> {
+    let handle = state.contribution_files_store.get_or_create(&test_upload_contributor()).await?;
+    let url = handle.should_not_be_finished()?.as_client_url(&state.contribution_files_store).await?;
+    Ok(url)
+}
 
 pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serde_json::Value, ErrorWithCode> {
 
@@ -318,6 +331,12 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
         Msg::DownloadAll => {
             let urls = handle_download_all(state, config).await?;
             json!(urls)
-        }
+        },
+        Msg::GetTestContributionDownloadLink { .. } => {
+            json!(handle_get_test_contribution_download_link(state, config).await?)
+        },
+        Msg::GetTestContributionUploadLink { .. } => {
+            json!(handle_get_test_contribution_upload_link(state, config).await?)
+        },
     })
 }

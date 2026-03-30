@@ -1,4 +1,4 @@
-use common::{contribution::Contribution, fptx::FPTXContributionInner};
+use crate::{contribution::Contribution, fptx::FPTXContributionInner};
 use reqwest::Client;
 
 pub async fn upload_chunked(
