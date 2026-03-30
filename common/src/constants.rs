@@ -39,5 +39,5 @@ pub fn test_upload_contributor() -> Contributor {
 lazy_static! {
     pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
     pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(20);
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1);
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
 }

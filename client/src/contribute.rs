@@ -227,7 +227,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     let upload_duration = start.elapsed();
     eprintln!("Upload took {:?}", upload_duration);
 
-    let mut err_string = String::new();
+    let mut err_string = format!("One or more speed tests failed (shown below). Please use a faster connection and/or machine and try again.\n\n");
     let mut too_slow = false;
     if download_duration > *DOWNLOAD_TEST_CUTOFF {
         too_slow = true;
