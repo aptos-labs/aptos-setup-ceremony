@@ -1033,6 +1033,8 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aptos-batch-encryption",
+ "aptos-crypto",
  "bcs 0.1.6",
  "bytes",
  "clap 4.6.0",

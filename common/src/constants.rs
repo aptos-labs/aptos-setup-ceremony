@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 // real num_rounds is 216000
 pub const PARAMS : FPTXParams = FPTXParams {
     batch_size: 128,
-    num_rounds: 4000,
+    num_rounds: 216000,
 };
 
 
@@ -25,7 +25,7 @@ pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
 
 pub const TEST_PARAMS : FPTXParams = FPTXParams {
     batch_size: 128,
-    num_rounds: 4000, // 1/54th of the real size
+    num_rounds: 2160, // 1/100th of the real size
 };
 
 pub const TEST_DOWNLOAD_BLOB_SIZE_BYTES : usize = 1024 * 1024 * 128; // 128MB
@@ -38,6 +38,7 @@ pub fn test_upload_contributor() -> Contributor {
 
 lazy_static! {
     pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
-    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(20);
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1);
+    // 12 seconds for 1/100th of the real size => ~1200 secs = 20 mins for the real size
+    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(12);
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
 }

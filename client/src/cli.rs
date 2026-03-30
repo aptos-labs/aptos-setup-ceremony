@@ -49,5 +49,6 @@ pub enum AdminCommand {
         file: String,
     },
     Report,
-    DownloadAll
+    DownloadAll,
+    SanityTestLatest,
 }

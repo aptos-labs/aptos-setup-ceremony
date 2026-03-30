@@ -101,7 +101,7 @@ pub async fn handle_update_download_progress(finished: bool, c: Contributor, sta
     let mut db_locked = state.contributors_db.lock().await;
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::BAD_REQUEST)
+        .use_code_on_error(StatusCode::GONE)
 
     };
     let Status::WaitingForDownload{..} =  db_locked.get_global_status().await? else {
@@ -121,7 +121,7 @@ pub async fn handle_update_compute_progress(finished: bool, c: Contributor, stat
     let mut db_locked = state.contributors_db.lock().await;
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::BAD_REQUEST);
+        .use_code_on_error(StatusCode::GONE);
     };
     let Status::WaitingForCompute { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for compute"))
@@ -141,7 +141,7 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-            .use_code_on_error(StatusCode::BAD_REQUEST);
+            .use_code_on_error(StatusCode::GONE);
     };
     let Status::WaitingForUpload { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for upload"))
@@ -292,6 +292,18 @@ pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config
     Ok(url)
 }
 
+pub async fn handle_download_latest(state: Arc<State>, _config: &Config) -> Result<String, ErrorWithCode> {
+    match state.contributors_db.lock().await.get_most_recent_finished_contributor().await? {
+        Some(h) => Ok(state.contribution_files_store.get_or_create(&h).await?
+            .should_be_finished()?
+            .as_client_url(&state.contribution_files_store).await?),
+        None => {
+            Err(anyhow::anyhow!("No contributions yet"))
+                .use_code_on_error(StatusCode::NOT_FOUND)
+        }
+    }
+}
+
 pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serde_json::Value, ErrorWithCode> {
 
     tracing::info!("Handling request {}", msg.description());
@@ -330,6 +342,10 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
         Msg::DownloadAll => {
             let urls = handle_download_all(state, config).await?;
             json!(urls)
+        },
+        Msg::DownloadLatest => {
+            let url = handle_download_latest(state, config).await?;
+            json!(url)
         },
         Msg::GetTestContributionDownloadLink { .. } => {
             json!(handle_get_test_contribution_download_link(state, config).await?)

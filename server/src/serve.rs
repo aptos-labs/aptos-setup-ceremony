@@ -76,6 +76,7 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
         "Initializing GCS store (project={}, bucket={})",
         config.gcp_project_id, config.bucket_id
     );
+    // note: looks in GOOGLE_APPLICATION_CREDENTIALS for json cred file
     let contribution_files_store =
         ContributionFilesStore::init(&config.gcp_project_id, &config.bucket_id).await?;
     contribution_files_store.ensure_bucket_exists().await?;

@@ -40,11 +40,12 @@ pub fn verify_correctly_authenticated(msg: &AuthenticatedMsg<Msg>, config: &Conf
         Msg::UpdateDownloadProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
         Msg::UpdateComputeProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
         Msg::UpdateUploadProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::GetTestContributionDownloadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::GetTestContributionUploadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
         // admin commands
         Msg::Register { .. } => verify_authenticated_by_admin(msg, config),
         Msg::Report => verify_authenticated_by_admin(msg, config),
         Msg::DownloadAll => verify_authenticated_by_admin(msg, config),
-        Msg::GetTestContributionDownloadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
-        Msg::GetTestContributionUploadLink { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::DownloadLatest => verify_authenticated_by_admin(msg, config),
     }
 }
