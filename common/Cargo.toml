@@ -35,6 +35,9 @@ serde_json = { workspace = true }
 lazy_static = "1.5.0"
 
 
+[features]
+validate = []
+
 
 [[bench]]
 name = "fptx"

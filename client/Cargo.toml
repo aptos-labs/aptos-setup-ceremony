@@ -29,5 +29,7 @@ reqwest = { workspace = true }
 bcs = { workspace = true }
 rayon = { workspace = true }
 bytes = { workspace = true }
+aptos-batch-encryption = { workspace = true }
+aptos-crypto = { workspace = true }
 
 

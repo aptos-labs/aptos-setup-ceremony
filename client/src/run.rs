@@ -2,10 +2,11 @@ use std::path::PathBuf;
 use std::fs;
 use std::str::FromStr as _;
 
-use common::contribution::{Contributor, AsAndFromHex};
+use common::contribution::{AsAndFromHex, Contribution, Contributor};
+use common::fptx::FPTXContributionInner;
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
-use rand::thread_rng;
+use rand::{Rng as _, thread_rng};
 use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
@@ -103,6 +104,37 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
 
             }
             AdminCommand::DownloadAll => todo!(),
+            AdminCommand::SanityTestLatest => {
+                use aptos_batch_encryption::{
+                    schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _,
+                };
+                use aptos_crypto::weighted_config::WeightedConfigArkworks;
+
+                let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
+
+                let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
+
+                eprintln!("Downloading latest...");
+                let bytes = reqwest::get(url)
+                    .await?
+                    .bytes().await?;
+
+                eprintln!("Deserializing latest...");
+                let latest_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
+
+                eprintln!("Initializing FPTX params...");
+                let tc = WeightedConfigArkworks::new(3, vec![1, 2, 5]).unwrap();
+
+                let (mut ek, _, vks, msk_shares) =
+                FPTXWeighted::setup_for_testing(thread_rng().r#gen(), 8, 1, &tc).unwrap();
+
+                let dk = latest_contribution.output();
+                ek.use_digest_key(&dk);
+
+                eprintln!("Running smoke...");
+                run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
+                eprintln!("Succeeded!");
+            }
         }
     }
 

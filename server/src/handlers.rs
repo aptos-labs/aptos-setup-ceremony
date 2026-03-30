@@ -292,6 +292,18 @@ pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config
     Ok(url)
 }
 
+pub async fn handle_download_latest(state: Arc<State>, _config: &Config) -> Result<String, ErrorWithCode> {
+    match state.contributors_db.lock().await.get_most_recent_finished_contributor().await? {
+        Some(h) => Ok(state.contribution_files_store.get_or_create(&h).await?
+            .should_be_finished()?
+            .as_client_url(&state.contribution_files_store).await?),
+        None => {
+            Err(anyhow::anyhow!("No contributions yet"))
+                .use_code_on_error(StatusCode::NOT_FOUND)
+        }
+    }
+}
+
 pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serde_json::Value, ErrorWithCode> {
 
     tracing::info!("Handling request {}", msg.description());
@@ -330,6 +342,10 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
         Msg::DownloadAll => {
             let urls = handle_download_all(state, config).await?;
             json!(urls)
+        },
+        Msg::DownloadLatest => {
+            let url = handle_download_latest(state, config).await?;
+            json!(url)
         },
         Msg::GetTestContributionDownloadLink { .. } => {
             json!(handle_get_test_contribution_download_link(state, config).await?)

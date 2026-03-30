@@ -205,6 +205,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
 
     eprintln!("Testing your compute speed...");
 
+    let start = Instant::now();
     let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS);
     let compute_duration = start.elapsed();
     let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;

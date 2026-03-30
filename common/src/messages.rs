@@ -62,6 +62,7 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
 pub enum Msg {
     Report,
     DownloadAll,
+    DownloadLatest,
     Register {
         contributor: Contributor,
     },
@@ -104,6 +105,7 @@ impl Msg {
         match self {
             Msg::Report => String::from("Report"),
             Msg::DownloadAll => String::from("DownloadAll"),
+            Msg::DownloadLatest => String::from("DownloadLatest"),
             Msg::Register { contributor } => format!("Register from {}", contributor.name),
             Msg::Join { contributor } => format!("Join from {}", contributor.name),
             Msg::GetStatus { contributor } => format!("GetStatus from {}", contributor.name),
