@@ -2,7 +2,7 @@
 use std::{process, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::{PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -227,8 +227,26 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     let upload_duration = start.elapsed();
     eprintln!("Upload took {:?}", upload_duration);
 
+    let mut err_string = String::new();
+    let mut too_slow = false;
+    if download_duration > *DOWNLOAD_TEST_CUTOFF {
+        too_slow = true;
+        err_string += &format!("Your download test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", download_duration, *DOWNLOAD_TEST_CUTOFF);
+    }
+    if compute_duration > *COMPUTE_TEST_CUTOFF {
+        too_slow = true;
+        err_string += &format!("Your compute test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", compute_duration, *COMPUTE_TEST_CUTOFF);
+    }
+    if upload_duration > *UPLOAD_TEST_CUTOFF {
+        too_slow = true;
+        err_string += &format!("Your upload test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", upload_duration, *UPLOAD_TEST_CUTOFF);
+    }
 
-    Ok(())
+    if !too_slow {
+        Ok(())
+    } else {
+        bail!(err_string)
+    }
 }
 
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {

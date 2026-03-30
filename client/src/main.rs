@@ -23,9 +23,8 @@ async fn main() {
         
     std::fs::create_dir_all(&config_dir).expect("Should be able to create dir");
 
-//    if let Err(e) = run::run(cli, config_dir).await {
-//        eprintln!("{}", e);
-//    }
+    if let Err(e) = run::run(cli, config_dir).await {
+        eprintln!("{}", e);
+    }
 
-    run::run(cli, config_dir).await.unwrap();
 }
