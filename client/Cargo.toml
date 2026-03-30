@@ -28,5 +28,6 @@ tokio = { workspace = true }
 reqwest = { workspace = true }
 bcs = { workspace = true }
 rayon = { workspace = true }
+bytes = { workspace = true }
 
 

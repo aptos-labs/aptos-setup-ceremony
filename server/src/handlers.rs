@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use common::{constants::{PARAMS, TEST_CONTRIBUTOR, test_upload_contributor}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner};
+use common::{constants::{PARAMS, test_upload_contributor}, contribution::{Contributor}};
 use anyhow::{Result, anyhow, Context};
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -282,8 +282,7 @@ pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<
 }
 
 pub async fn handle_get_test_contribution_download_link(state: Arc<State>, _config: &Config) -> Result<String> {
-    let handle = state.contribution_files_store.get_or_create(&TEST_CONTRIBUTOR).await?;
-    let url = handle.should_be_finished()?.as_client_url(&state.contribution_files_store).await?;
+    let url = state.contribution_files_store.get_test_blob_download_url().await?;
     Ok(url)
 }
 

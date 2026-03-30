@@ -1,4 +1,4 @@
-use common::contribution::{self, Contributor};
+use common::contribution::Contributor;
 use common::messages::{AuthenticatedMsg, Msg};
 use hyper::{Method, StatusCode};
 use crate::{Request, error::{ErrorWithCode, UseCodeOnError}, config::Config};

@@ -7,6 +7,7 @@ use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
 use tokio::{sync::oneshot, task::JoinHandle};
+use bytes::{Bytes, BytesMut};
 
 const PING_INTERVAL : tokio::time::Duration = tokio::time::Duration::from_secs(5);
 
@@ -102,19 +103,21 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
         .context("Error while deserializing previous contribution.")
 }
 
-pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
     eprintln!("Finished downloading, computing new contribution...");
     let ping_loop = PingLoop::start(
         Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
     );
 
-    let (tx, rx) = oneshot::channel::<Contribution<FPTXContributionInner>>();
+    let (tx, rx) = oneshot::channel::<Bytes>();
     let me_cloned = me.clone();
 
     rayon::spawn(move || {
         let mut rng = thread_rng();
         tx.send(
-            Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
+            // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
+            Bytes::from(bcs::to_bytes(&Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS))
+            .expect("Should never fail to serialize"))
         ).expect("Should never fail to send")
     });
 
@@ -126,7 +129,7 @@ pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXCon
 }
 
 pub async fn upload_my_contribution(
-    my_contribution: &Contribution<FPTXContributionInner>, 
+    my_contribution: &Bytes, 
     my_sk: &SigningKey, 
     me: &Contributor) -> anyhow::Result<()> {
     eprintln!("Finished computing contribution, uploading...");
@@ -143,7 +146,7 @@ pub async fn upload_my_contribution(
 
     common::upload::upload_chunked(
         &session_url,
-        my_contribution,
+        &my_contribution,
         UPLOAD_CHUNK_SIZE).await?;
 
     ping_loop.stop();
@@ -192,21 +195,22 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     eprintln!("Testing your download speed...");
 
     let start = Instant::now();
-    let bytes = reqwest::get(&download_url)
+    let mut bytes : BytesMut = BytesMut::from(reqwest::get(&download_url)
         .await
         .context("Error while downloading test contribution.")?
         .bytes().await
-        .context("Error while downloading test contribution.")?;
+        .context("Error while downloading test contribution.")?);
     let download_duration = start.elapsed();
     eprintln!("Download took {:?}", download_duration);
 
     eprintln!("Testing your compute speed...");
 
-    let test_contrib_downloaded : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
-    let my_test_contrib = Contribution::generate(&mut thread_rng(), Some(&test_contrib_downloaded), me, &TEST_PARAMS);
+    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS);
     let compute_duration = start.elapsed();
+    let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
     eprintln!("Compute took {:?}", compute_duration);
 
+    bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
 
     let session_url : String = Msg::GetTestContributionUploadLink { contributor: me.clone() }
         .sign(my_sk)
@@ -218,7 +222,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     let start = Instant::now();
     common::upload::upload_chunked(
         &session_url, 
-        &my_test_contrib, 
+        &bytes, 
         UPLOAD_CHUNK_SIZE).await?;
     let upload_duration = start.elapsed();
     eprintln!("Upload took {:?}", upload_duration);

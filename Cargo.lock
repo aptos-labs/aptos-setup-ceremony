@@ -1034,6 +1034,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bcs 0.1.6",
+ "bytes",
  "clap 4.6.0",
  "clap_derive",
  "common",
@@ -4681,6 +4682,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bcs 0.1.6",
+ "bytes",
  "chrono",
  "common",
  "ed25519-dalek 2.2.0",

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use bytes::Bytes;
 use std::time::Duration;
 
 use common::contribution::Contributor;
@@ -80,6 +81,7 @@ impl ContributionFileHandle {
             }
         }
     }
+
 }
 
 pub struct ContributionFilesStore {
@@ -89,7 +91,7 @@ pub struct ContributionFilesStore {
     client: reqwest::Client,
     auth: Arc<dyn TokenProvider>,
     signer: Signer,
-    gcs_client: Storage,
+    pub(crate) gcs_client: Storage,
     control_client: StorageControl,
 }
 
@@ -281,6 +283,20 @@ impl ContributionFilesStore {
             .sign_with(&self.signer)
             .await?;
         Ok(url)
+    }
+
+    pub async fn write_test_blob(&self, blob: Bytes) -> Result<()> {
+        let bucket = format!("projects/_/buckets/{}", self.bucket_id);
+        self.gcs_client
+            .write_object(bucket, "test_download_blob", blob)
+            .send_unbuffered()
+        .await?;
+        
+        Ok(())
+    }
+
+    pub async fn get_test_blob_download_url(&self) -> Result<String> {
+        self.generate_signed_download_url("test_download_blob").await
     }
 }
 

@@ -54,6 +54,7 @@ tabled = "0.20.0"
 csv = "1.4.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes = { version = "1.11.1", features = ["serde"] }
 
 
 [patch.crates-io]

@@ -1,14 +1,12 @@
-use crate::{contribution::Contribution, fptx::FPTXContributionInner};
 use reqwest::Client;
 
 pub async fn upload_chunked(
     session_url: &str,
-    data: &Contribution<FPTXContributionInner>,
+    bytes: &[u8],
     chunk_size: usize,
 ) -> anyhow::Result<()> {
         let client = Client::new();
 
-    let bytes = bcs::to_bytes(data)?;
     let total = bytes.len();
 
     for (i, chunk) in bytes.chunks(chunk_size).enumerate() {
