@@ -101,7 +101,7 @@ pub async fn handle_update_download_progress(finished: bool, c: Contributor, sta
     let mut db_locked = state.contributors_db.lock().await;
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::BAD_REQUEST)
+        .use_code_on_error(StatusCode::GONE)
 
     };
     let Status::WaitingForDownload{..} =  db_locked.get_global_status().await? else {
@@ -121,7 +121,7 @@ pub async fn handle_update_compute_progress(finished: bool, c: Contributor, stat
     let mut db_locked = state.contributors_db.lock().await;
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::BAD_REQUEST);
+        .use_code_on_error(StatusCode::GONE);
     };
     let Status::WaitingForCompute { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for compute"))
@@ -141,7 +141,7 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 
     let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
         return Err(anyhow!("Not the current active contributor"))
-            .use_code_on_error(StatusCode::BAD_REQUEST);
+            .use_code_on_error(StatusCode::GONE);
     };
     let Status::WaitingForUpload { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for upload"))
