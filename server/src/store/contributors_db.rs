@@ -367,9 +367,25 @@ impl ContributorsDB {
         .execute(&self.pool)
         .await?;
 
+
         if result.rows_affected() == 0 {
             bail!("Contributor not found or not in a state that can be enqueued");
         }
+
+        // If if the current contributor is the one we just added, this means that
+        // the queue was empty before, and thus the start time is stale and needs
+        // to be updated
+        if let Some(contributor_state) = self.get_current().await? && 
+            &contributor_state.contributor == contributor
+        {
+            self.set_global_status(
+                &Status::WaitingForDownload {
+                    start: Utc::now(),
+                },
+            )
+            .await?;
+        }
+
         Ok(())
     }
 

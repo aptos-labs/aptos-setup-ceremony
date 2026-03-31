@@ -1,6 +1,18 @@
+use std::backtrace::Backtrace;
+
 use hyper::StatusCode;
+use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerError {
+    pub error_type: ErrorType,
+    pub code: u16,
+}
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ErrorType {
+    ASDF,
+}
 
 /// The point of this struct is to have an error which knows which HTTP code to return.
 #[derive(Debug)]
