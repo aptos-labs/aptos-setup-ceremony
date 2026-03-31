@@ -4,15 +4,15 @@ services:
     ports:
       - "8888:8888"
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS: "/test-gcs-server.json"
+      GOOGLE_APPLICATION_CREDENTIALS: /test-gcs-server.json
     restart: always
     volumes:
-      - /home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro
+      - "/home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro"
   ngrok:
     image: ngrok/ngrok:latest
     command:
       - "http"
-      - "http://host.docker.internal:8888"
+      - "http://aptos-setup-ceremony-server:8888"
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     ports:
