@@ -22,7 +22,7 @@ impl PingLoop {
             loop {
                 ticker.tick().await;
                 match msg.send().await {
-                    Ok(()) => {},
+                    Ok(()) => {eprint!(".")},
                     Err(e) => {
                         eprintln!("Couldn't ping server, you were probably kicked. Error: {:?}", e);
                         exit(1)
@@ -102,7 +102,8 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
         .context("Error while downloading previous contribution.")?
         .bytes().await
         .context("Error while downloading previous contribution.")?;
-    ping_loop.stop();
+
+    eprintln!("Deserializing previous contribution...");
 
     let (tx, rx) = oneshot::channel::<anyhow::Result<Contribution<FPTXContributionInner>>>();
 
@@ -113,7 +114,11 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
         ).expect("Should never fail to send")
     });
 
-    rx.await?
+    let previous_contribution_or_err = rx.await?;
+
+    ping_loop.stop();
+
+    previous_contribution_or_err
 }
 
 pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
