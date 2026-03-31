@@ -152,7 +152,6 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                     eprintln!("{}", c.name);
                 }
 
-
                 eprintln!("{}: Computing digest key...", chrono::Local::now());
                 let dk = latest_contribution.output();
 

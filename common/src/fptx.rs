@@ -121,6 +121,13 @@ impl ContributionInner for FPTXContributionInner {
     }
 
     fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, ()) {
+        if previous.alphas_g2.len() != params.num_rounds ||
+            previous.soks_alphas.len() != params.num_rounds ||
+            previous.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
+            previous.randomized_tau_powers_g1.len() != params.num_rounds {
+            return Err(ContributionVerificationFailure::ParamsMismatch)
+        }
+
         let random_alphas_fr : Vec<Fr> = (0..params.num_rounds).map(|_| Fr::rand(rng)).collect();
 
         let time = std::time::Instant::now();
@@ -192,12 +199,10 @@ impl ContributionInner for FPTXContributionInner {
     }
 
     fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
-
         if self.alphas_g2.len() != params.num_rounds ||
             self.soks_alphas.len() != params.num_rounds ||
             self.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
             self.randomized_tau_powers_g1.len() != params.num_rounds {
-            eprintln!("asdfasdf");
             return Err(ContributionVerificationFailure::ParamsMismatch)
         }
 
