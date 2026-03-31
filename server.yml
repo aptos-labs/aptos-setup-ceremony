@@ -8,6 +8,7 @@ services:
     restart: always
     volumes:
       - "/home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro"
+      - "/home/rex_fernando_aptoslabs_com/coding/aptos-setup-ceremony/server/ceremony.sqlite3:/ceremony.sqlite3"
   ngrok:
     image: ngrok/ngrok:latest
     command:
