@@ -90,7 +90,7 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
     Ok(QueueOutcome::ReadyToDownload(maybe_url))
 }
 
-pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Contribution<FPTXContributionInner>> {
+pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
     eprintln!("Downloading previous contribution...");
     // ping loop while downloading
     let ping_loop = PingLoop::start(
@@ -103,25 +103,12 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
         .bytes().await
         .context("Error while downloading previous contribution.")?;
 
-    eprintln!("Deserializing previous contribution...");
-
-    let (tx, rx) = oneshot::channel::<anyhow::Result<Contribution<FPTXContributionInner>>>();
-
-    rayon::spawn(move || {
-        tx.send(
-            bcs::from_bytes(&bytes)
-                .context("Error while deserializing previous contribution.")
-        ).expect("Should never fail to send")
-    });
-
-    let previous_contribution_or_err = rx.await?;
-
     ping_loop.stop();
 
-    previous_contribution_or_err
+    Ok(bytes)
 }
 
-pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
+pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
     eprintln!("Finished downloading, computing new contribution...");
     let ping_loop = PingLoop::start(
         Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
@@ -132,6 +119,15 @@ pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXCon
 
     rayon::spawn(move || {
         let mut rng = thread_rng();
+        // deserialize here b/c its computationally expensive, and is done in parallel w/
+        // rayon
+        let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_previous_bytes { 
+            Some(previous) => 
+            Some(bcs::from_bytes(&previous)
+                .context("Error while deserializing previous contribution.")
+                .unwrap()),
+            None => None 
+        };
         tx.send(
             // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
             Bytes::from(bcs::to_bytes(&Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS))
@@ -221,6 +217,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     let download_duration = start.elapsed();
     eprintln!("Download took {:?}", download_duration);
 
+    // NOTE we are being somewhat inaccurate here, b/c we aren't testing deserialize speed...
     eprintln!("Testing your compute speed...");
 
 //    let start = Instant::now();
@@ -282,7 +279,7 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
         }
     };
 
-    let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_url {
+    let maybe_previous : Option<Bytes> = match maybe_url {
         Some(url) => {
             Some(download_previous(&url, &my_sk, me).await?)
         }
