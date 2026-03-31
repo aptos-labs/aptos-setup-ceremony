@@ -31,9 +31,7 @@ impl VerificationJob {
 
         rayon::spawn(move || {
             let mut rng = thread_rng();
-            info!("Starting verification");
             let verification_result = current_contribution.verify(&mut rng, maybe_previous_contribution.as_ref(), &params);
-            info!("Finished verification, result: {:?}", verification_result);
             tx.send(verification_result)
             .expect("Sending should always succeed")
         });

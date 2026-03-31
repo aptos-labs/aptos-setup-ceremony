@@ -2,7 +2,7 @@
 use std::{process::{self, exit}, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -104,8 +104,16 @@ pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) 
         .context("Error while downloading previous contribution.")?;
     ping_loop.stop();
 
-    bcs::from_bytes(&bytes)
-        .context("Error while deserializing previous contribution.")
+    let (tx, rx) = oneshot::channel::<anyhow::Result<Contribution<FPTXContributionInner>>>();
+
+    rayon::spawn(move || {
+        tx.send(
+            bcs::from_bytes(&bytes)
+                .context("Error while deserializing previous contribution.")
+        ).expect("Should never fail to send")
+    });
+
+    rx.await?
 }
 
 pub async fn compute_my_contribution(maybe_previous: Option<Contribution<FPTXContributionInner>>, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
