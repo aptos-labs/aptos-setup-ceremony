@@ -54,8 +54,10 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             if fs::exists(&my_keypair_file)? && !force {
                 bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
-            let keypair_json = serde_json::to_string(&<(SigningKey, Contributor)>::from_hex(&contributor_keypair_hex)?)?;
+            let (my_sk, me) = &<(SigningKey, Contributor)>::from_hex(&contributor_keypair_hex)?;
+            let keypair_json = serde_json::to_string(&(my_sk, me))?;
             fs::write(&my_keypair_file, keypair_json)?;
+            eprintln!("You are contributing as {}.", me.name);
             eprintln!("Keypair file written to {:?}", my_keypair_file);
         },
         Command::Contribute => {
