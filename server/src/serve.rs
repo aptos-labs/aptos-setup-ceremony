@@ -23,7 +23,7 @@ use crate::Request;
 async fn request_handler(
     request: Request,
     state: Arc<State>,
-    config: Arc<Config>,
+    config: &'static Config,
 ) -> Result<Response<Full<Bytes>>, std::convert::Infallible> {
     let method = request.method().clone();
     let uri = request.uri().clone();
@@ -58,17 +58,16 @@ async fn request_handler(
 async fn deserialize_authenticate_and_handle(
     request: Request,
     state: Arc<State>,
-    config: Arc<Config>,
+    config: &'static Config,
 ) -> Result<serde_json::Value, ErrorWithCode> {
     let authenticated_msg = crate::authentication::from_request(request).await?;
-    debug!(msg = ?authenticated_msg.inner, "authenticated request");
     crate::authentication::verify_correctly_authenticated(&authenticated_msg, &config)?;
     handle(authenticated_msg.inner, state, &config).await
 }
 
 /// Initializes the database, GCS store, tick loop, and HTTP listener.
 /// Returns `(port, server_join_handle)`.
-pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> {
+pub async fn start_server(config: &'static Config) -> Result<(u16, JoinHandle<()>)> {
     info!("Initializing database at {}", config.db_path);
     let contributors_db = ContributorsDB::new(&config.db_path).await?;
 
@@ -99,13 +98,12 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
 
     // Tick loop
     let tick_state = state.clone();
-    let tick_config = config.clone();
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(5));
         loop {
             ticker.tick().await;
             // TODO why do I have to clone twice here??
-            if let Err(e) = handle_tick(tick_state.clone(), &tick_config).await {
+            if let Err(e) = handle_tick(tick_state.clone(), config).await {
                 error!("Tick error: {e:?}");
             }
         }
@@ -122,14 +120,12 @@ pub async fn start_server(config: Arc<Config>) -> Result<(u16, JoinHandle<()>)> 
             let (stream, _) = listener.accept().await.unwrap();
             let io = TokioIo::new(stream);
             let state = state.clone();
-            let config = config.clone();
             tokio::task::spawn(async move {
                 if let Err(e) = http1::Builder::new()
                     .serve_connection(
                         io,
                         service_fn(|req| {
                             let state = state.clone();
-                            let config = config.clone();
                             async move { request_handler(req, state, config).await }
                         }),
                     )

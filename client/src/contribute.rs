@@ -2,7 +2,7 @@
 use std::{process::{self, exit}, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -221,14 +221,14 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     // NOTE we are being somewhat inaccurate here, b/c we aren't testing deserialize speed...
     eprintln!("Testing your compute speed...");
 
-//    let start = Instant::now();
-//    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS);
-//    let compute_duration = start.elapsed();
-//    let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
-//    eprintln!("Compute took {:?}", compute_duration);
-//
-//    bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
-//
+    let start = Instant::now();
+    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS);
+    let compute_duration = start.elapsed();
+    let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
+    eprintln!("Compute took {:?}", compute_duration);
+
+    bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
+
     let session_url : String = Msg::GetTestContributionUploadLink { contributor: me.clone() }
         .sign(my_sk)
         .send_and_receive()
@@ -250,10 +250,10 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
         too_slow = true;
         err_string += &format!("Your download test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", download_duration, *DOWNLOAD_TEST_CUTOFF);
     }
-//    if compute_duration > *COMPUTE_TEST_CUTOFF {
-//        too_slow = true;
-//        err_string += &format!("Your compute test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", compute_duration, *COMPUTE_TEST_CUTOFF);
-//    }
+    if compute_duration > *COMPUTE_TEST_CUTOFF {
+        too_slow = true;
+        err_string += &format!("Your compute test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", compute_duration, *COMPUTE_TEST_CUTOFF);
+    }
     if upload_duration > *UPLOAD_TEST_CUTOFF {
         too_slow = true;
         err_string += &format!("Your upload test was too slow; it took {:?}, whereas the cutoff is {:?}.\n", upload_duration, *UPLOAD_TEST_CUTOFF);

@@ -270,17 +270,17 @@ pub async fn handle_report(state: Arc<State>, _config: &Config) -> Result<Report
     Ok(ReportResponse { status, contributors })
 }
 
-pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<Vec<String>> {
+pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<Vec<(ContributorState, String)>> {
     let db_locked = state.contributors_db.lock().await;
     let contributors = db_locked.get_finished_contributors().await?;
     drop(db_locked);
     let mut urls = Vec::with_capacity(contributors.len());
     for c in &contributors {
-        let handle = state.contribution_files_store.get_or_create(c).await?;
+        let handle = state.contribution_files_store.get_or_create(&c.contributor).await?;
         let url = handle.should_be_finished()?.as_client_url(&state.contribution_files_store).await?;
         urls.push(url);
     }
-    Ok(urls)
+    Ok(contributors.into_iter().zip(urls).collect())
 }
 
 pub async fn handle_get_test_contribution_download_link(state: Arc<State>, _config: &Config) -> Result<String> {

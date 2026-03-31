@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::fs;
 use std::str::FromStr as _;
 
+use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
 use common::contribution::{AsAndFromHex, Contribution, Contributor};
 use common::fptx::FPTXContributionInner;
 use common::messages::Msg;
@@ -10,6 +11,7 @@ use rand::{Rng as _, thread_rng};
 use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
+use server::store::contributors_db::ContributorState;
 use tabled::{Table, Tabled};
 use hex;
 
@@ -105,23 +107,41 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
 
 
             }
-            AdminCommand::DownloadAll => todo!(),
-            AdminCommand::SanityTestLatest => {
+            AdminCommand::DownloadAll => {
+                let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
+
+                let mut finished : Vec<(ContributorState, String)> = Msg::DownloadAll.sign(&my_sk).send_and_receive().await?;
+
+                // Don't need to sort b/c already sorted
+
+                eprintln!("Downloading all contributions...");
+
+
+                for (i, (c, url)) in finished.into_iter().enumerate() {
+                    let bytes = reqwest::get(url)
+                        .await?
+                        .bytes().await?;
+
+                    let name_no_space = c.contributor.name.replace(" ", "-");
+
+                    fs::write(format!("{:03}-{}-{}.contrib", i+1, c.contributor.verifying_key.as_hex()?, name_no_space), bytes)?;
+                }
+            },
+            AdminCommand::SmokeTestLatest => {
                 use aptos_batch_encryption::{
-                    schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _,
+                    schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, 
                 };
-                use aptos_crypto::weighted_config::WeightedConfigArkworks;
 
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
 
                 let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
 
-                eprintln!("Downloading latest...");
+                eprintln!("{}: Downloading latest...", chrono::Local::now());
                 let bytes = reqwest::get(url)
                     .await?
                     .bytes().await?;
 
-                eprintln!("Deserializing latest...");
+                eprintln!("{}: Deserializing latest...", chrono::Local::now());
                 let latest_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
 
                 eprintln!("Latest is from: {}", latest_contribution.contributor().name);
@@ -132,16 +152,14 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                     eprintln!("{}", c.name);
                 }
 
-                eprintln!("Initializing FPTX params...");
-                let tc = WeightedConfigArkworks::new(3, vec![1, 2, 5]).unwrap();
 
-                let (mut ek, _, vks, msk_shares) =
-                FPTXWeighted::setup_for_testing(thread_rng().r#gen(), 8, 1, &tc).unwrap();
-
+                eprintln!("{}: Computing digest key...", chrono::Local::now());
                 let dk = latest_contribution.output();
-                ek.use_digest_key(&dk);
 
-                eprintln!("Running smoke...");
+                eprintln!("{}: Running dummy DKG...", chrono::Local::now());
+                let (tc, ek, vks, msk_shares) = run_pvss(&dk);
+
+                eprintln!("{}: Running smoke...", chrono::Local::now());
                 run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
                 eprintln!("Succeeded!");
             }

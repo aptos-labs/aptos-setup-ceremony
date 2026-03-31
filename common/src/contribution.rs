@@ -76,6 +76,16 @@ impl AsAndFromHex for (SigningKey, Contributor) {
     }
 }
 
+impl AsAndFromHex for VerifyingKey {
+    fn as_hex(&self) -> anyhow::Result<String> {
+        Ok(hex::encode(bcs::to_bytes(&self)?))
+    }
+    fn from_hex(hex: &str) -> anyhow::Result<Self> {
+        Ok(bcs::from_bytes(&hex::decode(hex)?)?)
+
+    }
+}
+
 pub trait ContributionInner : Serialize + DeserializeOwned {
     /// The pairing over which this inner contribution is defined.
     type P : Pairing;

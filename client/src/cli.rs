@@ -50,5 +50,5 @@ pub enum AdminCommand {
     },
     Report,
     DownloadAll,
-    SanityTestLatest,
+    SmokeTestLatest,
 }

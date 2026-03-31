@@ -20,7 +20,6 @@ pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
 
 
 // constants related to download/compute/upload test that client does
-//
 
 
 pub const TEST_PARAMS : FPTXParams = FPTXParams {
@@ -38,7 +37,8 @@ pub fn test_upload_contributor() -> Contributor {
 
 lazy_static! {
     pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
-    // 12 seconds for 1/100th of the real size => ~1200 secs = 20 mins for the real size
+    // 12 seconds for 1/100th of the real size => ~1200 secs = 20 mins for the real size. Note
+    //    that this doesn't test deserialization so there is built-in inaccuracy
     pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(12);
     pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
 }

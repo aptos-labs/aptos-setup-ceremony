@@ -155,7 +155,7 @@ async fn main() -> Result<()> {
         .collect();
 
     // ---- Server config ----
-    let config = Arc::new(Config {
+    let config = Box::new(Config {
         db_path: "sqlite::memory:".to_string(),
         bucket_id: "e2e-test-ceremony-bucket".to_string(),
         gcp_project_id: "benchmark-zkid-circuit".to_string(),
@@ -166,6 +166,8 @@ async fn main() -> Result<()> {
         upload_timeout_secs: 30,
         port: 0,
     });
+
+    let config: &'static Config = Box::leak(config);
 
     // ---- Start server ----
     let (port, _server_handle) = server::serve::start_server(config).await?;

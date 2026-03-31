@@ -27,14 +27,16 @@ async fn main() {
     rustls::crypto::aws_lc_rs::default_provider().install_default()
         .expect("Failed to install rustls crypto provider");
 
-    let config: Config = Figment::new()
+    let config: Box<Config> = Box::new(Figment::new()
         .merge(Toml::file("config.toml"))
         .merge(Env::prefixed("SERVER_"))
         .extract()
-        .expect("Failed to load config");
+        .expect("Failed to load config"));
 
-    info!("Starting server on port {}", config.port);
-    let (_port, server_handle) = server::serve::start_server(Arc::new(config))
+    let config: &'static Config = Box::leak(config);
+
+    info!("Starting server on port {}", &config.port);
+    let (_port, server_handle) = server::serve::start_server(config)
         .await
         .expect("Failed to start server");
 

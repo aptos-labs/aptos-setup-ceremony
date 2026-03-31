@@ -5,3 +5,5 @@ massif.out.*
 *.csv.keypairs
 *.sqlite3
 *.json
+*.log
+*.contrib
