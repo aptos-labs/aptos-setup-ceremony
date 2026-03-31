@@ -1,11 +1,10 @@
 FROM archlinux:latest
 
-CMD pacman -Syy & \
-    pacman -S rustup
+RUN pacman -Syy && pacman -S rustup gcc make lld pkg-config --noconfirm
 
 COPY . .
 
-CMD cargo build
+RUN cargo build --release
 
-
+CMD ["./target/release/server"]
 
