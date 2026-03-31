@@ -91,6 +91,7 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
 }
 
 pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
+    eprintln!("It is your turn.");
     eprintln!("Downloading previous contribution...");
     // ping loop while downloading
     let ping_loop = PingLoop::start(

@@ -171,16 +171,17 @@ async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Re
     tracing::info!("Starting verification for {}", c.name);
     let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
     let verification_result = current_verification_job.finished().await?;
-    tracing::info!("Verification finished: {:?}", verification_result);
     match verification_result {
         Ok(_) => {
             state.contributors_db.lock().await.finish_current().await?;
+            tracing::info!("Verification succeeded. Contributor {} marked as finished.", c.name);
         },
         Err(e) => {
             state.contributors_db.lock().await.kick_current(
-                &anyhow::Error::new(e)
+                &anyhow::Error::new(e.clone())
                 .context("Verification of your contribution failed.")
             ).await?;
+            tracing::info!("Verification failed: {:?}. Contributor {} kicked,", e, c.name);
         }
     }
     Ok(())

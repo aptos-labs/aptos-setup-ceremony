@@ -1,0 +1,38 @@
+[2m2026-03-31T05:09:10.791150Z[0m [32m INFO[0m [2mserver[0m[2m:[0m Starting server on port 8888
+[2m2026-03-31T05:09:10.791255Z[0m [32m INFO[0m [2mserver::serve[0m[2m:[0m Initializing database at sqlite:ceremony.sqlite3?mode=rwc
+[2m2026-03-31T05:09:10.815453Z[0m [32m INFO[0m [2mserver::serve[0m[2m:[0m Initializing GCS store (project=benchmark-zkid-circuit, bucket=test-ceremony-bucket)
+[2m2026-03-31T05:09:11.457868Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m token request failed [3mbody[0m[2m=[0m{
+  "error": "invalid_grant",
+  "error_description": "reauth related error (invalid_rapt)",
+  "error_uri": "https://support.google.com/a/answer/9368756",
+  "error_subtype": "invalid_rapt"
+} [3mstatus[0m[2m=[0m400
+[2m2026-03-31T05:09:11.457889Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m failed to refresh token, trying again... [3merr[0m[2m=[0mStr("token request failed") [3mprovider[0m[2m=[0m"ConfigDefaultCredentials" [3mretries[0m[2m=[0m0
+[2m2026-03-31T05:09:11.562269Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m token request failed [3mbody[0m[2m=[0m{
+  "error": "invalid_grant",
+  "error_description": "reauth related error (invalid_rapt)",
+  "error_uri": "https://support.google.com/a/answer/9368756",
+  "error_subtype": "invalid_rapt"
+} [3mstatus[0m[2m=[0m400
+[2m2026-03-31T05:09:11.562286Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m failed to refresh token, trying again... [3merr[0m[2m=[0mStr("token request failed") [3mprovider[0m[2m=[0m"ConfigDefaultCredentials" [3mretries[0m[2m=[0m1
+[2m2026-03-31T05:09:11.716959Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m token request failed [3mbody[0m[2m=[0m{
+  "error": "invalid_grant",
+  "error_description": "reauth related error (invalid_rapt)",
+  "error_uri": "https://support.google.com/a/answer/9368756",
+  "error_subtype": "invalid_rapt"
+} [3mstatus[0m[2m=[0m400
+[2m2026-03-31T05:09:11.716977Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m failed to refresh token, trying again... [3merr[0m[2m=[0mStr("token request failed") [3mprovider[0m[2m=[0m"ConfigDefaultCredentials" [3mretries[0m[2m=[0m2
+[2m2026-03-31T05:09:11.988299Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m token request failed [3mbody[0m[2m=[0m{
+  "error": "invalid_grant",
+  "error_description": "reauth related error (invalid_rapt)",
+  "error_uri": "https://support.google.com/a/answer/9368756",
+  "error_subtype": "invalid_rapt"
+} [3mstatus[0m[2m=[0m400
+[2m2026-03-31T05:09:11.988319Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m failed to refresh token, trying again... [3merr[0m[2m=[0mStr("token request failed") [3mprovider[0m[2m=[0m"ConfigDefaultCredentials" [3mretries[0m[2m=[0m3
+[2m2026-03-31T05:09:12.440412Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m token request failed [3mbody[0m[2m=[0m{
+  "error": "invalid_grant",
+  "error_description": "reauth related error (invalid_rapt)",
+  "error_uri": "https://support.google.com/a/answer/9368756",
+  "error_subtype": "invalid_rapt"
+} [3mstatus[0m[2m=[0m400
+[2m2026-03-31T05:09:12.440434Z[0m [33m WARN[0m [2mgcp_auth::types[0m[2m:[0m failed to refresh token, trying again... [3merr[0m[2m=[0mStr("token request failed") [3mprovider[0m[2m=[0m"ConfigDefaultCredentials" [3mretries[0m[2m=[0m4

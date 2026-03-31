@@ -124,6 +124,14 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                 eprintln!("Deserializing latest...");
                 let latest_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
 
+                eprintln!("Latest is from: {}", latest_contribution.contributor().name);
+
+                eprintln!("trace:");
+
+                for (c, _) in latest_contribution.previous_hashes() {
+                    eprintln!("{}", c.name);
+                }
+
                 eprintln!("Initializing FPTX params...");
                 let tc = WeightedConfigArkworks::new(3, vec![1, 2, 5]).unwrap();
 

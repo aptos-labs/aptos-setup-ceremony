@@ -2,7 +2,7 @@ use thiserror::Error;
 
 
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum ContributionVerificationFailure {
     #[error("Contribution hashes mismatch")]
     ContributionHashMismatch,
