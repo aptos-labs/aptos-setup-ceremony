@@ -34,7 +34,7 @@ pub struct Config {
 }
 
 fn default_ping_timeout() -> i64 { 20 }
-fn default_download_timeout() -> i64 { 120 }
+fn default_download_timeout() -> i64 { 360 }
 fn default_contribute_timeout() -> i64 { 1200 }
 fn default_upload_timeout() -> i64 { 120 }
 fn default_port() -> u16 { 8888 }
