@@ -3,7 +3,6 @@ use rand::thread_rng;
 use rayon;
 use anyhow::Result;
 use tokio::sync::oneshot;
-use tracing::info;
 
 use crate::store::contribution_files::ContributionFilesStore;
 
