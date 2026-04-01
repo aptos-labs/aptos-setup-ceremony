@@ -1,9 +1,7 @@
-
 use std::process;
-
 use clap::Parser;
 
-use crate::cli::Cli;
+use client::{cli::Cli, run};
 
 
 #[tokio::main]
