@@ -1,7 +1,7 @@
 use std::ops::Neg;
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
-use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec};
+use crate::{errors::ContributionGenerationFailure, parallel_ark_serde::{par_ark_de_vec, par_ark_se_vec}};
 use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,11 @@ where
         rng: &mut R,
         previous: &Self,
         params: &Self::Params,
-    ) -> (Self, Self::Secrets) {
+    ) -> Result<(Self, Self::Secrets), ContributionGenerationFailure> {
+        if previous.powers.len() != params.max_power + 1 {
+            return Err(ContributionGenerationFailure::ParamsMismatch);
+        }
+
         let current_contribution_tau_fr = P::ScalarField::rand(rng);
         let current_contribution_tau_powers_fr : Vec<P::ScalarField> = std::iter::successors(
             Some(P::ScalarField::one()),
@@ -96,14 +100,14 @@ where
 
         let new_tau_g2 = P::G2Affine::from(previous.tau_g2 * current_contribution_tau_fr);
 
-        (
+        Ok((
             Self {
                 powers: new_powers.clone(),
                 tau_g2: new_tau_g2,
                 sok: BLSSoK::sign(current_contribution_tau_fr, &HashPreimage::<P> { previous_tau_g2: previous.tau_g2, tau_g2: new_tau_g2 }),
             }, 
             current_contribution_tau_powers_fr
-        )
+        ))
 
     }
 
@@ -158,7 +162,7 @@ mod tests {
         let params = super::PowersOfTauParams::new(5);
 
         let first_contrib : PowersOfTauContributionInner<Pairing, M2C> = PowersOfTauContributionInner::first_contribution(&params);
-        let (new_contrib, _) = PowersOfTauContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = PowersOfTauContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()

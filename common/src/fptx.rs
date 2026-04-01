@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bls_sok::BLSSoK;
 use crate::contribution::ContributionInner;
-use crate::errors::{BatchSizeNotPowerOfTwo, ContributionVerificationFailure};
+use crate::errors::{BatchSizeNotPowerOfTwo, ContributionGenerationFailure, ContributionVerificationFailure};
 use crate::multipairing_equation::{MultipairingEquation, MultipairingEquations};
 use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
@@ -120,12 +120,12 @@ impl ContributionInner for FPTXContributionInner {
         }
     }
 
-    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, ()) {
+    fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> Result<(Self, ()), ContributionGenerationFailure> {
         if previous.alphas_g2.len() != params.num_rounds ||
             previous.soks_alphas.len() != params.num_rounds ||
             previous.tau_powers_contrib_inner.powers.len() != params.batch_size + 1 ||
             previous.randomized_tau_powers_g1.len() != params.num_rounds {
-            return Err(ContributionVerificationFailure::ParamsMismatch)
+            return Err(ContributionGenerationFailure::ParamsMismatch)
         }
 
         let random_alphas_fr : Vec<Fr> = (0..params.num_rounds).map(|_| Fr::rand(rng)).collect();
@@ -154,7 +154,7 @@ impl ContributionInner for FPTXContributionInner {
             rng, 
             &previous.tau_powers_contrib_inner, 
             &PowersOfTauParams { max_power: params.batch_size }
-        );
+        )?;
         println!("c: {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
@@ -190,12 +190,12 @@ impl ContributionInner for FPTXContributionInner {
             .collect();
         println!("f: {:?}", time.elapsed());
 
-        (Self { 
+        Ok((Self { 
             tau_powers_contrib_inner,
             soks_alphas,
             alphas_g2: random_alphas_g2,
             randomized_tau_powers_g1,
-        }, ())
+        }, ()))
     }
 
     fn verify(&self, rng: &mut impl CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<MultipairingEquation<Self::P>, ContributionVerificationFailure> {
@@ -290,7 +290,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()
@@ -304,14 +304,14 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()
             .equals_zero()
             .unwrap();
 
-        let (new_contrib_2, _) = FPTXContributionInner::generate(&mut rng, &new_contrib, &params);
+        let (new_contrib_2, _) = FPTXContributionInner::generate(&mut rng, &new_contrib, &params).unwrap();
 
         new_contrib_2.verify(&mut rng, &new_contrib, &params)
             .unwrap()
@@ -326,7 +326,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.soks_alphas[0].sig = G1Affine::from(new_contrib.soks_alphas[0].sig + G1Affine::generator());
 
@@ -343,7 +343,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.alphas_g2[0] = G2Affine::from(new_contrib.alphas_g2[0] + G2Affine::generator());
 
@@ -360,7 +360,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         for i in 0..new_contrib.randomized_tau_powers_g1.len() {
             let mut new_contrib_i = new_contrib.clone();
@@ -381,7 +381,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.tau_g2 = G2Affine::from(new_contrib.tau_powers_contrib_inner.tau_g2 + G2Affine::generator());
 
@@ -398,7 +398,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.powers[0] = G1Affine::from(new_contrib.tau_powers_contrib_inner.powers[0] + G1Affine::generator());
 
@@ -415,7 +415,7 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.sok.sig = G1Affine::from(new_contrib.tau_powers_contrib_inner.sok.sig + G1Affine::generator());
 
@@ -432,21 +432,20 @@ mod tests {
         let params = FPTXParams::new(8, 4).unwrap();
 
         let first_contrib = FPTXContributionInner::first_contribution(&params);
-        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()
             .equals_zero()
             .unwrap();
 
-        let mut rng = thread_rng();
-        let tc = WeightedConfigArkworks::new(3, vec![1, 2, 5]).unwrap();
-
-        let (mut ek, _, vks, msk_shares) =
-        FPTXWeighted::setup_for_testing(rng.r#gen(), 8, 1, &tc).unwrap();
 
         let dk = new_contrib.output();
-        ek.use_digest_key(&dk);
+
+        use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
+
+        let (tc, ek, vks, msk_shares) = run_pvss(&dk);
+
 
         run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
     }

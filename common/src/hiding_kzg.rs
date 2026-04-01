@@ -6,7 +6,7 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
 
-use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::{MultipairingEquation, MultipairingEquations}, powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams}};
+use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::{ContributionGenerationFailure, ContributionVerificationFailure}, multipairing_equation::{MultipairingEquation, MultipairingEquations}, powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams}};
 
 #[derive(Serialize, Deserialize)]
 // otherwise serde adds unneeded P,M2C: Serialize, Deserialize bounds for this struct's
@@ -79,12 +79,16 @@ where
         rng: &mut R,
         previous: &Self,
         params: &Self::Params,
-    ) -> (Self, Self::Secrets) {
+    ) -> Result<(Self, Self::Secrets), ContributionGenerationFailure> {
+        if previous.tau_powers_contrib_inner.powers.len() != params.max_power + 1 {
+            return Err(ContributionGenerationFailure::ParamsMismatch);
+        }
+
         let (tau_powers_contrib_inner, tau_powers_fr) = PowersOfTauContributionInner::generate(
             rng, 
             &previous.tau_powers_contrib_inner, 
             params
-        );
+        )?;
 
         let current_contribution_xi_fr = P::ScalarField::rand(rng);
         let new_xi_g1 = P::G1Affine::from(previous.xi_g1 * current_contribution_xi_fr);
@@ -99,7 +103,7 @@ where
             }
         );
 
-        (
+        Ok((
             Self {
                 tau_powers_contrib_inner,
                 xi_g1: new_xi_g1,
@@ -107,7 +111,7 @@ where
                 sok_xi,
             },
             (tau_powers_fr, current_contribution_xi_fr)
-        )
+        ))
     }
 
 
@@ -165,7 +169,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> =  HidingKZGContributionInner::first_contribution(&params);
-        let (new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()
@@ -179,14 +183,14 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.verify(&mut rng, &first_contrib, &params)
             .unwrap()
             .equals_zero()
             .unwrap();
 
-        let (new_contrib_2, _) = HidingKZGContributionInner::generate(&mut rng, &new_contrib, &params);
+        let (new_contrib_2, _) = HidingKZGContributionInner::generate(&mut rng, &new_contrib, &params).unwrap();
 
         new_contrib_2.verify(&mut rng, &new_contrib, &params)
             .unwrap()
@@ -201,7 +205,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.sok_xi.sig = G1Affine::from(new_contrib.sok_xi.sig + G1Affine::generator());
 
@@ -218,7 +222,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.xi_g2 = G2Affine::from(new_contrib.xi_g2 + G2Affine::generator());
 
@@ -235,7 +239,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.xi_g1 = G1Affine::from(new_contrib.xi_g1 + G1Affine::generator());
 
@@ -252,7 +256,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.tau_g2 = G2Affine::from(new_contrib.tau_powers_contrib_inner.tau_g2 + G2Affine::generator());
 
@@ -269,7 +273,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.powers[0] = G1Affine::from(new_contrib.tau_powers_contrib_inner.powers[0] + G1Affine::generator());
 
@@ -286,7 +290,7 @@ mod tests {
         let params = HidingKZGParams::new(8);
 
         let first_contrib : HidingKZGContributionInner<Pairing, M2C> = HidingKZGContributionInner::first_contribution(&params);
-        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params);
+        let (mut new_contrib, _) = HidingKZGContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
 
         new_contrib.tau_powers_contrib_inner.sok.sig = G1Affine::from(new_contrib.tau_powers_contrib_inner.sok.sig + G1Affine::generator());
 

@@ -4,7 +4,7 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tabled::Tabled;
 
-use crate::{errors::{ContributionVerificationFailure, DeserializationError}, multipairing_equation::MultipairingEquation};
+use crate::{errors::{ContributionGenerationFailure, ContributionVerificationFailure, DeserializationError}, multipairing_equation::MultipairingEquation};
 
 // TODO switch this file to use SHA2 instead of blake3
 
@@ -99,7 +99,7 @@ pub trait ContributionInner : Serialize + DeserializeOwned {
     /// Fixed, first "dummy" inner contribution. For instance, a powers of "tau" where tau = [1].
     fn first_contribution(params: &Self::Params) -> Self;
     /// Compute an inner contribution w.r.t. a previous inner contribution.
-    fn generate<R: CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> (Self, Self::Secrets);
+    fn generate<R: CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> Result<(Self, Self::Secrets), ContributionGenerationFailure>;
     /// Verify this inner contribution w.r.t. a previous inner contribution. This returns a 
     /// [`MultipairingEquation`]; the verification is considered to pass iff this equation
     /// evaluates to zero. The reason for returning this equation instead of evaluating directly
@@ -130,26 +130,26 @@ impl<C: ContributionInner> Contribution<C> {
         maybe_previous: Option<&Self>, 
         current_contributor: &Contributor,
         params: &C::Params,
-    ) -> Self {
+    ) -> Result<Self, ContributionGenerationFailure> {
         let (inner, previous_hashes) = if let Some(previous) = maybe_previous {
             let previous_hashes = Self::build_previous_hashes(previous);
 
             (
-                C::generate(rng, &previous.inner, params).0,
+                C::generate(rng, &previous.inner, params)?.0,
                 previous_hashes
             )
         } else {
             (
-                C::generate(rng, &C::first_contribution(params), params).0,
+                C::generate(rng, &C::first_contribution(params), params)?.0,
                 Vec::new()
             )
         };
 
-        Self {
+        Ok(Self {
             inner,
             contributor: current_contributor.clone(),
             previous_hashes
-        }
+        })
     }
 
     fn build_previous_hashes(previous: &Self) -> Vec<(Contributor, blake3::Hash)> {
@@ -213,7 +213,7 @@ mod tests {
         
         let (_, current_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
 
-        let new_contrib = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &current_contributor, &params);
+        let new_contrib = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &current_contributor, &params).unwrap();
 
         new_contrib.verify(&mut rng, None, &params)
             .unwrap();
@@ -227,12 +227,12 @@ mod tests {
         let (_, first_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
         let (_, second_contributor) = Contributor::new("Hjkl Hjkl", "Hjkl@asdf.com", &mut rng);
 
-        let first = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &first_contributor, &params);
+        let first = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &first_contributor, &params).unwrap();
 
         first.verify(&mut rng, None, &params)
             .unwrap();
 
-        let second = Contribution::<FPTXContributionInner>::generate(&mut rng, Some(&first), &second_contributor, &params);
+        let second = Contribution::<FPTXContributionInner>::generate(&mut rng, Some(&first), &second_contributor, &params).unwrap();
 
         second.verify(&mut rng, Some(&first), &params)
             .unwrap();

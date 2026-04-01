@@ -15,7 +15,7 @@ fn main() {
     println!("Time to generate \"dummy\" first contrib: {:?}", time.elapsed());
     let time = std::time::Instant::now();
     println!("Starting user contrib at {}", chrono::Local::now() );
-    let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params);
+    let (new_contrib, _) = FPTXContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
     println!("Time to generate a user contrib: {:?}", time.elapsed());
 
     let time = std::time::Instant::now();

@@ -1,6 +1,12 @@
 use thiserror::Error;
 
 
+#[derive(Debug, Error, Clone)]
+pub enum ContributionGenerationFailure {
+    #[error("Params mismatch")]
+    ParamsMismatch,
+}
+
 
 #[derive(Debug, Error, Clone)]
 pub enum ContributionVerificationFailure {
