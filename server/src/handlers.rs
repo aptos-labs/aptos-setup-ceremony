@@ -56,45 +56,47 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
     db_locked.update_timestamp(&c).await?;
     Ok(match db_locked.get_contributor_status(c).await
         .use_code_on_error(StatusCode::NOT_FOUND)? {
-        ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
-        ContributorStatus::Queued { joined: _, pos } => {
-            if pos > 0 {
-                StatusResponse::WaitingInQueue(pos)
-            } else {
-                match db_locked.get_global_status().await? {
-                    crate::store::contributors_db::Status::WaitingForDownload {..} => 
-                    StatusResponse::ReadyToDownloadPrevious(
-                        match db_locked.get_most_recent_finished_contributor().await? {
-                            Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
-                                .should_be_finished()?
-                                .as_client_url(&state.contribution_files_store).await?),
-                            None => None,
-                        }
-                    ),
-                    crate::store::contributors_db::Status::WaitingForCompute {..} => 
-                    StatusResponse::WaitingForContributionWithPrevious(
-                        match db_locked.get_most_recent_finished_contributor().await? {
-                            Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
-                                .should_be_finished()?
-                                .as_client_url(&state.contribution_files_store).await?),
-                            None => None,
-                        }
-                    ),
-                    crate::store::contributors_db::Status::WaitingForUpload {..} => 
-                    StatusResponse::ReadyForUpload(
-                        state.contribution_files_store.create_or_overwrite(c).await?
-                            .should_not_be_finished()
-                            .context("While constructing URL for uploading current contribution")?
-                            .as_client_url(&state.contribution_files_store).await?
-                    ),
-                    crate::store::contributors_db::Status::Verifying { .. } => 
-                    StatusResponse::Verifying,
+            ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
+            ContributorStatus::Queued { joined: _, pos } => {
+                if pos > 0 {
+                    StatusResponse::WaitingInQueue(pos)
+                } else {
+                    match db_locked.get_global_status().await? {
+                        crate::store::contributors_db::Status::WaitingForDownload {..} => 
+                        // Note: we can keep track of the first time the client receives this
+                        // response to know when it starts downloading
+                        StatusResponse::ReadyToDownloadPrevious(
+                            match db_locked.get_most_recent_finished_contributor().await? {
+                                Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
+                                    .should_be_finished()?
+                                    .as_client_url(&state.contribution_files_store).await?),
+                                None => None,
+                            }
+                        ),
+                        crate::store::contributors_db::Status::WaitingForCompute {..} => 
+                        StatusResponse::WaitingForContributionWithPrevious(
+                            match db_locked.get_most_recent_finished_contributor().await? {
+                                Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
+                                    .should_be_finished()?
+                                    .as_client_url(&state.contribution_files_store).await?),
+                                None => None,
+                            }
+                        ),
+                        crate::store::contributors_db::Status::WaitingForUpload {..} => 
+                        StatusResponse::ReadyForUpload(
+                            state.contribution_files_store.create_or_overwrite(c).await?
+                                .should_not_be_finished()
+                                .context("While constructing URL for uploading current contribution")?
+                                .as_client_url(&state.contribution_files_store).await?
+                        ),
+                        crate::store::contributors_db::Status::Verifying { .. } => 
+                        StatusResponse::Verifying,
+                    }
                 }
-            }
-        },
-        ContributorStatus::Kicked { err, .. } => StatusResponse::Kicked(format!("{}", err)),
-        ContributorStatus::Finished { .. } => StatusResponse::Finished,
-    })
+            },
+            ContributorStatus::Kicked { err, .. } => StatusResponse::Kicked(format!("{}", err)),
+            ContributorStatus::Finished { .. } => StatusResponse::Finished,
+        })
 }
 
 pub async fn handle_update_download_progress(finished: bool, c: Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
