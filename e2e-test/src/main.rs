@@ -8,9 +8,9 @@ use server::config::Config;
 use tokio::task::JoinSet;
 use tracing::{info, warn, error};
 
-use client::contribute::{
+use client::{contribute::{
     self, QueueOutcome,
-};
+}, smoke_test_latest::smoke_test_latest};
 
 // ---------------------------------------------------------------------------
 // Crash injection
@@ -246,6 +246,8 @@ async fn main() -> Result<()> {
 
     if all_finished {
         info!("SUCCESS: All {} contributors finished!", report.contributors.len());
+
+        smoke_test_latest(&admin_sk).await?;
     } else {
         bail!("FAILURE: Not all contributors finished!");
     }

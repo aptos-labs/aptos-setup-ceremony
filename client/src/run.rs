@@ -2,9 +2,7 @@ use std::path::PathBuf;
 use std::fs;
 use std::str::FromStr as _;
 
-use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
-use common::contribution::{AsAndFromHex, Contribution, Contributor};
-use common::fptx::FPTXContributionInner;
+use common::contribution::{AsAndFromHex, Contributor};
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
@@ -16,8 +14,9 @@ use tabled::{Table, Tabled};
 use hex;
 
 use crate::cli::{self, AdminCommand, Cli, Command};
+use crate::contribute;
 use crate::csv::{read_keypairs_file, read_users_file, write_keypairs_file};
-use client::contribute;
+use crate::smoke_test_latest::smoke_test_latest;
 
 
 #[derive(Tabled)]
@@ -128,39 +127,8 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                 }
             },
             AdminCommand::SmokeTestLatest => {
-                use aptos_batch_encryption::{
-                    schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, 
-                };
-
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
-
-                let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
-
-                eprintln!("{}: Downloading latest...", chrono::Local::now());
-                let bytes = reqwest::get(url)
-                    .await?
-                    .bytes().await?;
-
-                eprintln!("{}: Deserializing latest...", chrono::Local::now());
-                let latest_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&bytes)?;
-
-                eprintln!("Latest is from: {}", latest_contribution.contributor().name);
-
-                eprintln!("trace:");
-
-                for (c, _) in latest_contribution.previous_hashes() {
-                    eprintln!("{}", c.name);
-                }
-
-                eprintln!("{}: Computing digest key...", chrono::Local::now());
-                let dk = latest_contribution.output();
-
-                eprintln!("{}: Running dummy DKG...", chrono::Local::now());
-                let (tc, ek, vks, msk_shares) = run_pvss(&dk);
-
-                eprintln!("{}: Running smoke...", chrono::Local::now());
-                run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
-                eprintln!("Succeeded!");
+                smoke_test_latest(&my_sk).await?;
             }
         }
     }
