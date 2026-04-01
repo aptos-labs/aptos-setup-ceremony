@@ -7,7 +7,7 @@ use common::contribution::{AsAndFromHex, Contribution, Contributor};
 use common::fptx::FPTXContributionInner;
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
-use rand::{Rng as _, thread_rng};
+use rand::thread_rng;
 use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
@@ -110,7 +110,7 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             AdminCommand::DownloadAll => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
 
-                let mut finished : Vec<(ContributorState, String)> = Msg::DownloadAll.sign(&my_sk).send_and_receive().await?;
+                let finished : Vec<(ContributorState, String)> = Msg::DownloadAll.sign(&my_sk).send_and_receive().await?;
 
                 // Don't need to sort b/c already sorted
 

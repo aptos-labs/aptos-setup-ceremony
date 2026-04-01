@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::{bail, Result};
 use common::contribution::Contributor;
 use common::messages::Msg;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use common::{constants::{PARAMS, test_upload_contributor}, contribution::{Contributor}};
-use anyhow::{Result, anyhow, Context};
+use anyhow::{Result, anyhow};
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -67,27 +67,20 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
                         // response to know when it starts downloading
                         StatusResponse::ReadyToDownloadPrevious(
                             match db_locked.get_most_recent_finished_contributor().await? {
-                                Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
-                                    .should_be_finished()?
-                                    .as_client_url(&state.contribution_files_store).await?),
+                                Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
                                 None => None,
                             }
                         ),
                         crate::store::contributors_db::Status::WaitingForCompute {..} => 
                         StatusResponse::WaitingForContributionWithPrevious(
                             match db_locked.get_most_recent_finished_contributor().await? {
-                                Some(h) => Some(state.contribution_files_store.get_or_create(&h).await?
-                                    .should_be_finished()?
-                                    .as_client_url(&state.contribution_files_store).await?),
+                                Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
                                 None => None,
                             }
                         ),
                         crate::store::contributors_db::Status::WaitingForUpload {..} => 
                         StatusResponse::ReadyForUpload(
-                            state.contribution_files_store.create_or_overwrite(c).await?
-                                .should_not_be_finished()
-                                .context("While constructing URL for uploading current contribution")?
-                                .as_client_url(&state.contribution_files_store).await?
+                            state.contribution_files_store.get_upload_url(&c).await?
                         ),
                         crate::store::contributors_db::Status::Verifying { .. } => 
                         StatusResponse::Verifying,
@@ -278,9 +271,7 @@ pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<
     drop(db_locked);
     let mut urls = Vec::with_capacity(contributors.len());
     for c in &contributors {
-        let handle = state.contribution_files_store.get_or_create(&c.contributor).await?;
-        let url = handle.should_be_finished()?.as_client_url(&state.contribution_files_store).await?;
-        urls.push(url);
+        urls.push(state.contribution_files_store.get_download_url(&c.contributor).await?);
     }
     Ok(contributors.into_iter().zip(urls).collect())
 }
@@ -291,16 +282,13 @@ pub async fn handle_get_test_contribution_download_link(state: Arc<State>, _conf
 }
 
 pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config: &Config) -> Result<String> {
-    let handle = state.contribution_files_store.get_or_create(&test_upload_contributor()).await?;
-    let url = handle.should_not_be_finished()?.as_client_url(&state.contribution_files_store).await?;
+    let url = state.contribution_files_store.get_upload_url(&test_upload_contributor()).await?;
     Ok(url)
 }
 
 pub async fn handle_download_latest(state: Arc<State>, _config: &Config) -> Result<String, ErrorWithCode> {
     match state.contributors_db.lock().await.get_most_recent_finished_contributor().await? {
-        Some(h) => Ok(state.contribution_files_store.get_or_create(&h).await?
-            .should_be_finished()?
-            .as_client_url(&state.contribution_files_store).await?),
+        Some(latest_c) => Ok(state.contribution_files_store.get_download_url(&latest_c).await?),
         None => {
             Err(anyhow::anyhow!("No contributions yet"))
                 .use_code_on_error(StatusCode::NOT_FOUND)

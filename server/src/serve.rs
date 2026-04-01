@@ -11,7 +11,7 @@ use rand::{Rng, thread_rng};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 
 use crate::error::ErrorWithCode;
 use crate::handlers::{State, handle, handle_tick};

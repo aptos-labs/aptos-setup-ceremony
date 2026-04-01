@@ -1,5 +1,4 @@
 use std::process;
-use std::sync::Arc;
 
 use figment::{Figment, providers::{Env, Format, Toml}};
 use server::config::Config;

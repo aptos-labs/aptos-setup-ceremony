@@ -22,68 +22,6 @@ fn object_name(contributor: &Contributor) -> String {
     format!("contributions/{}.bin", hex_key)
 }
 
-/// Represents a contribution file in GCS.
-#[derive(Debug)]
-pub enum ContributionFileHandle {
-    InProgress {
-        contributor: Contributor,
-        upload_session_url: String,
-    },
-    Complete {
-        contributor: Contributor,
-    },
-}
-
-impl ContributionFileHandle {
-    pub fn url(&self, store: &ContributionFilesStore) -> String {
-        let obj_name = object_name(self.contributor());
-        format!(
-            "{}/{}/{}",
-            store.base_url,
-            store.get_bucket_id(),
-            obj_name
-        )
-    }
-
-    fn contributor(&self) -> &Contributor {
-        match self {
-            ContributionFileHandle::InProgress { contributor, .. } => contributor,
-            ContributionFileHandle::Complete { contributor } => contributor,
-        }
-    }
-
-    pub fn should_be_finished(self) -> Result<Self> {
-        match self {
-            ContributionFileHandle::InProgress { .. } => {
-                bail!("Expected contribution file to be finished, but got in progress")
-            }
-            ContributionFileHandle::Complete { .. } => Ok(self),
-        }
-    }
-
-    pub fn should_not_be_finished(self) -> Result<Self> {
-        match self {
-            ContributionFileHandle::InProgress { .. } => Ok(self),
-            ContributionFileHandle::Complete { .. } => {
-                bail!("Expected contribution file to be in progress, but got a finished contribution")
-            }
-        }
-    }
-
-    pub async fn as_client_url(&self, store: &ContributionFilesStore) -> Result<String> {
-        match self {
-            ContributionFileHandle::InProgress { upload_session_url, .. } => {
-                Ok(upload_session_url.clone())
-            }
-            ContributionFileHandle::Complete { contributor } => {
-                let obj_name = object_name(contributor);
-                store.generate_signed_download_url(&obj_name).await
-            }
-        }
-    }
-
-}
-
 pub struct ContributionFilesStore {
     bucket_id: String,
     project_id: String,
@@ -143,33 +81,23 @@ impl ContributionFilesStore {
         }
     }
 
-    pub async fn get_or_create(&self, c: &Contributor) -> Result<ContributionFileHandle> {
+    pub async fn get_download_url(&self, c: &Contributor) -> Result<String> {
         let obj_name = object_name(c);
         if self.object_exists(&obj_name).await? {
-            Ok(ContributionFileHandle::Complete {
-                contributor: c.clone(),
-            })
+            self.generate_signed_download_url(&obj_name).await
         } else {
-            let upload_session_url = self.initiate_resumable_upload(&obj_name).await?;
-            Ok(ContributionFileHandle::InProgress {
-                contributor: c.clone(),
-                upload_session_url,
-            })
+            bail!("Contributor's file does not exist")
         }
     }
 
-    pub async fn create_or_overwrite(&self, c: &Contributor) -> Result<ContributionFileHandle> {
+    pub async fn get_upload_url(&self, c: &Contributor) -> Result<String> {
         let obj_name = object_name(c);
         if self.object_exists(&obj_name).await? {
             self.delete_object(&obj_name).await?;
         } 
-        let upload_session_url = self.initiate_resumable_upload(&obj_name).await?;
-        Ok(ContributionFileHandle::InProgress {
-            contributor: c.clone(),
-            upload_session_url,
-        })
-
+        self.initiate_resumable_upload(&obj_name).await
     }
+
 
     async fn get_token(&self) -> Result<String> {
         let scopes = &["https://www.googleapis.com/auth/devstorage.read_write"];
@@ -341,71 +269,6 @@ mod tests {
             "resumable upload failed with status {}",
             resp.status()
         );
-    }
-
-    #[tokio::test]
-    async fn test_contribution_files_store() {
-        setup();
-
-        let mut rng = thread_rng();
-        let (_, contributor) = Contributor::new("Integration Test", "test@example.com", &mut rng);
-
-        let store = ContributionFilesStore::init(PROJECT_ID, TEST_BUCKET).await.unwrap();
-
-        // --- ensure_bucket_exists is idempotent ---
-        store.ensure_bucket_exists().await.unwrap();
-        store.ensure_bucket_exists().await.unwrap();
-
-        // --- get_or_create on a brand-new contributor → InProgress ---
-        let handle = store.get_or_create(&contributor).await.unwrap();
-        let upload_session_url = match &handle {
-            ContributionFileHandle::InProgress { upload_session_url, .. } => upload_session_url.clone(),
-            ContributionFileHandle::Complete { .. } => panic!("expected InProgress for new contributor"),
-        };
-
-        // url() should include bucket and object path
-        let obj_url = handle.url(&store);
-        assert!(obj_url.contains(TEST_BUCKET), "url missing bucket: {}", obj_url);
-        assert!(obj_url.contains("contributions/"), "url missing object path: {}", obj_url);
-
-        // as_client_url on InProgress returns the upload session URL unchanged
-        let client_url = handle.as_client_url(&store).await.unwrap();
-        assert_eq!(client_url, upload_session_url);
-
-        // should_not_be_finished passes for InProgress
-        handle.should_not_be_finished().unwrap();
-
-        // --- Upload the file via the resumable session URL ---
-        let payload: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let encoded = bcs::to_bytes(&payload).unwrap();
-        finalize_resumable_upload(&upload_session_url, encoded).await;
-
-        // --- get_or_create after upload → Complete ---
-        let handle = store.get_or_create(&contributor).await.unwrap();
-        assert!(
-            matches!(handle, ContributionFileHandle::Complete { .. }),
-            "expected Complete after upload"
-        );
-
-        // should_be_finished passes for Complete
-        handle.should_be_finished().unwrap();
-
-        // --- download_contribution round-trips the BCS payload ---
-        let downloaded: Vec<u8> = store.download_contribution(&contributor).await.unwrap();
-        assert_eq!(downloaded, payload);
-
-        // --- generate_signed_download_url returns an https URL ---
-        let obj_name = object_name(&contributor);
-        let signed_url = store.generate_signed_download_url(&obj_name).await.unwrap();
-        assert!(signed_url.starts_with("https://"), "signed URL should be https: {}", signed_url);
-
-        // --- as_client_url on Complete returns a signed download URL ---
-        let handle = store.get_or_create(&contributor).await.unwrap();
-        let client_url = handle.as_client_url(&store).await.unwrap();
-        assert!(client_url.starts_with("https://"), "client URL should be https: {}", client_url);
-
-        // --- Cleanup ---
-        store.delete_object(&obj_name).await.unwrap();
     }
 }
 

@@ -131,7 +131,9 @@ pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk:
         };
         tx.send(
             // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
-            Bytes::from(bcs::to_bytes(&Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS))
+            Bytes::from(bcs::to_bytes(&Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
+                .expect("There was a problem computing your contribution")
+            )
             .expect("Should never fail to serialize"))
         ).expect("Should never fail to send")
     });
@@ -222,7 +224,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     eprintln!("Testing your compute speed...");
 
     let start = Instant::now();
-    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS);
+    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS)?;
     let compute_duration = start.elapsed();
     let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
     eprintln!("Compute took {:?}", compute_duration);

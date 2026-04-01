@@ -275,12 +275,11 @@ impl ContributionInner for FPTXContributionInner {
 #[cfg(test)]
 mod tests {
     use aptos_batch_encryption::{
-        schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, traits::BatchThresholdEncryption as _,
+        schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, 
         group::{G1Affine, G2Affine},
     };
-    use aptos_crypto::weighted_config::WeightedConfigArkworks;
     use ark_ec::AffineRepr;
-    use rand::{Rng as _, thread_rng};
+    use rand::thread_rng;
     use crate::{contribution::ContributionInner, fptx::{FPTXContributionInner, FPTXParams}};
 
 
