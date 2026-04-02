@@ -268,7 +268,7 @@ impl ContributionInner for FPTXContributionInner {
         DigestKey::with_randomized_powers_of_tau(
             self.randomized_tau_powers_g1,
             self.tau_powers_contrib_inner.tau_g2,
-        )
+        ).expect("Should never panic, b/c everything is well-formed")
     }
 }
 
