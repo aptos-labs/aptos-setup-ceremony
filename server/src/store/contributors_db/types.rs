@@ -250,11 +250,12 @@ impl ContributorRow {
             "UPDATE contributors SET status=?, joined_at=?, updated_timestamp=?,
             kicked_at=NULL, kicked_error=NULL, started_download_at=NULL,
             started_compute_at=NULL, started_upload_at=NULL, 
-            finished_upload_at=NULL, contribution_hash=NULL",
+            finished_upload_at=NULL, contribution_hash=NULL WHERE verifying_key = ?",
         )
             .bind(ContributorStatus::Queued)
             .bind(Some(now))
             .bind(now)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -264,9 +265,10 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET updated_timestamp=?",
+            "UPDATE contributors SET updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(now)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -276,10 +278,11 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET started_download_at=?, updated_timestamp=?",
+            "UPDATE contributors SET started_download_at=?, updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(Some(now))
             .bind(now)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -289,10 +292,11 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET started_compute_at=?, updated_timestamp=?",
+            "UPDATE contributors SET started_compute_at=?, updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(now)
             .bind(now)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -302,10 +306,11 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET started_upload=?, updated_timestamp=?",
+            "UPDATE contributors SET started_upload_at=?, updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(now)
             .bind(now)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -315,11 +320,12 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET finished_upload_at=?, updated_timestamp=?, contribution_hash=?",
+            "UPDATE contributors SET finished_upload_at=?, updated_timestamp=?, contribution_hash=? WHERE verifying_key=?",
         )
             .bind(now)
             .bind(Some(now))
             .bind(contribution_hash)
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -329,11 +335,12 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET status=?, finished_upload_at=?, updated_timestamp=?",
+            "UPDATE contributors SET status=?, finished_upload_at=?, updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(ContributorStatus::Finished)
             .bind(now)
             .bind(Some(now))
+            .bind(self.verifying_key)
             .execute(pool).await?;
 
         Ok(())
@@ -343,12 +350,13 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET status=?, kicked_at = ?, updated_timestamp=?, kicked_error = ?",
+            "UPDATE contributors SET status=?, kicked_at = ?, updated_timestamp=?, kicked_error = ? WHERE verifying_key = ?",
         )
             .bind(ContributorStatus::Kicked)
             .bind(Some(now))
             .bind(now)
             .bind(kicked_error)
+            .bind(&self.verifying_key)
             .execute(pool).await?;
 
         Ok(())

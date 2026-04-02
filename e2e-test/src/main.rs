@@ -239,7 +239,7 @@ async fn main() -> Result<()> {
             "  {} <{}> — {}",
             row.name, row.email, status_str
         );
-        if status_str != "finished" {
+        if status_str != "Finished" {
             all_finished = false;
         }
     }
