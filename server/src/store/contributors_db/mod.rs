@@ -79,7 +79,7 @@ impl ContributorsDB {
                 } else if let Some(start) = current.started_download_at {
                     GlobalStatus::WaitingForDownload {start: start }
                 } else {
-                    current.mark_started_downloading(&self.pool).await?;
+                    current.mark_started_download(&self.pool).await?;
                     GlobalStatus::WaitingForDownload {start: Utc::now() }
                 }
             },

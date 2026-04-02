@@ -206,6 +206,7 @@ impl ContributorRow {
     pub async fn enqueue(self, pool: &SqlitePool) -> anyhow::Result<()> {
         let now = Utc::now();
 
+        // clear out all active-contributor timestamps on join/rejoin
         sqlx::query(
             "UPDATE contributors SET status=?, joined_at=?, updated_timestamp=?,
             kicked_at=NULL, kicked_error=NULL, started_download_at=NULL,
@@ -234,7 +235,7 @@ impl ContributorRow {
         Ok(())
     }
 
-    pub async fn mark_started_downloading(self, pool: &SqlitePool) -> anyhow::Result<()> {
+    pub async fn mark_started_download(self, pool: &SqlitePool) -> anyhow::Result<()> {
         let now = Utc::now();
 
         sqlx::query(

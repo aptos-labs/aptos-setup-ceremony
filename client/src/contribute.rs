@@ -268,6 +268,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     }
 
     if !too_slow {
+        eprintln!("Speed test passed.");
         Ok(())
     } else {
         bail!(err_string)
