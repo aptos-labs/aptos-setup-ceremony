@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 // real num_rounds is 216000
 pub const PARAMS : FPTXParams = FPTXParams {
     batch_size: 128,
-    num_rounds: 216000,
+    num_rounds: 4,
 };
 
 

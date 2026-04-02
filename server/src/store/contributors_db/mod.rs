@@ -1,14 +1,9 @@
-use std::process::exit;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use common::contribution::{AsAndFromHex, Contributor};
-use ed25519_dalek::VerifyingKey;
 
 use anyhow::{Context, Result, bail};
-use serde::{Deserialize, Serialize};
-use sqlx::sqlite::{SqliteArguments, SqliteRow};
-use sqlx::{Arguments, FromRow, Row, Sqlite, SqlitePool};
-use tabled::Tabled;
+use sqlx::SqlitePool;
 
 use crate::store::contributors_db::types::{ContributorRow, ContributorRowWithPos, GlobalStatus};
 
@@ -65,7 +60,7 @@ impl ContributorsDB {
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|r: ContributorRowWithPos| (r.pos(), r.as_row()))
+            .map(|r: ContributorRowWithPos| (r.pos(), r.into_row()))
             .collect();
         Ok(states)
     }
@@ -104,7 +99,7 @@ impl ContributorsDB {
                 .await
                 .context("Contributor not found")?;
 
-        Ok((row.pos(), row.as_row()))
+        Ok((row.pos(), row.into_row()))
     }
 
     pub async fn get_finished_contributors(&self) -> Result<Vec<ContributorRow>> {

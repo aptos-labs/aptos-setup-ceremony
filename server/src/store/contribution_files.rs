@@ -186,10 +186,10 @@ impl ContributionFilesStore {
         Ok(location)
     }
 
-    pub async fn download_contribution<T: serde::de::DeserializeOwned>(
+    pub async fn download_contribution(
         &self,
         contributor: &Contributor,
-    ) -> Result<T> {
+    ) -> Result<Bytes> {
         let obj_name = object_name(contributor);
         let bucket = format!("projects/_/buckets/{}", self.bucket_id);
         let mut reader = self.gcs_client
@@ -200,7 +200,7 @@ impl ContributionFilesStore {
         while let Some(chunk) = reader.next().await.transpose()? {
             bytes.extend_from_slice(&chunk);
         }
-        Ok(bcs::from_bytes(&bytes)?)
+        Ok(Bytes::from_owner(bytes))
     }
 
     pub async fn generate_signed_download_url(&self, obj_name: &str) -> Result<String> {

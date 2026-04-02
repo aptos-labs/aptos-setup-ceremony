@@ -1,3 +1,6 @@
+use std::time::Instant;
+
+use bytes::Bytes;
 use common::{contribution::{Contribution, Contributor}, errors::ContributionVerificationFailure, fptx::{FPTXContributionInner, FPTXParams}};
 use rand::thread_rng;
 use rayon;
@@ -19,9 +22,19 @@ impl VerificationJob {
         contribution_files_store: &ContributionFilesStore,
         params: &FPTXParams,
     ) -> Result<Self> {
-        let current_contribution : Contribution<FPTXContributionInner> = contribution_files_store.download_contribution(&current).await?;
+        let current_contribution_bytes : Bytes = contribution_files_store.download_contribution(&current).await?;
+
+        let start = Instant::now();
+        let current_contribution_hash = blake3::hash(&current_contribution_bytes);
+        println!("time taken to hash: {:?}", start.elapsed());
+
+        if current_contribution_hash.to_string() != hash {
+            anyhow::bail!("Contribution hash mismatch");
+        }
+
+        let current_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&current_contribution_bytes)?;
         let maybe_previous_contribution : Option<Contribution<FPTXContributionInner>> = match maybe_previous {
-            Some(previous) => Some(contribution_files_store.download_contribution(&previous).await?),
+            Some(previous) => Some(bcs::from_bytes(&contribution_files_store.download_contribution(&previous).await?)?),
             None => None
         };
 

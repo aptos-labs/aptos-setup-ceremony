@@ -2,10 +2,8 @@ use chrono::{DateTime, Utc};
 use common::contribution::{AsAndFromHex as _, Contributor};
 use ed25519_dalek::VerifyingKey;
 use serde::{Deserialize, Serialize};
-use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Encode,  encode::IsNull, prelude::FromRow};
 use tabled::Tabled;
-use tabled::derive::display;
 use core::error::Error;
 use std::fmt::Display;
 use sqlx::{SqlitePool, Type};
@@ -88,59 +86,21 @@ impl<DB: Database> Type<DB> for VKWrapper
     }
 }
 
-#[derive(Tabled, FromRow, Debug, Clone, PartialEq, Eq)]
+#[derive(FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct ContributorRowWithPos {
     pub pos: u64,
-    pub updated_timestamp: DateTime<Utc>,
-    pub verifying_key: VKWrapper,
-    pub name: String,
-    pub email: String,
-    #[tabled(format("{:?}", self.status))]
-    pub status: ContributorStatus,
-    #[tabled(format("{:?}", self.joined_at))]
-    pub joined_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.kicked_at))]
-    pub kicked_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.kicked_error))]
-    pub kicked_error: Option<String>,
-    #[tabled(format("{:?}", self.started_download_at))]
-    pub started_download_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.started_compute_at))]
-    pub started_compute_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.started_upload_at))]
-    pub started_upload_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.finished_upload_at))]
-    pub finished_upload_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.contribution_hash))]
-    pub contribution_hash: Option<String>,
-    #[tabled(format("{:?}", self.contribution_hash))]
-    pub finished_verify_at: Option<DateTime<Utc>>,
+    #[sqlx(flatten)]
+    pub row: ContributorRow,
 }
 
 impl ContributorRowWithPos {
-    pub fn as_row(&self) -> ContributorRow {
-        ContributorRow {
-            updated_timestamp: self.updated_timestamp,
-            verifying_key: self.verifying_key.clone(),
-            name: self.name.clone(),
-            email: self.email.clone(),
-            status: self.status.clone(),
-            joined_at: self.joined_at.clone(),
-            kicked_at: self.kicked_at.clone(),
-            kicked_error: self.kicked_error.clone(),
-            started_download_at: self.started_download_at.clone(),
-            started_compute_at: self.started_compute_at.clone(),
-            started_upload_at: self.started_upload_at.clone(),
-            finished_upload_at: self.finished_upload_at.clone(),
-            contribution_hash: self.contribution_hash.clone(),
-            finished_verify_at: self.finished_verify_at.clone(),
-        }
+    pub fn into_row(self) -> ContributorRow {
+        self.row
     }
     pub fn pos(&self) -> usize {
         self.pos as usize
     }
 }
-
 
 #[derive(Tabled, FromRow, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContributorRow {
