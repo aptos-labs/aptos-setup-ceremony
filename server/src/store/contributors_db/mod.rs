@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use chrono::{DateTime, Utc};
 use common::contribution::{AsAndFromHex, Contributor};
 use ed25519_dalek::VerifyingKey;
@@ -31,7 +33,7 @@ fn select_with_pos(suffix: &str) -> String {
         "SELECT c1.*, \
          CASE WHEN c1.status = 'queued' THEN \
            (SELECT COUNT(*) FROM contributors c2 \
-            WHERE (c2.status = 'queued') AND c2.queued_joined_at < c1.queued_joined_at) \
+            WHERE (c2.status = 'queued') AND c2.joined_at < c1.joined_at) \
          ELSE 0 END as pos \
          FROM contributors c1 {suffix}"
     )
@@ -70,7 +72,8 @@ impl ContributorsDB {
 
     /// Get global status.
     pub async fn get_global_status(&self) -> Result<GlobalStatus> {
-        Ok(match self.get_current().await? {
+        let maybe_current = self.get_current().await?;
+        Ok(match maybe_current {
             Some(current) => {
                 if let Some(_) = current.finished_upload_at {
                     GlobalStatus::Verifying  
@@ -79,9 +82,10 @@ impl ContributorsDB {
                 } else if let Some(start) = current.started_compute_at {
                     GlobalStatus::WaitingForCompute {start}
                 } else if let Some(start) = current.started_download_at {
-                    GlobalStatus::WaitingForDownload {start}
+                    GlobalStatus::WaitingForDownload {start: start }
                 } else {
-                    bail!("Unexpected state")
+                    current.mark_started_downloading(&self.pool).await?;
+                    GlobalStatus::WaitingForDownload {start: Utc::now() }
                 }
             },
             None => GlobalStatus::WaitingForDownload { start: Utc::now() } ,
@@ -94,7 +98,7 @@ impl ContributorsDB {
         contributor: &Contributor,
     ) -> Result<(usize, ContributorRow)> {
         let row : ContributorRowWithPos =
-            sqlx::query_as(&select_with_pos("WHERE c1.verifying_key_hex = ?"))
+            sqlx::query_as(&select_with_pos("WHERE c1.verifying_key = ?"))
                 .bind(&contributor.verifying_key.as_hex()?)
                 .fetch_one(&self.pool)
                 .await
@@ -125,7 +129,7 @@ impl ContributorsDB {
     /// timestamp.
     pub async fn get_current(&self) -> Result<Option<ContributorRow>> {
         let state: Option<ContributorRow> = sqlx::query_as(&select_with_pos(
-            "WHERE c1.status = 'queued' ORDER BY c1.queued_joined_at ASC LIMIT 1",
+            "WHERE c1.status = 'queued' ORDER BY c1.joined_at ASC LIMIT 1",
         ))
         .fetch_optional(&self.pool)
         .await?;

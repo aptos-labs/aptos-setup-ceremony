@@ -180,7 +180,7 @@ impl ContributorRow {
     pub async fn init_table(pool: &SqlitePool) -> anyhow::Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS contributors (
-                verifying_key_hex    TEXT   PRIMARY  KEY,            
+                verifying_key        TEXT   PRIMARY  KEY,            
                 name                 TEXT   NOT      NULL,           
                 email                TEXT   NOT      NULL,           
                 updated_timestamp    TEXT   NOT      NULL,           
@@ -289,7 +289,7 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET started_compute=?, updated_timestamp=?",
+            "UPDATE contributors SET started_compute_at=?, updated_timestamp=?",
         )
             .bind(now)
             .bind(now)
