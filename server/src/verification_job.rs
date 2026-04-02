@@ -14,6 +14,7 @@ pub struct VerificationJob {
 impl VerificationJob {
     pub async fn start(
         current: &Contributor, 
+        hash: String,
         maybe_previous: &Option<Contributor>, 
         contribution_files_store: &ContributionFilesStore,
         params: &FPTXParams,

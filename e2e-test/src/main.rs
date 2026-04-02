@@ -79,7 +79,7 @@ async fn test_contribute(
 
             contribute::upload_my_contribution(&my_contribution, sk, me).await?;
 
-            Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }
+            Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: format!("") }
                 .sign(sk)
                 .send()
                 .await?;
@@ -233,11 +233,11 @@ async fn main() -> Result<()> {
         .await?;
 
     let mut all_finished = true;
-    for cs in &report.contributors {
-        let status_str = cs.status.status_string();
+    for (_,row) in &report.contributors {
+        let status_str = format!("{:?}", row.status);
         info!(
             "  {} <{}> — {}",
-            cs.contributor.name, cs.contributor.email, status_str
+            row.name, row.email, status_str
         );
         if status_str != "finished" {
             all_finished = false;

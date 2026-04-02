@@ -9,7 +9,7 @@ use rand::thread_rng;
 use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
-use server::store::contributors_db::ContributorState;
+use server::store::contributors_db::types::ContributorRow;
 use tabled::{Table, Tabled};
 use hex;
 
@@ -101,15 +101,14 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                 println!("{table}");
 
                 println!("Current status:");
-                let table = Table::new(Vec::from([status])).to_string();
-                println!("{table}");
+                println!("{:?}", status);
 
 
             }
             AdminCommand::DownloadAll => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
 
-                let finished : Vec<(ContributorState, String)> = Msg::DownloadAll.sign(&my_sk).send_and_receive().await?;
+                let finished : Vec<(ContributorRow, String)> = Msg::DownloadAll.sign(&my_sk).send_and_receive().await?;
 
                 // Don't need to sort b/c already sorted
 
@@ -121,9 +120,9 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                         .await?
                         .bytes().await?;
 
-                    let name_no_space = c.contributor.name.replace(" ", "-");
+                    let name_no_space = c.name.replace(" ", "-");
 
-                    fs::write(format!("{:03}-{}-{}.contrib", i+1, c.contributor.verifying_key.as_hex()?, name_no_space), bytes)?;
+                    fs::write(format!("{:03}-{}-{}.contrib", i+1, c.verifying_key.as_ref().as_hex()?, name_no_space), bytes)?;
                 }
             },
             AdminCommand::SmokeTestLatest => {

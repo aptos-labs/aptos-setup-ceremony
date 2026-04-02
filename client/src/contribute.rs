@@ -157,7 +157,7 @@ pub async fn upload_my_contribution(
     };
 
     let ping_loop = PingLoop::start(
-        Msg::UpdateUploadProgress { finished: false, contributor: me.clone() }.sign(my_sk)
+        Msg::UpdateUploadProgress { finished: false, hash: format!(""), contributor: me.clone() }.sign(my_sk)
     );
 
 
@@ -305,8 +305,10 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     upload_my_contribution(&my_contribution, &my_sk, me).await?;
 
+
     // tell server we're done uploading
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
+    // TODO hash
+    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: format!("") }.sign(&my_sk).send().await?;
 
 
     wait_for_server_verification(&my_sk, me).await?;

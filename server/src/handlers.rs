@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{ops::Sub, sync::Arc};
 
-use chrono::Utc;
+use chrono::{DateTime, TimeDelta, Utc};
 use common::{constants::{PARAMS, test_upload_contributor}, contribution::{Contributor}};
 use anyhow::{Result, anyhow};
 use hyper::StatusCode;
@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::{config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorState, ContributorsDB, Status}}, verification_job::VerificationJob};
-use crate::store::contributors_db::ContributorStatus;
+use crate::{config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorsDB, types::{ContributorRow, ContributorStatus, GlobalStatus}}}, verification_job::VerificationJob};
 use common::messages::Msg;
 
 
@@ -34,122 +33,135 @@ pub enum StatusResponse {
 }
 
 pub async fn handle_join(c: &Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
-    let mut db_locked = state.contributors_db.lock().await;
-    match db_locked.get_contributor_status(c).await? {
+    let db_locked = state.contributors_db.lock().await;
+    let (_, row) = db_locked.get_with_pos(&c).await?;
+    match row.status {
         ContributorStatus::DidntJoinQueue 
         | ContributorStatus::Kicked {..} => {
-            Ok(db_locked.enqueue(c).await?)
+            Ok(row.enqueue(&db_locked.pool).await?)
         },
         ContributorStatus::Queued {..} => {
             Err(anyhow!("Already in queue"))
-            .use_code_on_error(StatusCode::BAD_REQUEST)
+                .use_code_on_error(StatusCode::BAD_REQUEST)
         }
         ContributorStatus::Finished { .. } => {
             Err(anyhow!("Already finished contributing"))
-            .use_code_on_error(StatusCode::BAD_REQUEST)
+                .use_code_on_error(StatusCode::BAD_REQUEST)
         }
     }
 }
 
 pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Config) -> Result<StatusResponse, ErrorWithCode> {
     let mut db_locked = state.contributors_db.lock().await;
-    db_locked.update_timestamp(&c).await?;
-    Ok(match db_locked.get_contributor_status(c).await
-        .use_code_on_error(StatusCode::NOT_FOUND)? {
-            ContributorStatus::DidntJoinQueue => StatusResponse::DidntJoin,
-            ContributorStatus::Queued { joined: _, pos } => {
-                if pos > 0 {
-                    StatusResponse::WaitingInQueue(pos)
-                } else {
-                    match db_locked.get_global_status().await? {
-                        crate::store::contributors_db::Status::WaitingForDownload {..} => 
-                        // Note: we can keep track of the first time the client receives this
-                        // response to know when it starts downloading
-                        StatusResponse::ReadyToDownloadPrevious(
-                            match db_locked.get_most_recent_finished_contributor().await? {
-                                Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
-                                None => None,
-                            }
-                        ),
-                        crate::store::contributors_db::Status::WaitingForCompute {..} => 
-                        StatusResponse::WaitingForContributionWithPrevious(
-                            match db_locked.get_most_recent_finished_contributor().await? {
-                                Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
-                                None => None,
-                            }
-                        ),
-                        crate::store::contributors_db::Status::WaitingForUpload {..} => 
-                        StatusResponse::ReadyForUpload(
-                            state.contribution_files_store.get_upload_url(&c).await?
-                        ),
-                        crate::store::contributors_db::Status::Verifying { .. } => 
-                        StatusResponse::Verifying,
-                    }
-                }
-            },
-            ContributorStatus::Kicked { err, .. } => StatusResponse::Kicked(format!("{}", err)),
-            ContributorStatus::Finished { .. } => StatusResponse::Finished,
-        })
+    let (pos, row) = db_locked.get_with_pos(c).await?;
+    row.clone().update_timestamp(&db_locked.pool).await?;
+
+    match row.status {
+        ContributorStatus::DidntJoinQueue => {
+            Ok(StatusResponse::DidntJoin)
+
+        }, 
+        ContributorStatus::Kicked => {
+            Ok(StatusResponse::Kicked(row.kicked_error.unwrap_or(format!(""))))
+        },
+        ContributorStatus::Finished => {
+            Ok(StatusResponse::Finished)
+
+        },  ContributorStatus::Queued => {
+            if pos > 0 {
+                Ok(StatusResponse::WaitingInQueue(pos))
+            } else {
+                Ok(match db_locked.get_global_status().await? {
+                    GlobalStatus::WaitingForDownload {..} => 
+                    // Note: we can keep track of the first time the client receives this
+                    // response to know when it starts downloading
+                    StatusResponse::ReadyToDownloadPrevious(
+                        match db_locked.get_most_recent_finished_contributor().await? {
+                            Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
+                            None => None,
+                        }
+                    ),
+                    GlobalStatus::WaitingForCompute {..} => 
+                    StatusResponse::WaitingForContributionWithPrevious(
+                        match db_locked.get_most_recent_finished_contributor().await? {
+                            Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
+                            None => None,
+                        }
+                    ),
+                    GlobalStatus::WaitingForUpload {..} => 
+                    StatusResponse::ReadyForUpload(
+                        state.contribution_files_store.get_upload_url(&c).await?
+                    ),
+                    GlobalStatus::Verifying { .. } => 
+                    StatusResponse::Verifying,
+                })
+            }
+        }
+    }
 }
 
 pub async fn handle_update_download_progress(finished: bool, c: Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
-    let mut db_locked = state.contributors_db.lock().await;
-    let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
+    let db_locked = state.contributors_db.lock().await;
+    let (pos, row) = db_locked.get_with_pos(&c).await?;
+    if pos > 0 {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::GONE)
-
-    };
-    let Status::WaitingForDownload{..} =  db_locked.get_global_status().await? else {
+            .use_code_on_error(StatusCode::GONE);
+    }
+    let GlobalStatus::WaitingForDownload{..} =  db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently downloading"))
-        .use_code_on_error(StatusCode::BAD_REQUEST)
+            .use_code_on_error(StatusCode::BAD_REQUEST)
     };
 
     if finished {
-        db_locked.set_global_status(&Status::WaitingForCompute { start: Utc::now() } ).await?;
+        row.mark_started_compute(&db_locked.pool).await?;
+    } else {
+        row.update_timestamp(&db_locked.pool).await?;
     }
-    db_locked.update_timestamp(&c).await?;
 
     Ok(())
 }
 
 pub async fn handle_update_compute_progress(finished: bool, c: Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
-    let mut db_locked = state.contributors_db.lock().await;
-    let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
+    let db_locked = state.contributors_db.lock().await;
+    let (pos, row) = db_locked.get_with_pos(&c).await?;
+    if pos > 0 {
         return Err(anyhow!("Not the current active contributor"))
-        .use_code_on_error(StatusCode::GONE);
+            .use_code_on_error(StatusCode::GONE);
     };
-    let Status::WaitingForCompute { .. } = db_locked.get_global_status().await? else {
+    let GlobalStatus::WaitingForCompute { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for compute"))
-        .use_code_on_error(StatusCode::BAD_REQUEST);
+            .use_code_on_error(StatusCode::BAD_REQUEST);
     };
 
     if finished {
-        db_locked.set_global_status(&Status::WaitingForUpload { start: Utc::now() }).await?;
+        row.mark_started_upload(&db_locked.pool).await?;
+    } else {
+        row.update_timestamp(&db_locked.pool).await?;
     }
-    db_locked.update_timestamp(&c).await?;
 
     Ok(())
 }
 
-pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state: Arc<State>, config: &Config) -> Result<(), ErrorWithCode> {
-    let mut db_locked = state.contributors_db.lock().await;
-
-    let ContributorStatus::Queued { joined: _, pos: 0 } = db_locked.get_contributor_status(&c).await? else {
+pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Contributor, state: Arc<State>, config: &Config) -> Result<(), ErrorWithCode> {
+    let db_locked = state.contributors_db.lock().await;
+    let (pos, row) = db_locked.get_with_pos(&c).await?;
+    if pos > 0 {
         return Err(anyhow!("Not the current active contributor"))
             .use_code_on_error(StatusCode::GONE);
     };
-    let Status::WaitingForUpload { .. } = db_locked.get_global_status().await? else {
+    let GlobalStatus::WaitingForUpload { .. } = db_locked.get_global_status().await? else {
         return Err(anyhow!("Not currently waiting for upload"))
             .use_code_on_error(StatusCode::BAD_REQUEST);
     };
 
-    db_locked.update_timestamp(&c).await?;
 
     if finished {
-        db_locked.set_global_status(&Status::Verifying { start: Utc::now() }).await?;
+        row.mark_finished_upload(hash.clone(), &db_locked.pool).await?;
         let state_cloned = state.clone();
         let config_cloned = config.clone();
-        tokio::spawn(handle_verify(c, state_cloned, config_cloned));
+        tokio::spawn(handle_verify(c, hash, state_cloned, config_cloned));
+    } else {
+        row.update_timestamp(&db_locked.pool).await?;
     }
 
     Ok(())
@@ -157,14 +169,14 @@ pub async fn handle_update_upload_progress(finished: bool, c: Contributor, state
 
 
 // Not a handler; invoked directly after upload finished
-async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Result<()> {
+async fn handle_verify(c: Contributor, hash: String, state: Arc<State>, _config: Config) -> Result<()> {
     let mut db_locked = state.contributors_db.lock().await;
     let maybe_previous = db_locked.get_most_recent_finished_contributor().await?;
     // drop lock before starting verification job, so we can respond to other requests during
     // verification
     drop(db_locked); 
     tracing::info!("Starting verification for {}", c.name);
-    let current_verification_job = VerificationJob::start(&c, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
+    let current_verification_job = VerificationJob::start(&c, hash, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
     let verification_result = current_verification_job.finished().await?;
     match verification_result {
         Ok(_) => {
@@ -173,8 +185,8 @@ async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Re
         },
         Err(e) => {
             state.contributors_db.lock().await.kick_current(
-                &anyhow::Error::new(e.clone())
-                .context("Verification of your contribution failed.")
+                &format!("{:?}", anyhow::Error::new(e.clone())
+                    .context("Verification of your contribution failed."))
             ).await?;
             tracing::info!("Verification failed: {:?}. Contributor {} kicked,", e, c.name);
         }
@@ -184,7 +196,7 @@ async fn handle_verify(c: Contributor, state: Arc<State>, _config: Config) -> Re
 
 pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
     tracing::info!("Tick");
-    let mut db_locked = state.contributors_db.lock().await;
+    let db_locked = state.contributors_db.lock().await;
     let Some(current_contributor) = db_locked.get_current().await? else {
         tracing::info!("No current contributor, doing nothing");
         return Ok(());
@@ -197,50 +209,50 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
     if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
         tracing::info!(
             "Kicking contributor {}: ping time {} exceeded timeout of {}", 
-            current_contributor.contributor.name, 
+            current_contributor.name, 
             current_time - current_contributor.updated_timestamp, 
             config.ping_timeout()
         );
-        db_locked.kick_current(&anyhow::anyhow!("Timed out")).await?;
+        db_locked.kick_current(&format!("Timed out")).await?;
         return Ok(());
     }
     match status {
-        Status::WaitingForDownload { start } => {
+        GlobalStatus::WaitingForDownload { start } => {
             if current_time - start > config.download_timeout() {
                 tracing::info!(
                     "Kicking contributor {}: download time {} exceeded timeout of {}", 
-                    current_contributor.contributor.name, 
+                    current_contributor.name, 
                     current_time - start, 
                     config.download_timeout()
                 );
-                db_locked.kick_current(&anyhow::anyhow!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out")).await?;
             }
         }
-        Status::WaitingForCompute { start } => {
+        GlobalStatus::WaitingForCompute { start } => {
             if current_time - start > config.contribute_timeout() {
                 tracing::info!(
                     "Kicking contributor {}: compute time {} exceeded timeout of {}", 
-                    current_contributor.contributor.name, 
+                    current_contributor.name, 
                     current_time - start, 
                     config.contribute_timeout()
                 );
-                db_locked.kick_current(&anyhow::anyhow!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out")).await?;
             }
         }
-        Status::WaitingForUpload { start } => {
+        GlobalStatus::WaitingForUpload { start } => {
             if current_time - start > config.upload_timeout() {
                 tracing::info!(
                     "Kicking contributor {}: download time {} exceeded timeout of {}", 
-                    current_contributor.contributor.name, 
+                    current_contributor.name, 
                     current_time - start, 
                     config.upload_timeout()
                 );
-                db_locked.kick_current(&anyhow::anyhow!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out")).await?;
             }
         }
         // We don't timeout contributors during verification, since even if they go offline we can
         // verify and mark their contribution as complete
-        Status::Verifying { .. } => (),
+        GlobalStatus::Verifying => (),
     }
 
     Ok(())
@@ -254,8 +266,8 @@ pub async fn handle_register(c: &Contributor, state: Arc<State>, _config: &Confi
 
 #[derive(Serialize, Deserialize)]
 pub struct ReportResponse {
-    pub status: Status,
-    pub contributors: Vec<ContributorState>,
+    pub status: GlobalStatus,
+    pub contributors: Vec<(usize,ContributorRow)>,
 }
 
 pub async fn handle_report(state: Arc<State>, _config: &Config) -> Result<ReportResponse> {
@@ -265,13 +277,13 @@ pub async fn handle_report(state: Arc<State>, _config: &Config) -> Result<Report
     Ok(ReportResponse { status, contributors })
 }
 
-pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<Vec<(ContributorState, String)>> {
+pub async fn handle_download_all(state: Arc<State>, _config: &Config) -> Result<Vec<(ContributorRow, String)>> {
     let db_locked = state.contributors_db.lock().await;
     let contributors = db_locked.get_finished_contributors().await?;
     drop(db_locked);
     let mut urls = Vec::with_capacity(contributors.len());
     for c in &contributors {
-        urls.push(state.contribution_files_store.get_download_url(&c.contributor).await?);
+        urls.push(state.contribution_files_store.get_download_url(&c.contributor()).await?);
     }
     Ok(contributors.into_iter().zip(urls).collect())
 }
@@ -318,8 +330,8 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
             handle_update_compute_progress(finished, contributor, state, config).await?;
             json!("ok")
         }
-        Msg::UpdateUploadProgress { finished, contributor } => {
-            handle_update_upload_progress(finished, contributor, state, config).await?;
+        Msg::UpdateUploadProgress { finished, contributor, hash } => {
+            handle_update_upload_progress(finished, hash, contributor, state, config).await?;
             json!("ok")
         }
         Msg::Register { contributor } => {

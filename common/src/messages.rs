@@ -83,6 +83,7 @@ pub enum Msg {
     UpdateUploadProgress {
         finished: bool,
         contributor: Contributor,
+        hash: String,
     },
     GetTestContributionDownloadLink {
         contributor: Contributor,
@@ -111,7 +112,7 @@ impl Msg {
             Msg::GetStatus { contributor } => format!("GetStatus from {}", contributor.name),
             Msg::UpdateDownloadProgress { finished, contributor } => format!("UpdateDownloadProgress({}) from {}", finished, contributor.name),
             Msg::UpdateComputeProgress { finished, contributor } => format!("UpdateComputeProgress({}) from {}", finished, contributor.name),
-            Msg::UpdateUploadProgress { finished, contributor } =>  format!("UpdateUploadProgress({}) from {}", finished, contributor.name),
+            Msg::UpdateUploadProgress { finished, contributor, hash } =>  format!("UpdateUploadProgress({},{}) from {}", finished, hash, contributor.name),
             Msg::GetTestContributionDownloadLink { .. } => format!("GetTestContributionDownloadLink"),
             Msg::GetTestContributionUploadLink { .. } => format!("GetTestContributionUploadLink"),
         }
