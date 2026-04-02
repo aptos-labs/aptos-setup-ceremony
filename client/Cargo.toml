@@ -32,5 +32,6 @@ bytes = { workspace = true }
 aptos-batch-encryption = { workspace = true }
 aptos-crypto = { workspace = true }
 chrono = { workspace = true }
+blake3 = { workspace = true }
 
 

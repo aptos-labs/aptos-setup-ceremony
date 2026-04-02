@@ -335,7 +335,7 @@ impl ContributorRow {
         let now = Utc::now();
 
         sqlx::query(
-            "UPDATE contributors SET status=?, finished_upload_at=?, updated_timestamp=? WHERE verifying_key=?",
+            "UPDATE contributors SET status=?, finished_verify_at=?, updated_timestamp=? WHERE verifying_key=?",
         )
             .bind(ContributorStatus::Finished)
             .bind(now)

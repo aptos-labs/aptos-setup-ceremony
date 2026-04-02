@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 // real num_rounds is 216000
 pub const PARAMS : FPTXParams = FPTXParams {
     batch_size: 128,
-    num_rounds: 3,
+    num_rounds: 2160,
 };
 
 
@@ -24,7 +24,7 @@ pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
 
 pub const TEST_PARAMS : FPTXParams = FPTXParams {
     batch_size: 128,
-    num_rounds: 2160, // 1/100th of the real size
+    num_rounds: 1, // 1/100th of the real size
 };
 
 pub const TEST_DOWNLOAD_BLOB_SIZE_BYTES : usize = 1024 * 1024 * 128; // 128MB

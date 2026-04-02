@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::{bail, Result};
 use common::contribution::Contributor;
 use common::messages::Msg;
@@ -64,7 +66,7 @@ async fn test_contribute(
                 bail!("Simulated crash during compute");
             }
 
-            let my_contribution = contribute::compute_my_contribution(maybe_previous, sk, me).await?;
+            let my_contribution = Arc::new(contribute::compute_my_contribution(maybe_previous, sk, me).await?);
 
             Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }
                 .sign(sk)
@@ -77,9 +79,10 @@ async fn test_contribute(
                 bail!("Simulated crash during upload");
             }
 
-            contribute::upload_my_contribution(&my_contribution, sk, me).await?;
+            let hash = contribute::upload_my_contribution(my_contribution, sk, me).await?;
+            
 
-            Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: format!("") }
+            Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash }
                 .sign(sk)
                 .send()
                 .await?;

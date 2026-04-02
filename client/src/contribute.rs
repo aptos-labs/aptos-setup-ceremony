@@ -1,5 +1,5 @@
 
-use std::{process::{self, exit}, time::{Duration, Instant}};
+use std::{process::{self, exit}, sync::Arc, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
 use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
@@ -145,10 +145,11 @@ pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk:
     Ok(my_contribution)
 }
 
+
 pub async fn upload_my_contribution(
-    my_contribution: &Bytes, 
+    my_contribution: Arc<Bytes>, 
     my_sk: &SigningKey, 
-    me: &Contributor) -> anyhow::Result<()> {
+    me: &Contributor) -> anyhow::Result<String> {
     eprintln!("Finished computing contribution, uploading...");
 
     let response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
@@ -160,15 +161,20 @@ pub async fn upload_my_contribution(
         Msg::UpdateUploadProgress { finished: false, hash: format!(""), contributor: me.clone() }.sign(my_sk)
     );
 
+    tokio::fs::write("mine.contrib", my_contribution.as_ref()).await?;
 
     common::upload::upload_chunked(
         &session_url,
         &my_contribution,
         UPLOAD_CHUNK_SIZE).await?;
 
+    let hash = tokio::task::spawn_blocking(move ||
+        blake3::hash(&my_contribution)
+    ).await?.to_string();
+
     ping_loop.stop();
 
-    Ok(())
+    Ok(hash)
 }
 
 pub async fn wait_for_server_verification(
@@ -297,18 +303,18 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
     .await?;
 
 
-    let my_contribution = compute_my_contribution(maybe_previous, &my_sk, me).await?;
+    let my_contribution = Arc::new(compute_my_contribution(maybe_previous, &my_sk, me).await?);
 
     // tell server we're done computing
     Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }.sign(&my_sk).send().await?;
 
 
-    upload_my_contribution(&my_contribution, &my_sk, me).await?;
+    let hash = upload_my_contribution(my_contribution, &my_sk, me).await?;
 
 
     // tell server we're done uploading
     // TODO hash
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: format!("") }.sign(&my_sk).send().await?;
+    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash }.sign(&my_sk).send().await?;
 
 
     wait_for_server_verification(&my_sk, me).await?;
