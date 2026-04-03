@@ -39,7 +39,9 @@ impl KeypairsRow {
 
 
 pub fn read_keypairs_file(file: &str) -> Result<Vec<KeypairsRow>> {
-    let mut csv = csv::Reader::from_path(file)?;
+    let mut csv = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(file)?;
     csv.records().map(|maybe_row| {
         let row = maybe_row?;
         let name : String = row.get(0).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?.to_string();

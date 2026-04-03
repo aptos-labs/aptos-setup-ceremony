@@ -10,8 +10,7 @@ use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
 use server::store::contributors_db::types::ContributorRow;
-use tabled::{Table, Tabled};
-use hex;
+use tabled::Table;
 
 use crate::cli::{self, AdminCommand, Cli, Command};
 use crate::contribute;
