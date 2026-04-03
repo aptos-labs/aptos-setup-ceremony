@@ -30,7 +30,7 @@ pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
 lazy_static! {
     pub static ref TEST_PARAMS : AptosParams = AptosParams::new(
         128, 
-        4, 
+        2160, 
         8
     ).unwrap();
 }
