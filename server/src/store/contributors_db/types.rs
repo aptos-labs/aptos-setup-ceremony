@@ -10,11 +10,24 @@ use sqlx::{SqlitePool, Type};
 
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
-pub enum GlobalStatus {
-    WaitingForDownload { start: DateTime<Utc> },
-    WaitingForCompute { start: DateTime<Utc> },
-    WaitingForUpload { start: DateTime<Utc> },
+pub enum CurrentContributionStep {
+    DownloadNotStarted,
+    DownloadStarted { start: DateTime<Utc> },
+    ComputeStarted { start: DateTime<Utc> },
+    UploadStarted { start: DateTime<Utc> },
     Verifying 
+}
+
+impl CurrentContributionStep {
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            CurrentContributionStep::DownloadNotStarted => "download not started",
+            CurrentContributionStep::DownloadStarted { .. } => "download started",
+            CurrentContributionStep::ComputeStarted { .. } => "compute started",
+            CurrentContributionStep::UploadStarted { .. } => "upload started",
+            CurrentContributionStep::Verifying => "verification started",
+        }
+    }
 }
 
 #[derive(sqlx::Type, PartialEq, Eq, Tabled, Debug, Clone, Serialize, Deserialize)]
@@ -321,6 +334,20 @@ impl ContributorRow {
             .execute(pool).await?;
 
         Ok(())
+    }
+
+    pub fn get_current_contribution_step(&self) -> CurrentContributionStep {
+        if let Some(_) = self.finished_upload_at {
+            CurrentContributionStep::Verifying  
+        } else if let Some(start) = self.started_upload_at {
+            CurrentContributionStep::UploadStarted {start}
+        } else if let Some(start) = self.started_compute_at {
+            CurrentContributionStep::ComputeStarted {start}
+        } else if let Some(start) = self.started_download_at {
+            CurrentContributionStep::DownloadStarted {start: start }
+        } else {
+            CurrentContributionStep::DownloadNotStarted
+        }
     }
 }
 

@@ -1,11 +1,10 @@
 
-use chrono::Utc;
 use common::contribution::{AsAndFromHex, Contributor};
 
 use anyhow::{Context, Result, bail};
 use sqlx::SqlitePool;
 
-use crate::store::contributors_db::types::{ContributorRow, ContributorRowWithPos, GlobalStatus};
+use crate::store::contributors_db::types::{ContributorRow, ContributorRowWithPos};
 
 pub mod types;
 
@@ -63,28 +62,6 @@ impl ContributorsDB {
             .map(|r: ContributorRowWithPos| (r.pos(), r.into_row()))
             .collect();
         Ok(states)
-    }
-
-    /// Get global status.
-    pub async fn get_global_status(&self) -> Result<GlobalStatus> {
-        let maybe_current = self.get_current().await?;
-        Ok(match maybe_current {
-            Some(current) => {
-                if let Some(_) = current.finished_upload_at {
-                    GlobalStatus::Verifying  
-                } else if let Some(start) = current.started_upload_at {
-                    GlobalStatus::WaitingForUpload {start}
-                } else if let Some(start) = current.started_compute_at {
-                    GlobalStatus::WaitingForCompute {start}
-                } else if let Some(start) = current.started_download_at {
-                    GlobalStatus::WaitingForDownload {start: start }
-                } else {
-                    current.mark_started_download(&self.pool).await?;
-                    GlobalStatus::WaitingForDownload {start: Utc::now() }
-                }
-            },
-            None => GlobalStatus::WaitingForDownload { start: Utc::now() } ,
-        })
     }
 
     /// Get contributor status

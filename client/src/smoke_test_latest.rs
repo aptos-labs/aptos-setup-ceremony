@@ -1,7 +1,7 @@
 use aptos_batch_encryption::{
-    schemes::fptx_weighted::FPTXWeighted, tests::smoke::{fptx_weighted_smoke::{run_pvss, run_pvss_with_hkzg}, run_smoke}, 
+    schemes::fptx_weighted::FPTXWeighted, tests::smoke::{fptx_weighted_smoke::{run_pvss_with_hkzg}, run_smoke}, 
 };
-use common::{constants::CeremonyContribution, contribution::Contribution, fptx::FPTXContributionInner, messages::Msg};
+use common::{constants::CeremonyContribution, messages::Msg};
 use ed25519_dalek::SigningKey;
 use anyhow::Result;
 
