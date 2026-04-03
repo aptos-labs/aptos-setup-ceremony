@@ -9,6 +9,7 @@ use ark_std::{One, UniformRand};
 
 use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::ContributionVerificationFailure, multipairing_equation::MultipairingEquation};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PowersOfTauParams {
     pub max_power: usize,
 }

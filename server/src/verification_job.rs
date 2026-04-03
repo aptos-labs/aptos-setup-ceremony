@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use bytes::Bytes;
-use common::{contribution::{Contribution, Contributor}, errors::ContributionVerificationFailure, fptx::{FPTXContributionInner, FPTXParams}};
+use common::{aptos::AptosParams, constants::CeremonyContribution, contribution::Contributor, errors::ContributionVerificationFailure};
 use rand::thread_rng;
 use rayon;
 use anyhow::Result;
@@ -20,7 +20,7 @@ impl VerificationJob {
         hash: String,
         maybe_previous: &Option<Contributor>, 
         contribution_files_store: &ContributionFilesStore,
-        params: &FPTXParams,
+        params: &AptosParams,
     ) -> Result<Self> {
         let current_contribution_bytes : Bytes = contribution_files_store.download_contribution(&current).await?;
 
@@ -32,8 +32,8 @@ impl VerificationJob {
             anyhow::bail!("Contribution hash mismatch");
         }
 
-        let current_contribution : Contribution<FPTXContributionInner> = bcs::from_bytes(&current_contribution_bytes)?;
-        let maybe_previous_contribution : Option<Contribution<FPTXContributionInner>> = match maybe_previous {
+        let current_contribution : CeremonyContribution = bcs::from_bytes(&current_contribution_bytes)?;
+        let maybe_previous_contribution : Option<CeremonyContribution> = match maybe_previous {
             Some(previous) => Some(bcs::from_bytes(&contribution_files_store.download_contribution(&previous).await?)?),
             None => None
         };

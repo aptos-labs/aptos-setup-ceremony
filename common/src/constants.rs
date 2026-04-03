@@ -1,15 +1,19 @@
 use std::time::Duration;
 
-use crate::{contribution::Contributor, fptx::FPTXParams};
+use crate::{aptos::{AptosContributionInner, AptosParams}, contribution::{Contribution, Contributor}};
 use rand::thread_rng;
 use lazy_static::lazy_static;
 
+pub type CeremonyContribution = Contribution<AptosContributionInner>;
 
 // real num_rounds is 216000
-pub const PARAMS : FPTXParams = FPTXParams {
-    batch_size: 128,
-    num_rounds: 4,
-};
+lazy_static! {
+    pub static ref PARAMS : AptosParams = AptosParams::new(
+        128, 
+        4, 
+        8
+    ).unwrap();
+}
 
 
 pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
@@ -22,10 +26,14 @@ pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
 // constants related to download/compute/upload test that client does
 
 
-pub const TEST_PARAMS : FPTXParams = FPTXParams {
-    batch_size: 128,
-    num_rounds: 2160, // 1/100th of the real size
-};
+
+lazy_static! {
+    pub static ref TEST_PARAMS : AptosParams = AptosParams::new(
+        128, 
+        4, 
+        8
+    ).unwrap();
+}
 
 pub const TEST_DOWNLOAD_BLOB_SIZE_BYTES : usize = 1024 * 1024 * 128; // 128MB
 

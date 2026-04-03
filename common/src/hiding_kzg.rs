@@ -1,6 +1,7 @@
 use std::ops::Neg;
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
+use aptos_dkg::pcs::univariate_hiding_kzg;
 use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -60,8 +61,7 @@ where
     type P = P;
     type Params = HidingKZGParams;
 
-    // TODO change this to whatever `aptos-dkg` expects
-    type Output = ();
+    type Output = (univariate_hiding_kzg::VerificationKey<P>, univariate_hiding_kzg::CommitmentKey<P>);
 
     // The secret consists of the powers of tau secret along with the scalar xi.
     type Secrets = (<PowersOfTauContributionInner<P, M2C> as ContributionInner>::Secrets, P::ScalarField);
@@ -149,7 +149,7 @@ where
     }
 
     fn output(self) -> Self::Output {
-        todo!()
+        univariate_hiding_kzg::setup(&self.tau_powers_contrib_inner.powers, self.tau_powers_contrib_inner.tau_g2, self.xi_g1, self.xi_g2)
     }
 }
 

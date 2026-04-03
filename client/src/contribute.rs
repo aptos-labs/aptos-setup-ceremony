@@ -2,7 +2,7 @@
 use std::{process::{self, exit}, sync::Arc, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::{COMPUTE_TEST_CUTOFF, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, fptx::FPTXContributionInner, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{COMPUTE_TEST_CUTOFF, CeremonyContribution, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -122,7 +122,7 @@ pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk:
         let mut rng = thread_rng();
         // deserialize here b/c its computationally expensive, and is done in parallel w/
         // rayon
-        let maybe_previous : Option<Contribution<FPTXContributionInner>> = match maybe_previous_bytes { 
+        let maybe_previous : Option<CeremonyContribution> = match maybe_previous_bytes { 
             Some(previous) => 
             Some(bcs::from_bytes(&previous)
                 .context("Error while deserializing previous contribution.")
@@ -230,7 +230,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     eprintln!("Testing your compute speed...");
 
     let start = Instant::now();
-    let my_test_contrib : Contribution<FPTXContributionInner> = Contribution::generate(&mut thread_rng(), None, me, &TEST_PARAMS)?;
+    let my_test_contrib : CeremonyContribution = Contribution::generate(&mut thread_rng(), None, me, &*TEST_PARAMS)?;
     let compute_duration = start.elapsed();
     let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
     eprintln!("Compute took {:?}", compute_duration);

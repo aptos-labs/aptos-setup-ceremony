@@ -2,6 +2,7 @@ use chrono::TimeDelta;
 use ed25519_dalek::VerifyingKey;
 use serde::{Deserialize, Deserializer};
 
+
 fn deserialize_verifying_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<VerifyingKey, D::Error> {
     let hex_str = String::deserialize(deserializer)?;
     let bytes: Vec<u8> = (0..hex_str.len())

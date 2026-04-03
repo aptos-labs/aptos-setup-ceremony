@@ -18,7 +18,7 @@ use crate::errors::{BatchSizeNotPowerOfTwo, ContributionGenerationFailure, Contr
 use crate::multipairing_equation::{MultipairingEquation, MultipairingEquations};
 use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
-type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+pub(crate) type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXContributionInner {

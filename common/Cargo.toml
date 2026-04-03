@@ -15,6 +15,7 @@ rand = { workspace = true }
 serde = { workspace = true }
 aptos-batch-encryption = { workspace = true }
 aptos-crypto = { workspace = true }
+aptos-dkg = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 ark-std = { workspace = true, features = ["parallel", "rayon"] }
