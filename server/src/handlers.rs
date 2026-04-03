@@ -174,7 +174,7 @@ pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Cont
     check_correct_state(
         pos, 
         &row, 
-        CurrentContributionStep::ComputeStarted  { start: Utc::now() }
+        CurrentContributionStep::UploadStarted { start: Utc::now() }
     )?;
 
 
