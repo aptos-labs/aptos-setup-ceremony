@@ -10,8 +10,8 @@ pub type CeremonyContribution = Contribution<AptosContributionInner>;
 lazy_static! {
     pub static ref PARAMS : AptosParams = AptosParams::new(
         128, 
-        4, 
-        8
+        216000, 
+        256
     ).unwrap();
 }
 
