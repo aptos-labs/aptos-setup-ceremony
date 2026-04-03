@@ -225,10 +225,10 @@ async fn run_verify(c: Contributor, hash: String, state: Arc<State>, _config: Co
 }
 
 pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
-    tracing::info!("Tick");
+    tracing::info!("[Tick] Start tick");
     let db_locked = state.contributors_db.lock().await;
     let Some(current_contributor) = db_locked.get_current().await? else {
-        tracing::info!("No current contributor, doing nothing");
+        tracing::info!("[Tick] No current contributor, doing nothing");
         return Ok(());
     };
 
@@ -237,7 +237,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
 
     if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
         tracing::info!(
-            "Kicking contributor {}: ping time {} exceeded timeout of {}", 
+            "[Tick] Kicking contributor {}: ping time {} exceeded timeout of {}", 
             current_contributor.name, 
             current_time - current_contributor.updated_timestamp, 
             config.ping_timeout()
@@ -254,7 +254,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         CurrentContributionStep::DownloadStarted { start } => {
             if current_time - start > config.download_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: download time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.download_timeout()
@@ -265,7 +265,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         CurrentContributionStep::ComputeStarted { start } => {
             if current_time - start > config.contribute_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: compute time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: compute time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.contribute_timeout()
@@ -276,7 +276,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         CurrentContributionStep::UploadStarted { start } => {
             if current_time - start > config.upload_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: download time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.upload_timeout()
