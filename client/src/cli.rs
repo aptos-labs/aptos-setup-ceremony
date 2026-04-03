@@ -45,9 +45,6 @@ pub enum AdminCommand {
         #[arg(short, long)]
         file: String,
     },
-    ReadKeypairsFile {
-        file: String,
-    },
     Report,
     DownloadAll,
     SmokeTestLatest,
