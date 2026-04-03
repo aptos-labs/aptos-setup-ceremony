@@ -4,7 +4,7 @@ use bytes::Bytes;
 use common::{aptos::AptosParams, constants::CeremonyContribution, contribution::Contributor, errors::ContributionVerificationFailure};
 use rand::thread_rng;
 use rayon;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tokio::sync::oneshot;
 
 use crate::store::contribution_files::ContributionFilesStore;
@@ -32,9 +32,11 @@ impl VerificationJob {
             anyhow::bail!("Contribution hash mismatch");
         }
 
-        let current_contribution : CeremonyContribution = bcs::from_bytes(&current_contribution_bytes)?;
+        let current_contribution : CeremonyContribution = bcs::from_bytes(&current_contribution_bytes)
+        .context("Error while parsing the uploaded contribution")?;
         let maybe_previous_contribution : Option<CeremonyContribution> = match maybe_previous {
-            Some(previous) => Some(bcs::from_bytes(&contribution_files_store.download_contribution(&previous).await?)?),
+            Some(previous) => Some(bcs::from_bytes(&contribution_files_store.download_contribution(&previous).await?)
+                .context("Error while parsing the previous contribution")?),
             None => None
         };
 

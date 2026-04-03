@@ -159,7 +159,27 @@ pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Cont
         row.mark_finished_upload(hash.clone(), &db_locked.pool).await?;
         let state_cloned = state.clone();
         let config_cloned = config.clone();
-        tokio::spawn(handle_verify(c, hash, state_cloned, config_cloned));
+        tokio::spawn(async move {
+            let verification_result = run_verify(c.clone(), hash, state_cloned.clone(), config_cloned).await;
+
+            match verification_result {
+                Ok(_) => {
+                    state_cloned.contributors_db.lock().await.finish_current().await
+                        .expect("This must succeed; otherwise, if it fails, I'm not sure how to report the error or keep the database in a valid state");
+                    tracing::info!("Verification succeeded. Contributor {} marked as finished.", c.name);
+                },
+                Err(e) => {
+                    let e_with_context = e.context("Verification of your contribution failed.");
+                    state_cloned.contributors_db.lock().await.kick_current(
+                        &format!("{:?}", e_with_context)
+                    ).await
+                        .expect("This must succeed; otherwise, if it fails, I'm not sure how to report the error or keep the database in a valid state");
+
+                    tracing::info!("Verification failed: {:?}. Contributor {} kicked,", e_with_context, c.name);
+                }
+            }
+
+        });
     } else {
         row.update_timestamp(&db_locked.pool).await?;
     }
@@ -169,7 +189,7 @@ pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Cont
 
 
 // Not a handler; invoked directly after upload finished
-async fn handle_verify(c: Contributor, hash: String, state: Arc<State>, _config: Config) -> Result<()> {
+async fn run_verify(c: Contributor, hash: String, state: Arc<State>, _config: Config) -> Result<()> {
     let mut db_locked = state.contributors_db.lock().await;
     let maybe_previous = db_locked.get_most_recent_finished_contributor().await?;
     // drop lock before starting verification job, so we can respond to other requests during
@@ -178,20 +198,7 @@ async fn handle_verify(c: Contributor, hash: String, state: Arc<State>, _config:
     tracing::info!("Starting verification for {}", c.name);
     let current_verification_job = VerificationJob::start(&c, hash, &maybe_previous, &state.contribution_files_store, &PARAMS).await?; 
     let verification_result = current_verification_job.finished().await?;
-    match verification_result {
-        Ok(_) => {
-            state.contributors_db.lock().await.finish_current().await?;
-            tracing::info!("Verification succeeded. Contributor {} marked as finished.", c.name);
-        },
-        Err(e) => {
-            state.contributors_db.lock().await.kick_current(
-                &format!("{:?}", anyhow::Error::new(e.clone())
-                    .context("Verification of your contribution failed."))
-            ).await?;
-            tracing::info!("Verification failed: {:?}. Contributor {} kicked,", e, c.name);
-        }
-    }
-    Ok(())
+    Ok(verification_result?)
 }
 
 pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
