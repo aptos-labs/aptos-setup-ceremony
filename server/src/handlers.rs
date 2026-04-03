@@ -121,9 +121,12 @@ pub fn check_correct_state(
         Err(anyhow!("Not the current active contributor"))
             .use_code_on_error(StatusCode::GONE)
     } else if std::mem::discriminant(&row.get_current_contribution_step()) !=
-            std::mem::discriminant(&expected_step) {
-        Err(anyhow!("Can't make this request right now, the current state is {}", row.get_current_contribution_step().variant_name()))
-            .use_code_on_error(StatusCode::BAD_REQUEST)
+    std::mem::discriminant(&expected_step) {
+        Err(anyhow!(
+            "Can't make this request right now, the current state is {}, expected {}.",
+            row.get_current_contribution_step().variant_name(),
+            expected_step.variant_name()
+        )).use_code_on_error(StatusCode::BAD_REQUEST)
     } else {
         Ok(())
     }
