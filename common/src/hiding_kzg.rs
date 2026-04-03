@@ -1,4 +1,4 @@
-use std::ops::Neg;
+use std::{ops::Neg, time::Instant};
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use aptos_dkg::pcs::univariate_hiding_kzg;
@@ -84,6 +84,8 @@ where
             return Err(ContributionGenerationFailure::ParamsMismatch);
         }
 
+        let start = Instant::now();
+
         let (tau_powers_contrib_inner, tau_powers_fr) = PowersOfTauContributionInner::generate(
             rng, 
             &previous.tau_powers_contrib_inner, 
@@ -102,6 +104,8 @@ where
                 new_xi_g2,
             }
         );
+
+        print!("Finished hiding KZG contrib in {:?}", start.elapsed());
 
         Ok((
             Self {

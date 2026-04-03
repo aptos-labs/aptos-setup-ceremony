@@ -135,7 +135,7 @@ impl ContributionInner for FPTXContributionInner {
             .zip(&previous.alphas_g2)
             .map(|(alpha_fr, old_alpha_g2)| G2Affine::from(*old_alpha_g2 * alpha_fr))
             .collect();
-        println!("a: {:?}", time.elapsed());
+        println!("Finished step a in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
 
@@ -146,7 +146,7 @@ impl ContributionInner for FPTXContributionInner {
 
             })
             .collect();
-        println!("b: {:?}", time.elapsed());
+        println!("Finished step b in {:?}", time.elapsed());
 
 
         let time = std::time::Instant::now();
@@ -155,7 +155,7 @@ impl ContributionInner for FPTXContributionInner {
             &previous.tau_powers_contrib_inner, 
             &PowersOfTauParams { max_power: params.batch_size }
         )?;
-        println!("c: {:?}", time.elapsed());
+        println!("Finished step c in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let randomized_tau_powers_fr = tau_powers_randomized_fr(
@@ -163,7 +163,7 @@ impl ContributionInner for FPTXContributionInner {
             &tau_powers_fr,
             &random_alphas_fr
         );
-        println!("d: {:?}", time.elapsed());
+        println!("Finished step d in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let randomized_tau_powers_g1p: Vec<Vec<G1Projective>> = randomized_tau_powers_fr
@@ -175,7 +175,7 @@ impl ContributionInner for FPTXContributionInner {
                     .map(|(new_scalar, old_g1)| *old_g1 * new_scalar)
                     .collect())
             .collect();
-        println!("e: {:?}", time.elapsed());
+        println!("Finished step e in {:?}", time.elapsed());
 
         // TODO could do batch normalization here, although it doesn't seem to be a significant
         // component of the total time to contribute
@@ -188,7 +188,7 @@ impl ContributionInner for FPTXContributionInner {
                     .collect()
             )
             .collect();
-        println!("f: {:?}", time.elapsed());
+        println!("Finished step f in {:?}", time.elapsed());
 
         Ok((Self { 
             tau_powers_contrib_inner,

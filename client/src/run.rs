@@ -10,22 +10,13 @@ use serde_json;
 use anyhow::{self, bail};
 use server::handlers::ReportResponse;
 use server::store::contributors_db::types::ContributorRow;
-use tabled::{Table, Tabled};
-use hex;
+use tabled::Table;
 
 use crate::cli::{self, AdminCommand, Cli, Command};
 use crate::contribute;
-use crate::csv::{read_keypairs_file, read_users_file, write_keypairs_file};
+use crate::csv::{read_keypairs_file, write_keypairs_file};
 use crate::smoke_test_latest::smoke_test_latest;
 
-
-#[derive(Tabled)]
-struct TabledKeypair {
-    #[tabled(inline)]
-    contributor: Contributor,
-    #[tabled(format("{:?}", hex::encode(self.signing_key.as_bytes())))]
-    signing_key: SigningKey,
-}
 
 
 fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contributor)> {
@@ -69,24 +60,19 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
         Command::Admin { command } => match command {
             AdminCommand::GenerateAllKeypairs { file } => {
                 let mut rng = thread_rng();
-                let keypairs = read_users_file(&file)?
+                let keypairs = read_keypairs_file(&file)?
                     .into_iter()
-                    .map(|(name, email)| Contributor::new(&name, &email, &mut rng))
+                    .map(|row| row.add_keypair_if_needed(&mut rng))
                     .collect();
-
-                write_keypairs_file(&(file+".keypairs"), keypairs)?;
-            }
-            AdminCommand::ReadKeypairsFile { file } => {
-                let keypairs : Vec<TabledKeypair> = read_keypairs_file(&file)?
-                    .into_iter()
-                    .map(|(signing_key, contributor)| TabledKeypair { signing_key, contributor })
-                    .collect();
-                let table = Table::new(keypairs).to_string();
-                println!("{table}");
+                write_keypairs_file(&(file), keypairs)?;
             }
             AdminCommand::RegisterAll { file } => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
-                let keypairs = read_keypairs_file(&file)?;
+                let keypairs : Vec<(SigningKey, Contributor)> 
+                = read_keypairs_file(&file)?
+                    .into_iter()
+                    .map(|row| row.must_have_keypair())
+                    .collect::<anyhow::Result<Vec<(SigningKey, Contributor)>>>()?;
 
                 for (_, contributor) in keypairs {
                         Msg::Register { contributor }.sign(&my_sk).send().await?;

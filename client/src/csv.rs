@@ -1,35 +1,66 @@
 use anyhow::{Result, bail};
 use common::contribution::{Contributor, AsAndFromHex};
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{SigningKey, ed25519::signature::rand_core::CryptoRngCore};
 
-pub fn read_users_file(file: &str) -> Result<Vec<(String, String)>> {
-    let mut csv = csv::Reader::from_path(file)?;
-    csv.records().map(|maybe_row| {
-        let row = maybe_row?;
-        Ok((
-            String::from(row.get(0).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?), 
-            String::from(row.get(1).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?),  
-        ))
-    }).collect()
+pub enum KeypairsRow {
+    NoKeypair {
+        name: String,
+        email: String,
+    },
+    HasKeypair {
+        signing_key: SigningKey,
+        contributor: Contributor
+    }
+}
+
+impl KeypairsRow {
+    pub fn must_have_keypair(self) 
+    -> Result<(SigningKey, Contributor)> {
+        match self {
+            Self::HasKeypair { signing_key, contributor } => 
+            Ok((signing_key, contributor)),
+            Self::NoKeypair { .. } => 
+            bail!("You haven't generated keypairs for all users yet")
+        }
+    }
+
+    pub fn add_keypair_if_needed(
+        self, 
+        rng: &mut impl CryptoRngCore
+    ) -> (SigningKey, Contributor) {
+        match self {
+            Self::HasKeypair { signing_key, contributor } => 
+            (signing_key, contributor),
+            Self::NoKeypair { name, email } => 
+            Contributor::new(&name, &email, rng)
+        }
+    }
 }
 
 
-pub fn read_keypairs_file(file: &str) -> Result<Vec<(SigningKey, Contributor)>> {
-    let mut csv = csv::Reader::from_path(file)?;
+pub fn read_keypairs_file(file: &str) -> Result<Vec<KeypairsRow>> {
+    let mut csv = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(file)?;
     csv.records().map(|maybe_row| {
         let row = maybe_row?;
-        let name = row.get(0).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?;
-        let email = row.get(1).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?;
-        let keypair_hex = row.get(2).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?;
-        let (sk, c) = <(SigningKey, Contributor)>::from_hex(keypair_hex)?;
+        let name : String = row.get(0).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?.to_string();
+        let email : String = row.get(1).ok_or(anyhow::anyhow!("Couldn't parse CSV"))?.to_string();
+        Ok(match row.get(2) {
+            Some(keypair_hex) => {
+                let (signing_key, contributor) = <(SigningKey, Contributor)>::from_hex(keypair_hex)?;
 
-        if name != c.name {
-            bail!("Name mismatch")
-        } else if email != c.email {
-            bail!("Email mismatch")
-        } else {
-            Ok((sk, c))
-        }
+                if name != contributor.name {
+                    bail!("Name mismatch");
+                } else if email != contributor.email {
+                    bail!("Email mismatch");
+                }
+                KeypairsRow::HasKeypair { signing_key, contributor }
+            },
+            None => {
+                KeypairsRow::NoKeypair { name, email }
+            }
+        })
     }).collect()
 }
 

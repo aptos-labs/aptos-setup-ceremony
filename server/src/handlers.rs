@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::{config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorsDB, types::{ContributorRow, ContributorStatus, GlobalStatus}}}, verification_job::VerificationJob};
+use crate::{config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorsDB, types::{ContributorRow, ContributorStatus, CurrentContributionStep}}}, verification_job::VerificationJob};
 use common::messages::Msg;
 
 
@@ -71,28 +71,37 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
             if pos > 0 {
                 Ok(StatusResponse::WaitingInQueue(pos))
             } else {
-                Ok(match db_locked.get_global_status().await? {
-                    GlobalStatus::WaitingForDownload {..} => 
-                    // Note: we can keep track of the first time the client receives this
-                    // response to know when it starts downloading
+                Ok(match row.get_current_contribution_step() {
+                    CurrentContributionStep::DownloadNotStarted => {
+                        // Note: we can keep track of the first time the client receives this
+                        // response to know when it starts downloading
+                        row.mark_started_download(&db_locked.pool).await?;
+                        StatusResponse::ReadyToDownloadPrevious(
+                            match db_locked.get_most_recent_finished_contributor().await? {
+                                Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
+                                None => None,
+                            }
+                        )
+                    },
+                    CurrentContributionStep::DownloadStarted {..} => 
                     StatusResponse::ReadyToDownloadPrevious(
                         match db_locked.get_most_recent_finished_contributor().await? {
                             Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
                             None => None,
                         }
                     ),
-                    GlobalStatus::WaitingForCompute {..} => 
+                    CurrentContributionStep::ComputeStarted {..} => 
                     StatusResponse::WaitingForContributionWithPrevious(
                         match db_locked.get_most_recent_finished_contributor().await? {
                             Some(prev_c) => Some(state.contribution_files_store.get_download_url(&prev_c).await?),
                             None => None,
                         }
                     ),
-                    GlobalStatus::WaitingForUpload {..} => 
+                    CurrentContributionStep::UploadStarted {..} => 
                     StatusResponse::ReadyForUpload(
                         state.contribution_files_store.get_upload_url(&c).await?
                     ),
-                    GlobalStatus::Verifying { .. } => 
+                    CurrentContributionStep::Verifying { .. } => 
                     StatusResponse::Verifying,
                 })
             }
@@ -100,17 +109,37 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
     }
 }
 
+pub fn check_correct_state(
+    pos: usize,
+    row: &ContributorRow,
+    expected_step: CurrentContributionStep,
+) -> Result<(), ErrorWithCode> {
+    if row.status == ContributorStatus::Kicked {
+        Err(anyhow!("You were kicked. Please restart to rejoin queue."))
+            .use_code_on_error(StatusCode::GONE)
+    } else if pos > 0 {
+        Err(anyhow!("Not the current active contributor"))
+            .use_code_on_error(StatusCode::GONE)
+    } else if std::mem::discriminant(&row.get_current_contribution_step()) !=
+    std::mem::discriminant(&expected_step) {
+        Err(anyhow!(
+            "Can't make this request right now, the current state is {}, expected {}.",
+            row.get_current_contribution_step().variant_name(),
+            expected_step.variant_name()
+        )).use_code_on_error(StatusCode::BAD_REQUEST)
+    } else {
+        Ok(())
+    }
+}
+
 pub async fn handle_update_download_progress(finished: bool, c: Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
     let db_locked = state.contributors_db.lock().await;
     let (pos, row) = db_locked.get_with_pos(&c).await?;
-    if pos > 0 {
-        return Err(anyhow!("Not the current active contributor"))
-            .use_code_on_error(StatusCode::GONE);
-    }
-    let GlobalStatus::WaitingForDownload{..} =  db_locked.get_global_status().await? else {
-        return Err(anyhow!("Not currently downloading"))
-            .use_code_on_error(StatusCode::BAD_REQUEST)
-    };
+    check_correct_state(
+        pos, 
+        &row, 
+        CurrentContributionStep::DownloadStarted { start: Utc::now() }
+    )?;
 
     if finished {
         row.mark_started_compute(&db_locked.pool).await?;
@@ -124,14 +153,11 @@ pub async fn handle_update_download_progress(finished: bool, c: Contributor, sta
 pub async fn handle_update_compute_progress(finished: bool, c: Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
     let db_locked = state.contributors_db.lock().await;
     let (pos, row) = db_locked.get_with_pos(&c).await?;
-    if pos > 0 {
-        return Err(anyhow!("Not the current active contributor"))
-            .use_code_on_error(StatusCode::GONE);
-    };
-    let GlobalStatus::WaitingForCompute { .. } = db_locked.get_global_status().await? else {
-        return Err(anyhow!("Not currently waiting for compute"))
-            .use_code_on_error(StatusCode::BAD_REQUEST);
-    };
+    check_correct_state(
+        pos, 
+        &row, 
+        CurrentContributionStep::ComputeStarted  { start: Utc::now() }
+    )?;
 
     if finished {
         row.mark_started_upload(&db_locked.pool).await?;
@@ -145,14 +171,11 @@ pub async fn handle_update_compute_progress(finished: bool, c: Contributor, stat
 pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Contributor, state: Arc<State>, config: &Config) -> Result<(), ErrorWithCode> {
     let db_locked = state.contributors_db.lock().await;
     let (pos, row) = db_locked.get_with_pos(&c).await?;
-    if pos > 0 {
-        return Err(anyhow!("Not the current active contributor"))
-            .use_code_on_error(StatusCode::GONE);
-    };
-    let GlobalStatus::WaitingForUpload { .. } = db_locked.get_global_status().await? else {
-        return Err(anyhow!("Not currently waiting for upload"))
-            .use_code_on_error(StatusCode::BAD_REQUEST);
-    };
+    check_correct_state(
+        pos, 
+        &row, 
+        CurrentContributionStep::UploadStarted { start: Utc::now() }
+    )?;
 
 
     if finished {
@@ -202,20 +225,19 @@ async fn run_verify(c: Contributor, hash: String, state: Arc<State>, _config: Co
 }
 
 pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
-    tracing::info!("Tick");
+    tracing::info!("[Tick] Start tick");
     let db_locked = state.contributors_db.lock().await;
     let Some(current_contributor) = db_locked.get_current().await? else {
-        tracing::info!("No current contributor, doing nothing");
+        tracing::info!("[Tick] No current contributor, doing nothing");
         return Ok(());
     };
 
-    let status = db_locked.get_global_status().await?;
 
     let current_time = Utc::now();
 
     if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
         tracing::info!(
-            "Kicking contributor {}: ping time {} exceeded timeout of {}", 
+            "[Tick] Kicking contributor {}: ping time {} exceeded timeout of {}", 
             current_contributor.name, 
             current_time - current_contributor.updated_timestamp, 
             config.ping_timeout()
@@ -223,11 +245,16 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         db_locked.kick_current(&format!("Timed out")).await?;
         return Ok(());
     }
-    match status {
-        GlobalStatus::WaitingForDownload { start } => {
+    match current_contributor.get_current_contribution_step() {
+        CurrentContributionStep::DownloadNotStarted => {
+            // On tick, if the active contributor hasn't started download, mark the
+            // download started anyways 
+            current_contributor.mark_started_download(&db_locked.pool).await?;
+        },
+        CurrentContributionStep::DownloadStarted { start } => {
             if current_time - start > config.download_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: download time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.download_timeout()
@@ -235,10 +262,10 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                 db_locked.kick_current(&format!("Timed out")).await?;
             }
         }
-        GlobalStatus::WaitingForCompute { start } => {
+        CurrentContributionStep::ComputeStarted { start } => {
             if current_time - start > config.contribute_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: compute time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: compute time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.contribute_timeout()
@@ -246,10 +273,10 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                 db_locked.kick_current(&format!("Timed out")).await?;
             }
         }
-        GlobalStatus::WaitingForUpload { start } => {
+        CurrentContributionStep::UploadStarted { start } => {
             if current_time - start > config.upload_timeout() {
                 tracing::info!(
-                    "Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: download time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.upload_timeout()
@@ -259,7 +286,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         }
         // We don't timeout contributors during verification, since even if they go offline we can
         // verify and mark their contribution as complete
-        GlobalStatus::Verifying => (),
+        CurrentContributionStep::Verifying => (),
     }
 
     Ok(())
@@ -273,14 +300,14 @@ pub async fn handle_register(c: &Contributor, state: Arc<State>, _config: &Confi
 
 #[derive(Serialize, Deserialize)]
 pub struct ReportResponse {
-    pub status: GlobalStatus,
+    pub status: Option<CurrentContributionStep>,
     pub contributors: Vec<(usize,ContributorRow)>,
 }
 
 pub async fn handle_report(state: Arc<State>, _config: &Config) -> Result<ReportResponse> {
     let db_locked = state.contributors_db.lock().await;
     let contributors = db_locked.get_contributors().await?;
-    let status = db_locked.get_global_status().await?;
+    let status = db_locked.get_current().await?.map(|c| c.get_current_contribution_step());
     Ok(ReportResponse { status, contributors })
 }
 
