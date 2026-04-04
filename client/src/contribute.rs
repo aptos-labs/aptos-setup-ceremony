@@ -122,6 +122,8 @@ pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk:
         let mut rng = thread_rng();
         // deserialize here b/c its computationally expensive, and is done in parallel w/
         // rayon
+        eprintln!("Deserializing previous contribution...");
+        let start = Instant::now();
         let maybe_previous : Option<CeremonyContribution> = match maybe_previous_bytes { 
             Some(previous) => 
             Some(bcs::from_bytes(&previous)
@@ -129,13 +131,22 @@ pub async fn compute_my_contribution(maybe_previous_bytes: Option<Bytes>, my_sk:
                 .unwrap()),
             None => None 
         };
-        tx.send(
-            // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
-            Bytes::from(bcs::to_bytes(&Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
-                .expect("There was a problem computing your contribution")
-            )
-            .expect("Should never fail to serialize"))
-        ).expect("Should never fail to send")
+        eprintln!("Finished deserializing previous in {:?}", start.elapsed());
+
+        eprintln!("Starting computation. Will take a while...");
+        let start = Instant::now();
+        let my_contribution = Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
+            .expect("There was a problem computing your contribution");
+        eprintln!("Finished computing contribution in {:?}", start.elapsed());
+
+        // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
+        eprintln!("Serializing your contribution...");
+        let start = Instant::now();
+        let my_contribution_bytes = Bytes::from(bcs::to_bytes(&my_contribution)
+            .expect("There was a problem serializing your contribution."));
+        eprintln!("Finished serializing contribution in {:?}", start.elapsed());
+
+        tx.send(my_contribution_bytes).expect("Should never fail to send")
     });
 
     let my_contribution = rx.await?;
