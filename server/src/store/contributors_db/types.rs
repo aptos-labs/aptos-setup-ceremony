@@ -99,7 +99,7 @@ impl<DB: Database> Type<DB> for VKWrapper
     }
 }
 
-#[derive(FromRow, Debug, Clone, PartialEq, Eq)]
+#[derive(FromRow, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContributorRowWithPos {
     pub pos: u64,
     #[sqlx(flatten)]
@@ -164,8 +164,8 @@ impl ContributorRow {
         Contributor { name: self.name.clone(), email: self.email.clone(), verifying_key: *self.verifying_key.as_ref() }
     }
 
-    pub fn with_pos(self, pos: usize) -> ContributorRowWithPos {
-        ContributorRowWithPos { pos,, row: self }
+    pub fn with_pos(self, pos: u64) -> ContributorRowWithPos {
+        ContributorRowWithPos { pos, row: self }
     }
 
     pub async fn init_table(pool: &SqlitePool) -> anyhow::Result<()> {

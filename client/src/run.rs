@@ -82,12 +82,14 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             AdminCommand::Report => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
 
-                let ReportResponse { status, contributors } = Msg::Report.sign(&my_sk).send_and_receive::<ReportResponse>().await?;
+                let ReportResponse { status, mut contributors } = Msg::Report.sign(&my_sk).send_and_receive::<ReportResponse>().await?;
 
                 let mut writer = csv::Writer::from_path("./report.csv")?;
 
+                contributors.sort_by_key(|(p,_)| *p);
+
                 for (pos, row) in contributors {
-                    writer.serialize(row.with_pos(pos))?;
+                    writer.serialize(row.with_pos(pos as u64))?;
                 }
                 writer.flush()?;
 
