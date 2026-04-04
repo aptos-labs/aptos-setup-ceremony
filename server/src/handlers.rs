@@ -115,7 +115,7 @@ pub fn check_correct_state(
     expected_step: CurrentContributionStep,
 ) -> Result<(), ErrorWithCode> {
     if row.status == ContributorStatus::Kicked {
-        Err(anyhow!("You were kicked. Please restart to rejoin queue."))
+        Err(anyhow!("You were kicked. Please restart to rejoin queue. Reason was: {}", row.kicked_error.as_ref().expect("Should always have a kicked error")))
             .use_code_on_error(StatusCode::GONE)
     } else if pos > 0 {
         Err(anyhow!("Not the current active contributor"))
@@ -242,7 +242,11 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
             current_time - current_contributor.updated_timestamp, 
             config.ping_timeout()
         );
-        db_locked.kick_current(&format!("Timed out")).await?;
+        db_locked.kick_current(&format!(
+            "Timed out: ping time {:?} exceeded timeout of {:?}", 
+            current_time - current_contributor.updated_timestamp, 
+            config.ping_timeout()
+        )).await?;
         return Ok(());
     }
     match current_contributor.get_current_contribution_step() {
@@ -259,7 +263,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                     current_time - start, 
                     config.download_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out: download time {:?} exceeded timeout of {:?}", current_time - start, config.download_timeout())).await?;
             }
         }
         CurrentContributionStep::ComputeStarted { start } => {
@@ -270,18 +274,18 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                     current_time - start, 
                     config.contribute_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out: compute time {:?} exceeded timeout of {:?}", current_time - start, config.contribute_timeout())).await?;
             }
         }
         CurrentContributionStep::UploadStarted { start } => {
             if current_time - start > config.upload_timeout() {
                 tracing::info!(
-                    "[Tick] Kicking contributor {}: download time {} exceeded timeout of {}", 
+                    "[Tick] Kicking contributor {}: upload time {} exceeded timeout of {}", 
                     current_contributor.name, 
                     current_time - start, 
                     config.upload_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out")).await?;
+                db_locked.kick_current(&format!("Timed out: upload time {:?} exceeded timeout of {:?}", current_time - start, config.upload_timeout())).await?;
             }
         }
         // We don't timeout contributors during verification, since even if they go offline we can
