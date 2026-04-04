@@ -89,7 +89,7 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                 contributors.sort_by_key(|(p,_)| *p);
 
                 for (pos, row) in contributors {
-                    writer.serialize(row.with_pos(pos as u64))?;
+                    writer.serialize(row)?;
                 }
                 writer.flush()?;
 
