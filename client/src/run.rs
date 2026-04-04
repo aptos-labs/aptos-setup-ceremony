@@ -86,8 +86,8 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
 
                 let mut writer = csv::Writer::from_path("./report.csv")?;
 
-                for row in contributors {
-                    writer.serialize(row)?;
+                for (pos, row) in contributors {
+                    writer.serialize(row.with_pos(pos))?;
                 }
                 writer.flush()?;
 

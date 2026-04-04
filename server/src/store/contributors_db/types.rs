@@ -164,6 +164,10 @@ impl ContributorRow {
         Contributor { name: self.name.clone(), email: self.email.clone(), verifying_key: *self.verifying_key.as_ref() }
     }
 
+    pub fn with_pos(self, pos: usize) -> ContributorRowWithPos {
+        ContributorRowWithPos { pos,, row: self }
+    }
+
     pub async fn init_table(pool: &SqlitePool) -> anyhow::Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS contributors (
