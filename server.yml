@@ -15,7 +15,7 @@ services:
     command:
       - "http"
       - "http://aptos-setup-ceremony-server:8888"
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    env-file:
+      - "/home/rex_fernando_aptoslabs_com/ngrok.env"
     ports:
       - 4040:4040
