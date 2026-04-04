@@ -7,7 +7,7 @@ use common::messages::Msg;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use serde_json;
-use anyhow::{self, bail};
+use anyhow::{self, Context as _, bail};
 use server::handlers::ReportResponse;
 use server::store::contributors_db::types::ContributorRow;
 use tabled::Table;
@@ -46,7 +46,8 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             if fs::exists(&my_keypair_file)? && !force {
                 bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
-            let (my_sk, me) = &<(SigningKey, Contributor)>::from_hex(&contributor_keypair_hex)?;
+            let (my_sk, me) = &<(SigningKey, Contributor)>::from_hex(&contributor_keypair_hex)
+                .context("Couldn't parse the keypair hex. Please make sure you copied it correctly.")?;
             let keypair_json = serde_json::to_string(&(my_sk, me))?;
             fs::write(&my_keypair_file, keypair_json)?;
             eprintln!("You are contributing as {}.", me.name);

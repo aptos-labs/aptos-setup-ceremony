@@ -13,13 +13,13 @@ fn server_address() -> String {
 
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct AuthenticatedMsg<Contents: Serialize> {
+pub struct AuthenticatedMsg<Contents: Serialize + Debug> {
     #[serde(flatten)]
     pub inner: Contents,
     signature: Signature,
 }
 
-impl<Contents: Serialize> AuthenticatedMsg<Contents> {
+impl<Contents: Serialize + Debug> AuthenticatedMsg<Contents> {
     pub fn verify_sig(&self, verifying_key: &VerifyingKey) -> anyhow::Result<()> {
         Ok(verifying_key.verify(&bcs::to_bytes(&self.inner)?, &self.signature)?)
     }
@@ -45,7 +45,8 @@ impl<Contents: Serialize> AuthenticatedMsg<Contents> {
         let res = client.post(server_address() + "/msg")
             .json(&self)
             .send()
-        .await?;
+        .await
+        .context(format!("Error while sending request {:?}", self.inner))?;
         let status = res.status();
         let text = res.text().await
             .with_context(|| "While trying to fetch response text")?;
