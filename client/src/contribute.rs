@@ -315,10 +315,14 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     // tell server we're done uploading
     // TODO hash
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash }.sign(&my_sk).send().await?;
+    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: hash.clone() }.sign(&my_sk).send().await?;
 
 
     wait_for_server_verification(&my_sk, me).await?;
+
+    eprintln!("Finished contributing!");
+    eprintln!("Your contribution hash is {}, and your contribution file is './mine.contrib'.", hash);
+    eprintln!("You may use this file and hash to verify that the final output contains your contribution.");
 
     Ok(())
 }

@@ -16,22 +16,25 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("{}: Deserializing latest...", chrono::Local::now());
     let latest_contribution : CeremonyContribution = bcs::from_bytes(&bytes)?;
 
-    eprintln!("Latest is from: {}", latest_contribution.contributor().name);
+    eprintln!("Latest is from: {} and has hash {}", 
+        latest_contribution.contributor().name, 
+        latest_contribution.hash()
+    );
 
     eprintln!("trace:");
 
-    for (c, _) in latest_contribution.previous_hashes() {
-        eprintln!("{}", c.name);
+    for (c, hash) in latest_contribution.previous_hashes() {
+        eprintln!("{}: {}", c.name, hash.to_string());
     }
 
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
     let (dk, hkzg_setup) = latest_contribution.output();
 
-    eprintln!("{}: Running dummy DKG...", chrono::Local::now());
+    eprintln!("{}: Running dummy DKG with HZKG setup...", chrono::Local::now());
     let (tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0));
 
 
-    eprintln!("{}: Running smoke...", chrono::Local::now());
+    eprintln!("{}: Running a batch encryption round...", chrono::Local::now());
     run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
     eprintln!("Succeeded!");
 
