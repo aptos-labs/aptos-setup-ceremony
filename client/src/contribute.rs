@@ -320,6 +320,10 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     wait_for_server_verification(&my_sk, me).await?;
 
+    eprintln!("Finished contributing!");
+    eprintln!("Your contribution hash is {}, and your contribution file is './mine.contrib'.", hash);
+    eprintln!("You may use this file and hash to verify that the final output contains your contribution.");
+
     Ok(())
 }
 
