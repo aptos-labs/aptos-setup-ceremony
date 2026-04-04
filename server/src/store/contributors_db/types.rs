@@ -124,6 +124,12 @@ pub struct ContributorRow {
     pub email: String,
     #[tabled(format("{:?}", self.status))]
     pub status: ContributorStatus,
+    #[tabled(format("{:?}", self.download_secs.unwrap_or(0)))]
+    pub test_download_secs: Option<u32>,
+    #[tabled(format("{:?}", self.compute_secs.unwrap_or(0)))]
+    pub test_compute_secs: Option<u32>,
+    #[tabled(format("{:?}", self.upload_secs.unwrap_or(0)))]
+    pub test_upload_secs: Option<u32>,
     #[tabled(format("{:?}", self.joined_at))]
     pub joined_at: Option<DateTime<Utc>>,
     #[tabled(format("{:?}", self.kicked_at))]
@@ -158,6 +164,9 @@ impl ContributorRow {
                 email                TEXT   NOT      NULL,           
                 updated_timestamp    TEXT   NOT      NULL,           
                 status               TEXT   NOT      NULL   DEFAULT  'didnt_join_queue',
+                test_download_secs   INTEGER,                           
+                test_compute_secs    INTEGER,                           
+                test_upload_secs     INTEGER,                           
                 joined_at            TEXT,                           
                 kicked_at            TEXT,                           
                 kicked_error         TEXT,                           
@@ -182,6 +191,9 @@ impl ContributorRow {
             name: c.name,
             email: c.email,
             status: ContributorStatus::DidntJoinQueue,
+            test_download_secs: None,
+            test_compute_secs: None,
+            test_upload_secs: None,
             joined_at: None,
             kicked_at: None,
             kicked_error: None,
@@ -196,12 +208,15 @@ impl ContributorRow {
 
     pub async fn insert(&self, pool: &SqlitePool) -> anyhow::Result<()> {
         sqlx::query(
-            "INSERT INTO contributors VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO contributors VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         ).bind(&self.verifying_key)
             .bind(&self.name)
             .bind(&self.email)
             .bind(self.updated_timestamp)
             .bind(&self.status)
+            .bind(&self.test_download_secs)
+            .bind(&self.test_compute_secs)
+            .bind(&self.test_upload_secs)
             .bind(self.joined_at)
             .bind(self.kicked_at)
             .bind(&self.kicked_error)
@@ -216,12 +231,19 @@ impl ContributorRow {
         Ok(())
     }
 
-    pub async fn enqueue(self, pool: &SqlitePool) -> anyhow::Result<()> {
+    pub async fn enqueue(
+        self, 
+        pool: &SqlitePool,
+        download_secs: u64,
+        compute_secs: u64,
+        upload_secs: u64,
+    ) -> anyhow::Result<()> {
         let now = Utc::now();
 
         // clear out all active-contributor timestamps on join/rejoin
         sqlx::query(
             "UPDATE contributors SET status=?, joined_at=?, updated_timestamp=?,
+            test_download_secs=?, test_compute_secs=?, test_upload_secs=?,
             kicked_at=NULL, kicked_error=NULL, started_download_at=NULL,
             started_compute_at=NULL, started_upload_at=NULL, 
             finished_upload_at=NULL, contribution_hash=NULL WHERE verifying_key = ?",
@@ -229,6 +251,9 @@ impl ContributorRow {
             .bind(ContributorStatus::Queued)
             .bind(Some(now))
             .bind(now)
+            .bind(download_secs as u32)
+            .bind(compute_secs as u32)
+            .bind(upload_secs as u32)
             .bind(self.verifying_key)
             .execute(pool).await?;
 

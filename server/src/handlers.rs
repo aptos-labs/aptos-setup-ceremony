@@ -32,13 +32,20 @@ pub enum StatusResponse {
     Finished,
 }
 
-pub async fn handle_join(c: &Contributor, state: Arc<State>, _config: &Config) -> Result<(), ErrorWithCode> {
+pub async fn handle_join(
+    c: &Contributor,
+    state: Arc<State>,
+    _config: &Config,
+    download_secs: u64,
+    compute_secs: u64,
+    upload_secs: u64,
+) -> Result<(), ErrorWithCode> {
     let db_locked = state.contributors_db.lock().await;
     let (_, row) = db_locked.get_with_pos(&c).await?;
     match row.status {
         ContributorStatus::DidntJoinQueue 
         | ContributorStatus::Kicked {..} => {
-            Ok(row.enqueue(&db_locked.pool).await?)
+            Ok(row.enqueue(&db_locked.pool, download_secs, compute_secs, upload_secs).await?)
         },
         ContributorStatus::Queued {..} => {
             Err(anyhow!("Already in queue"))
@@ -351,8 +358,8 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
     tracing::info!("Handling request {}", msg.description());
 
     Ok(match msg {
-        Msg::Join { contributor } => {
-            handle_join(&contributor, state, config).await?;
+        Msg::Join { contributor, download_secs, compute_secs, upload_secs } => {
+            handle_join(&contributor, state, config, download_secs, compute_secs, upload_secs).await?;
             json!("ok")
         }
         Msg::GetStatus { contributor } => {

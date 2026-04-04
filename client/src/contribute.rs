@@ -47,7 +47,13 @@ pub enum QueueOutcome {
     Verifying,
 }
 
-pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<QueueOutcome> {
+pub async fn join_and_wait_in_queue(
+    my_sk: &SigningKey,
+    me: &Contributor,
+    download_secs: u64,
+    compute_secs: u64,
+    upload_secs: u64
+) -> anyhow::Result<QueueOutcome> {
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
@@ -55,11 +61,11 @@ pub async fn join_and_wait_in_queue(my_sk: &SigningKey, me: &Contributor) -> any
     loop {
         match response {
             StatusResponse::DidntJoin => {
-                Msg::Join { contributor: me.clone() }.sign(my_sk).send().await?;
+                Msg::Join { contributor: me.clone(), download_secs, compute_secs, upload_secs }.sign(my_sk).send().await?;
                 eprintln!("Joining queue.");
             },
             StatusResponse::Kicked(e) => {
-                Msg::Join { contributor: me.clone() }.sign(my_sk).send().await?;
+                Msg::Join { contributor: me.clone(), download_secs, compute_secs, upload_secs }.sign(my_sk).send().await?;
                 eprintln!("{}: Was kicked. Reason was {}. Rejoining queue.", me.name, e);
             },
             StatusResponse::WaitingInQueue(pos) => {
@@ -219,7 +225,7 @@ pub async fn wait_for_server_verification(
     }
 }
 
-pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<()> {
+pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<(u64, u64, u64)> {
 
     let download_url : String = Msg::GetTestContributionDownloadLink { contributor: me.clone() }
         .sign(my_sk)
@@ -280,7 +286,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
 
     if !too_slow {
         eprintln!("Speed test passed.");
-        Ok(())
+        Ok((download_duration.as_secs(), compute_duration.as_secs(), upload_duration.as_secs()))
     } else {
         bail!(err_string)
     }
@@ -289,9 +295,9 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
     eprintln!("Hello {}.", me.name);
 
-    test_my_speed(&my_sk, me).await?;
+    let (download, compute, upload) = test_my_speed(&my_sk, me).await?;
 
-    let maybe_url = match join_and_wait_in_queue(&my_sk, me).await? {
+    let maybe_url = match join_and_wait_in_queue(&my_sk, me, download, compute, upload).await? {
         QueueOutcome::AlreadyFinished => return Ok(()),
         QueueOutcome::ReadyToDownload(maybe_url) => maybe_url,
         QueueOutcome::Verifying => {

@@ -33,7 +33,7 @@ async fn test_contribute(
     me: &Contributor,
     crash_at: Option<CrashPhase>,
 ) -> Result<()> {
-    match contribute::join_and_wait_in_queue(sk, me).await? {
+    match contribute::join_and_wait_in_queue(sk, me, 0, 0, 0).await? {
         QueueOutcome::AlreadyFinished => return Ok(()),
         QueueOutcome::Verifying => {
             if matches!(crash_at, Some(CrashPhase::Verify)) {

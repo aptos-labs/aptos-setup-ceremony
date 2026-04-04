@@ -70,6 +70,9 @@ pub enum Msg {
     },
     Join {
         contributor: Contributor,
+        test_download_secs: u64,
+        test_compute_secs: u64,
+        test_upload_secs: u64,
     },
     GetStatus {
         contributor: Contributor,
@@ -110,7 +113,7 @@ impl Msg {
             Msg::DownloadAll => String::from("DownloadAll"),
             Msg::DownloadLatest => String::from("DownloadLatest"),
             Msg::Register { contributor } => format!("Register from {}", contributor.name),
-            Msg::Join { contributor } => format!("Join from {}", contributor.name),
+            Msg::Join { contributor, test_download_secs: download_secs, test_compute_secs: compute_secs, test_upload_secs: upload_secs } => format!("Join from {} ({},{},{})", contributor.name, download_secs, compute_secs, upload_secs),
             Msg::GetStatus { contributor } => format!("GetStatus from {}", contributor.name),
             Msg::UpdateDownloadProgress { finished, contributor } => format!("UpdateDownloadProgress({}) from {}", finished, contributor.name),
             Msg::UpdateComputeProgress { finished, contributor } => format!("UpdateComputeProgress({}) from {}", finished, contributor.name),

@@ -37,7 +37,7 @@ pub async fn from_request(request: Request) -> Result<AuthenticatedMsg<Msg>, Err
 
 pub fn verify_correctly_authenticated(msg: &AuthenticatedMsg<Msg>, config: &Config) -> Result<(), ErrorWithCode> {
     match &msg.inner {
-        Msg::Join { contributor } => verify_authenticated_by_contributor(msg, contributor),
+        Msg::Join { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
         Msg::GetStatus { contributor } => verify_authenticated_by_contributor(msg, contributor),
         Msg::UpdateDownloadProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
         Msg::UpdateComputeProgress { contributor, .. } => verify_authenticated_by_contributor(msg, contributor),
