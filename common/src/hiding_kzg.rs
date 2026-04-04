@@ -105,7 +105,7 @@ where
             }
         );
 
-        print!("Finished hiding KZG contrib in {:?}", start.elapsed());
+        println!("Finished hiding KZG contrib in {:?}", start.elapsed());
 
         Ok((
             Self {
