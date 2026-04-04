@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use common::contribution::{AsAndFromHex as _, Contributor};
 use ed25519_dalek::VerifyingKey;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use sqlx::{Database, Decode, Encode,  encode::IsNull, prelude::FromRow};
 use tabled::Tabled;
 use core::error::Error;
@@ -30,19 +30,30 @@ impl CurrentContributionStep {
     }
 }
 
-#[derive(sqlx::Type, PartialEq, Eq, Tabled, Debug, Clone, Serialize, Deserialize)]
+#[derive(sqlx::Type, PartialEq, Eq, Tabled, Debug, Clone, Serialize, Deserialize, PartialOrd, Ord, Copy)]
 #[sqlx(type_name = "contributor_status")]
 #[sqlx(rename_all = "lowercase")]
 pub enum ContributorStatus {
-    DidntJoinQueue,
-    Queued,
-    Kicked,
-    Finished,
+    DidntJoinQueue=2,
+    Queued=3,
+    Kicked=1,
+    Finished=4,
+}
+
+
+fn hex_serialize<S>(x: &VerifyingKey, s: S) -> Result<S::Ok, S::Error>
+where 
+    S: Serializer
+{
+    s.serialize_str(&x.as_hex().unwrap())
 }
 
 // So that I can derive sqlx-related traits
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct VKWrapper(VerifyingKey);
+pub struct VKWrapper(
+    #[serde(serialize_with = "hex_serialize")]
+    VerifyingKey
+);
 
 impl Display for VKWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
