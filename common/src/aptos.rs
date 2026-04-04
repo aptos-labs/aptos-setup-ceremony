@@ -52,10 +52,9 @@ impl ContributionInner for AptosContributionInner {
     }
 
     fn generate<R: rand_core::CryptoRngCore>(rng: &mut R, previous: &Self, params: &Self::Params) -> Result<(Self, Self::Secrets), crate::errors::ContributionGenerationFailure> {
-        Ok((Self {
-            fptx: FPTXContributionInner::generate(rng, &previous.fptx, &params.fptx)?.0,
-            hiding_kzg: HidingKZGContributionInner::generate(rng, &previous.hiding_kzg, &params.hiding_kzg)?.0,
-        }, ()))
+        let fptx = FPTXContributionInner::generate(rng, &previous.fptx, &params.fptx)?.0;
+        let hiding_kzg = HidingKZGContributionInner::generate(rng, &previous.hiding_kzg, &params.hiding_kzg)?.0;
+        Ok((Self { fptx, hiding_kzg }, ()))
     }
 
     fn verify(&self, rng: &mut impl rand_core::CryptoRngCore, previous: &Self, params: &Self::Params) -> Result<crate::multipairing_equation::MultipairingEquation<Self::P>, crate::errors::ContributionVerificationFailure> {
