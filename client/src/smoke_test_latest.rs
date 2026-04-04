@@ -16,7 +16,10 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("{}: Deserializing latest...", chrono::Local::now());
     let latest_contribution : CeremonyContribution = bcs::from_bytes(&bytes)?;
 
-    eprintln!("Latest is from: {}", latest_contribution.contributor().name);
+    eprintln!("Latest is from: {} and has hash {}", 
+        latest_contribution.contributor().name, 
+        latest_contribution.hash()
+    );
 
     eprintln!("trace:");
 
