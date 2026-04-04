@@ -124,11 +124,11 @@ pub struct ContributorRow {
     pub email: String,
     #[tabled(format("{:?}", self.status))]
     pub status: ContributorStatus,
-    #[tabled(format("{:?}", self.download_secs.unwrap_or(0)))]
+    #[tabled(format("{:?}", self.test_download_secs.unwrap_or(0)))]
     pub test_download_secs: Option<u32>,
-    #[tabled(format("{:?}", self.compute_secs.unwrap_or(0)))]
+    #[tabled(format("{:?}", self.test_compute_secs.unwrap_or(0)))]
     pub test_compute_secs: Option<u32>,
-    #[tabled(format("{:?}", self.upload_secs.unwrap_or(0)))]
+    #[tabled(format("{:?}", self.test_upload_secs.unwrap_or(0)))]
     pub test_upload_secs: Option<u32>,
     #[tabled(format("{:?}", self.joined_at))]
     pub joined_at: Option<DateTime<Utc>>,

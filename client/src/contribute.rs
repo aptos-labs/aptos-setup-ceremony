@@ -50,9 +50,9 @@ pub enum QueueOutcome {
 pub async fn join_and_wait_in_queue(
     my_sk: &SigningKey,
     me: &Contributor,
-    download_secs: u64,
-    compute_secs: u64,
-    upload_secs: u64
+    test_download_secs: u64,
+    test_compute_secs: u64,
+    test_upload_secs: u64
 ) -> anyhow::Result<QueueOutcome> {
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
@@ -61,11 +61,11 @@ pub async fn join_and_wait_in_queue(
     loop {
         match response {
             StatusResponse::DidntJoin => {
-                Msg::Join { contributor: me.clone(), download_secs, compute_secs, upload_secs }.sign(my_sk).send().await?;
+                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
                 eprintln!("Joining queue.");
             },
             StatusResponse::Kicked(e) => {
-                Msg::Join { contributor: me.clone(), download_secs, compute_secs, upload_secs }.sign(my_sk).send().await?;
+                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
                 eprintln!("{}: Was kicked. Reason was {}. Rejoining queue.", me.name, e);
             },
             StatusResponse::WaitingInQueue(pos) => {
