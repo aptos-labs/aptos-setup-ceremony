@@ -7,6 +7,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/target \
+    --mount=type=cache,target=/root/.rustup \
     cargo build -p server --release && \
     cp ./target/release/server ./server/
 
