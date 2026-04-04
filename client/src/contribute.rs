@@ -198,7 +198,7 @@ pub async fn wait_for_server_verification(
     my_sk: &SigningKey,
     me: &Contributor,
 ) -> anyhow::Result<()> {
-    eprintln!("Finished uploading, waiting for server verification...");
+    eprintln!("Finished uploading, waiting for server verification. This will also take awhile...");
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
