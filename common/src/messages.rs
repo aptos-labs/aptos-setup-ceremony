@@ -1,5 +1,6 @@
 use crate::contribution::Contributor;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, Verifier as _};
+use std::fmt::Debug;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use anyhow::Context;
@@ -12,7 +13,7 @@ fn server_address() -> String {
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AuthenticatedMsg<Contents: Serialize + Debug> {
     #[serde(flatten)]
     pub inner: Contents,

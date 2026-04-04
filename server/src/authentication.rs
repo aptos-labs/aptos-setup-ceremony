@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use common::contribution::Contributor;
 use common::messages::{AuthenticatedMsg, Msg};
 use hyper::{Method, StatusCode};
@@ -6,13 +8,13 @@ use anyhow::{Context, Result};
 use http_body_util::BodyExt;
 
 
-fn verify_authenticated_by_admin<Contents: serde::Serialize>(msg: &AuthenticatedMsg<Contents>, config: &Config) -> Result<(), ErrorWithCode> {
+fn verify_authenticated_by_admin<Contents: serde::Serialize + Debug>(msg: &AuthenticatedMsg<Contents>, config: &Config) -> Result<(), ErrorWithCode> {
     msg.verify_sig(&config.admin_verifying_key)
         .context("You must be authenticated as the same contributor in the message")
         .use_code_on_error(StatusCode::UNAUTHORIZED)
 }
 
-fn verify_authenticated_by_contributor<Contents: serde::Serialize>(msg: &AuthenticatedMsg<Contents>, contributor: &Contributor) -> Result<(), ErrorWithCode> {
+fn verify_authenticated_by_contributor<Contents: serde::Serialize + Debug>(msg: &AuthenticatedMsg<Contents>, contributor: &Contributor) -> Result<(), ErrorWithCode> {
     msg.verify_sig(&contributor.verifying_key)
         .context("You must be admin to do this")
         .use_code_on_error(StatusCode::UNAUTHORIZED)
