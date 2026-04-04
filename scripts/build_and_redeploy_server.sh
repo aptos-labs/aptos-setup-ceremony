@@ -5,8 +5,8 @@ IMAGE="us-central1-docker.pkg.dev/benchmark-zkid-circuit/aptos-setup-ceremony/se
 INSTANCE="mine-central"
 
 # Build and push
-sudo docker build -t $IMAGE .
-sudo docker push $IMAGE
+docker build -t $IMAGE .
+docker push $IMAGE
 
 # SSH to server and redeploy
 gcloud compute ssh $INSTANCE --zone=$ZONE -- bash -s <<'EOF'
