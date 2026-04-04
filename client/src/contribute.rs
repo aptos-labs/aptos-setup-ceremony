@@ -315,7 +315,7 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     // tell server we're done uploading
     // TODO hash
-    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash }.sign(&my_sk).send().await?;
+    Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash: hash.clone() }.sign(&my_sk).send().await?;
 
 
     wait_for_server_verification(&my_sk, me).await?;

@@ -20,8 +20,8 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
 
     eprintln!("trace:");
 
-    for (c, _) in latest_contribution.previous_hashes() {
-        eprintln!("{}", c.name);
+    for (c, hash) in latest_contribution.previous_hashes() {
+        eprintln!("{}: {}", c.name, hash.to_string());
     }
 
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
