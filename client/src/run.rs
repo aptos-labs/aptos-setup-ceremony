@@ -75,7 +75,11 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                     .collect::<anyhow::Result<Vec<(SigningKey, Contributor)>>>()?;
 
                 for (_, contributor) in keypairs {
-                        Msg::Register { contributor }.sign(&my_sk).send().await?;
+                    let result = Msg::Register { contributor: contributor.clone() }.sign(&my_sk).send().await;
+                    match result {
+                        Ok(_) => eprintln!("{} registered", contributor.name),
+                        Err(e) => eprintln!("{} failed to register, maybe already exists? {:?}", contributor.name, e),
+                    }
                 }
             },
             AdminCommand::Report => {
