@@ -84,8 +84,12 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
 
                 let ReportResponse { status, contributors } = Msg::Report.sign(&my_sk).send_and_receive::<ReportResponse>().await?;
 
-                let table = Table::new(contributors).to_string();
-                println!("{table}");
+                let mut writer = csv::Writer::from_path("./report.csv")?;
+
+                for row in contributors {
+                    writer.serialize(row)?;
+                }
+                writer.flush()?;
 
                 println!("Current status:");
                 println!("{:?}", status);
