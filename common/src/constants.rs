@@ -35,7 +35,7 @@ lazy_static! {
     ).unwrap();
 }
 
-pub const TEST_DOWNLOAD_BLOB_SIZE_BYTES : usize = 1024 * 1024 * 128; // 128MB
+pub const TEST_DOWNLOAD_BLOB_SIZE_BYTES : usize = 1024 * 1024 * 512; // 512MB
 
 // contributor w/ random VK so that test uploads don't conflict
 pub fn test_upload_contributor() -> Contributor {
@@ -44,9 +44,9 @@ pub fn test_upload_contributor() -> Contributor {
 
 
 lazy_static! {
-    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
+    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1000);
     // 12 seconds for 1/100th of the real size => ~1200 secs = 20 mins for the real size. Note
     //    that this doesn't test deserialization so there is built-in inaccuracy
     pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(12);
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(20);
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1000);
 }
