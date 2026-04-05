@@ -11,11 +11,14 @@ services:
       - "./server/ceremony.sqlite3:/ceremony.sqlite3"
       - "./server/logs:/logs"
   ngrok:
-    image: ngrok/ngrok:latest
+    image: cloudflare/cloudflared:latest
     command:
-      - "http"
-      - "http://aptos-setup-ceremony-server:8888"
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://aptos-setup-ceremony-server:8888
+      - run
     env_file:
-      - "/home/rex_fernando_aptoslabs_com/ngrok.env"
-    ports:
-      - 4040:4040
+      - "/home/rex_fernando_aptoslabs_com/cloudflared.env"
+    depends_on:
+      - aptos-setup-ceremony-server
