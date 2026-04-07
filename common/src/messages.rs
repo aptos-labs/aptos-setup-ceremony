@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use anyhow::Context;
 
-const DEFAULT_SERVER_ADDRESS: &str = "https://stannic-marguerita-detractively.ngrok-free.dev";
+const DEFAULT_SERVER_ADDRESS: &str = "https://encrypted-mempool.setup-ceremony.aptos.dev";
 
 fn server_address() -> String {
     std::env::var("CEREMONY_SERVER_ADDRESS")
@@ -54,7 +54,8 @@ impl<Contents: Serialize + Debug> AuthenticatedMsg<Contents> {
         if status.is_client_error() || status.is_server_error() {
             anyhow::bail!("Server returned an error: {}, with body: {}", status, text)
         } else {
-            Ok(serde_json::from_str(&text)?)
+            Ok(serde_json::from_str(&text)
+                .context(format!("Parson json failed for message: {}", text))?)
         }
 
     }

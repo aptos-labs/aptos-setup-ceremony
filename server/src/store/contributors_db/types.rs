@@ -48,10 +48,22 @@ where
     s.serialize_str(&x.as_hex().unwrap())
 }
 
+fn hex_deserialize<'de, D>(data: D) -> Result<VerifyingKey, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let hex: String = serde::de::Deserialize::deserialize(data)?;
+
+    Ok(VerifyingKey::from_hex(&hex)
+        .map_err(serde::de::Error::custom)?
+    )
+}
+
+
 // So that I can derive sqlx-related traits
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct VKWrapper(
-    #[serde(serialize_with = "hex_serialize")]
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     VerifyingKey
 );
 
