@@ -10,15 +10,17 @@ services:
       - "/home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro"
       - "./server/ceremony.sqlite3:/ceremony.sqlite3"
       - "./server/logs:/logs"
-  ngrok:
-    image: cloudflare/cloudflared:latest
-    command:
-      - tunnel
-      - --no-autoupdate
-      - --url
-      - http://aptos-setup-ceremony-server:8888
-      - run
-    env_file:
-      - "/home/rex_fernando_aptoslabs_com/cloudflared.env"
-    depends_on:
-      - aptos-setup-ceremony-server
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from encrypted-mempool.setup-ceremony.aptos.dev --to aptos-setup-ceremony-server:8888
+    volumes:
+      - caddy_data:/data
+
+
+volumes:
+  caddy_data:
