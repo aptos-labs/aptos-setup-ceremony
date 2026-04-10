@@ -32,6 +32,8 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
     let (dk, hkzg_setup) = latest_contribution.output();
 
+    eprintln!("dk size: {}, {}", dk.tau_powers_g1.len(), dk.tau_powers_g1[0].len());
+
     fs::write("dk.bin", &bcs::to_bytes(&dk).unwrap()).unwrap();
 
     eprintln!("{}: Running dummy DKG with HZKG setup...", chrono::Local::now());
