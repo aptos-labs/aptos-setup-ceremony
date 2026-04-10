@@ -1,11 +1,12 @@
 use std::fs;
 
 use aptos_batch_encryption::{
-    schemes::fptx_weighted::FPTXWeighted, tests::smoke::{fptx_weighted_smoke::{run_pvss_with_hkzg}, run_smoke}, 
+    schemes::fptx_weighted::FPTXWeighted, shared::digest::DigestKey, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke} 
 };
 use common::{constants::CeremonyContribution, messages::Msg};
 use ed25519_dalek::SigningKey;
 use anyhow::Result;
+use rand::thread_rng;
 
 pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
@@ -29,8 +30,17 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
         eprintln!("{}: {}", c.name, hash.to_string());
     }
 
+
+    eprintln!("{}: Dummy digest key...", chrono::Local::now());
+    let mut rng = thread_rng();
+    let dk = DigestKey::new(&mut rng, 256, 216000).unwrap();
+    eprintln!("{}: Serialize Dummy digest key...", chrono::Local::now());
+    std::fs::write("dk_dummy.bin", &bcs::to_bytes(&dk).unwrap()).unwrap();
+
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
     let (dk, hkzg_setup) = latest_contribution.output();
+
+
 
     eprintln!("dk size: {}, {}", dk.tau_powers_g1.len(), dk.tau_powers_g1[0].len());
 
