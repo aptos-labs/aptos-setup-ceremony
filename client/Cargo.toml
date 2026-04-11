@@ -31,6 +31,8 @@ rayon = { workspace = true }
 bytes = { workspace = true }
 aptos-batch-encryption = { workspace = true }
 aptos-crypto = { workspace = true }
+aptos-dkg = { workspace = true }
+ark-ec = { workspace = true }
 chrono = { workspace = true }
 blake3 = { workspace = true }
 bitcode = { workspace = true }
