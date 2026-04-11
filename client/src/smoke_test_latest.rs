@@ -53,7 +53,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("{}: Succeeded!", chrono::Local::now());
 
     eprintln!("{}: Serializing pp...", chrono::Local::now());
-    fs::write("dk.bin", &bitcode::serialize(&pp).unwrap()).unwrap();
+    fs::write("pp.bin", &bitcode::serialize(&pp).unwrap()).unwrap();
 
     Ok(())
 }
