@@ -87,14 +87,15 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
 
                 let ReportResponse { status, mut contributors } = Msg::Report.sign(&my_sk).send_and_receive::<ReportResponse>().await?;
 
-                let mut writer = csv::Writer::from_path("./report.csv")?;
+                //let mut writer = csv::Writer::from_path("./report.csv")?;
 
                 contributors.sort_by_key(|(p,row)| (row.status, *p));
 
                 for (_, row) in contributors {
-                    writer.serialize(row)?;
+                    println!("{}: {:?}, last updated: {}", row.name, row.get_current_contribution_step(), row.updated_timestamp);
+                    //writer.serialize(row)?;
                 }
-                writer.flush()?;
+                //writer.flush()?;
 
                 println!("Current status:");
                 println!("{:?}", status);
