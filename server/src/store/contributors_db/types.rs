@@ -15,7 +15,8 @@ pub enum CurrentContributionStep {
     DownloadStarted { start: DateTime<Utc> },
     ComputeStarted { start: DateTime<Utc> },
     UploadStarted { start: DateTime<Utc> },
-    Verifying 
+    Verifying,
+    Finished
 }
 
 impl CurrentContributionStep {
@@ -26,6 +27,7 @@ impl CurrentContributionStep {
             CurrentContributionStep::ComputeStarted { .. } => "compute started",
             CurrentContributionStep::UploadStarted { .. } => "upload started",
             CurrentContributionStep::Verifying => "verification started",
+            CurrentContributionStep::Finished => "finished contributing",
         }
     }
 }

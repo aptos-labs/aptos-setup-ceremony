@@ -35,6 +35,5 @@ aptos-dkg = { workspace = true }
 ark-ec = { workspace = true }
 chrono = { workspace = true }
 blake3 = { workspace = true }
-bitcode = { workspace = true }
 
 

@@ -32,7 +32,6 @@ rand = { workspace = true }
 bytes = { workspace = true }
 blake3 = { workspace = true }
 tracing-appender = "0.2.4"
-bitcode = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::{config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorsDB, types::{ContributorRow, ContributorStatus, CurrentContributionStep}}}, verification_job::VerificationJob};
+use crate::{bail, config::Config, error::{ErrorWithCode, UseCodeOnError}, store::{contribution_files::ContributionFilesStore, contributors_db::{ContributorsDB, types::{ContributorRow, ContributorStatus, CurrentContributionStep}}}, verification_job::VerificationJob};
 use common::messages::Msg;
 
 
@@ -110,6 +110,8 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
                     ),
                     CurrentContributionStep::Verifying { .. } => 
                     StatusResponse::Verifying,
+                    CurrentContributionStep::Finished => 
+                    bail!("DB error: Contributor status is not marked finished, but verification was marked as finished")
                 })
             }
         }
@@ -298,6 +300,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         // We don't timeout contributors during verification, since even if they go offline we can
         // verify and mark their contribution as complete
         CurrentContributionStep::Verifying => (),
+        CurrentContributionStep::Finished => (),
     }
 
     Ok(())

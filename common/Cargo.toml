@@ -34,7 +34,6 @@ tabled = { workspace = true }
 reqwest = { workspace = true }
 serde_json = { workspace = true }
 lazy_static = "1.5.0"
-bitcode = { workspace = true }
 
 
 [features]

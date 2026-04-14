@@ -8,3 +8,4 @@ massif.out.*
 *.log
 *.contrib
 report.csv
+digest_key.bin

@@ -40,7 +40,9 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("dk size: {}, {}", dk.tau_powers_g1.len(), dk.tau_powers_g1[0].len());
 
     eprintln!("{}: Serializing dk...", chrono::Local::now());
-    digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk.clone()).unwrap();
+    digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk).unwrap();
+
+    let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
 
     eprintln!("{}: Running dummy DKG with HZKG setup...", chrono::Local::now());
     let tc = WeightedConfigArkworks::new(256, vec![2; 128]).unwrap();
@@ -51,7 +53,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("{}: Succeeded!", chrono::Local::now());
 
     eprintln!("{}: Serializing pp...", chrono::Local::now());
-    fs::write("pp.bin", &bitcode::serialize(&pp).unwrap()).unwrap();
+    fs::write("pp.bin", &bcs::to_bytes(&pp).unwrap()).unwrap();
 
     Ok(())
 }
