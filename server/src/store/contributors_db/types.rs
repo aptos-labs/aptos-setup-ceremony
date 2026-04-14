@@ -399,7 +399,9 @@ impl ContributorRow {
     }
 
     pub fn get_current_contribution_step(&self) -> CurrentContributionStep {
-        if let Some(_) = self.finished_upload_at {
+        if let Some(_) = self.finished_verify_at {
+            CurrentContributionStep::Finished
+        } else if let Some(_) = self.finished_upload_at {
             CurrentContributionStep::Verifying  
         } else if let Some(start) = self.started_upload_at {
             CurrentContributionStep::UploadStarted {start}
