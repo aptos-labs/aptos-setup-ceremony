@@ -1,17 +1,14 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use aptos_batch_encryption::{
-    group::G2Affine, schemes::fptx_weighted::FPTXWeighted, shared::digest::DigestKey, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke} 
+    schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke} 
 };
-use aptos_crypto::{TSecretSharingConfig as _, weighted_config::WeightedConfigArkworks};
-use aptos_dkg::pvss::traits::TranscriptCore;
+use aptos_crypto::weighted_config::WeightedConfigArkworks;
 use common::{constants::CeremonyContribution, messages::Msg};
 use ed25519_dalek::SigningKey;
 use anyhow::Result;
-use ark_ec::AffineRepr as _;
 
 
-type T = aptos_dkg::pvss::chunky::SignedWeightedTranscript<aptos_batch_encryption::group::Pairing>;
 
 pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
@@ -43,10 +40,11 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
     eprintln!("dk size: {}, {}", dk.tau_powers_g1.len(), dk.tau_powers_g1[0].len());
 
     eprintln!("{}: Serializing dk...", chrono::Local::now());
-    fs::write("dk.bin", &bitcode::serialize(&dk).unwrap()).unwrap();
+    digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk.clone()).unwrap();
 
     eprintln!("{}: Running dummy DKG with HZKG setup...", chrono::Local::now());
-    let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0));
+    let tc = WeightedConfigArkworks::new(256, vec![2; 128]).unwrap();
+    let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
     eprintln!("{}: Running a batch encryption round...", chrono::Local::now());
     run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);

@@ -443,7 +443,7 @@ mod tests {
 
         use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
 
-        let (tc, ek, vks, msk_shares) = run_pvss(&dk);
+        let (_, tc, ek, vks, msk_shares) = run_pvss(&dk);
 
 
         run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);

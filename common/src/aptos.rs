@@ -74,6 +74,7 @@ impl ContributionInner for AptosContributionInner {
 #[cfg(test)]
 mod tests {
     use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke}};
+    use aptos_crypto::weighted_config::WeightedConfigArkworks;
     use rand::thread_rng;
 
     use crate::{aptos::{AptosContributionInner, AptosParams}, contribution::ContributionInner as _};
@@ -96,7 +97,8 @@ mod tests {
         let (dk, hkzg_setup) = new_contrib.output();
 
 
-        let (tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0));
+        let tc = WeightedConfigArkworks::new(8, vec![1,2,5]).unwrap();
+        let (_, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
 
         run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
