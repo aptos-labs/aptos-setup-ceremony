@@ -4,6 +4,10 @@
 
 ## Instructions
 
+```
+git clone git@github.com:aptos-labs/aptos-setup-ceremony; cd aptos-setup-ceremony
+```
+
 You should have received a hex keypair. First step:
 
 ```
