@@ -10,7 +10,7 @@ pub trait Truncate {
 
 impl Truncate for PowersOfTauContributionInner<Pairing, M2C> {
     fn truncate(&mut self, len: usize) {
-        self.powers.truncate(len);
+        self.powers.truncate(len + 1);
     }
 }
 
@@ -18,7 +18,7 @@ impl Truncate for FPTXContributionInner {
     fn truncate(&mut self, len: usize) {
         self.tau_powers_contrib_inner.truncate(len);
         for shifted_powers in &mut self.randomized_tau_powers_g1 {
-            shifted_powers.truncate(len);
+            shifted_powers.truncate(len + 1);
         }
     }
 }
