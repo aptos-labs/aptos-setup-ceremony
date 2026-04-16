@@ -41,7 +41,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
     let (dk, hkzg_setup) = latest_contribution.output();
 
-    eprintln!("dk size: {}, {}", dk.tau_powers_g1.len(), dk.tau_powers_g1[0].len());
+    eprintln!("dk size: num rounds {}, max batch size {}", dk.num_rounds(), dk.max_batch_size());
 
     eprintln!("{}: Serializing dk...", chrono::Local::now());
     digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk).unwrap();
