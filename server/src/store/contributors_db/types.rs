@@ -140,46 +140,25 @@ impl ContributorRowWithPos {
     }
 }
 
-fn format_datetime(d: Option<DateTime<Utc>>) -> String {
-    match d {
-        Some(d) => format!("{:?}", d),
-        None => format!("")
-    }
-}
 
-#[derive(Tabled, FromRow, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(FromRow, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContributorRow {
     pub updated_timestamp: DateTime<Utc>,
-    #[tabled(format("{:?}", self.verifying_key.0.as_hex()))]
     pub verifying_key: VKWrapper,
     pub name: String,
     pub email: String,
-    #[tabled(format("{:?}", self.status))]
     pub status: ContributorStatus,
-    #[tabled(inline)]
     pub test_download_secs: Option<u32>,
-    #[tabled(inline)]
     pub test_compute_secs: Option<u32>,
-    #[tabled(inline)]
     pub test_upload_secs: Option<u32>,
-    #[tabled(format("{:?}", format_datetime(self.joined_at)))]
     pub joined_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", format_datetime(self.kicked_at)))]
     pub kicked_at: Option<DateTime<Utc>>,
-    #[tabled(inline)]
     pub kicked_error: Option<String>,
-    #[tabled(format("{:?}", format_datetime(self.started_download_at)))]
     pub started_download_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.started_compute_at))]
-    #[tabled(format("{:?}", format_datetime(self.started_compute_at)))]
     pub started_compute_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", format_datetime(self.started_upload_at)))]
     pub started_upload_at: Option<DateTime<Utc>>,
-    #[tabled(format("{:?}", self.finished_upload_at))]
     pub finished_upload_at: Option<DateTime<Utc>>,
-    #[tabled(inline)]
     pub contribution_hash: Option<String>,
-    #[tabled(format("{:?}", format_datetime(self.finished_verify_at)))]
     pub finished_verify_at: Option<DateTime<Utc>>,
 }
 
