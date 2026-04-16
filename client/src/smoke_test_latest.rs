@@ -49,7 +49,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
 
     eprintln!("{}: Running dummy DKG with HZKG setup...", chrono::Local::now());
-    let tc = WeightedConfigArkworks::new(256, vec![2; 128]).unwrap();
+    let tc = WeightedConfigArkworks::new(256, vec![1; 256]).unwrap();
     let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
     eprintln!("{}: Running a batch encryption round...", chrono::Local::now());
