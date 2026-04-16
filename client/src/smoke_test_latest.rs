@@ -4,13 +4,13 @@ use aptos_batch_encryption::{
     schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke} 
 };
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
-use common::{constants::CeremonyContribution, messages::Msg};
+use common::{constants::CeremonyContribution, messages::Msg, truncate::Truncate};
 use ed25519_dalek::SigningKey;
 use anyhow::Result;
 
 
 
-pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
+pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> Result<()> {
     let url : String = Msg::DownloadLatest.sign(&my_sk).send_and_receive().await?;
 
     eprintln!("{}: Downloading latest...", chrono::Local::now());
@@ -19,7 +19,8 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
         .bytes().await?;
 
     eprintln!("{}: Deserializing latest...", chrono::Local::now());
-    let latest_contribution : CeremonyContribution = bcs::from_bytes(&bytes)?;
+    let mut latest_contribution : CeremonyContribution = bcs::from_bytes(&bytes)?;
+
 
     eprintln!("Latest is from: {} and has hash {}", 
         latest_contribution.contributor().name, 
@@ -32,7 +33,10 @@ pub async fn smoke_test_latest(my_sk: &SigningKey) -> Result<()> {
         eprintln!("{}: {}", c.name, hash.to_string());
     }
 
-
+    if let Some(truncate_size) = truncate {
+        eprintln!("{}: Truncating latest to {}", chrono::Local::now(), truncate_size);
+        latest_contribution.truncate(truncate_size);
+    }
 
     eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
     let (dk, hkzg_setup) = latest_contribution.output();

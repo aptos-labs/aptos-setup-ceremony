@@ -117,7 +117,7 @@ pub trait ContributionInner : Serialize + DeserializeOwned {
 #[derive(Clone, Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[serde(bound(deserialize = "C: DeserializeOwned"))]
 pub struct Contribution<C: ContributionInner> {
-    inner: C,
+    pub(crate) inner: C,
     contributor: Contributor,
     previous_hashes: Vec<(Contributor, blake3::Hash)>,
 }

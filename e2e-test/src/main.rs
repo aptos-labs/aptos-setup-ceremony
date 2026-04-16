@@ -250,7 +250,7 @@ async fn main() -> Result<()> {
     if all_finished {
         info!("SUCCESS: All {} contributors finished!", report.contributors.len());
 
-        smoke_test_latest(&admin_sk).await?;
+        smoke_test_latest(&admin_sk, None).await?;
     } else {
         bail!("FAILURE: Not all contributors finished!");
     }

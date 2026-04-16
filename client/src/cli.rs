@@ -47,5 +47,8 @@ pub enum AdminCommand {
     },
     Report,
     DownloadAll,
-    SmokeTestLatest,
+    SmokeTestLatest {
+        #[arg(short, long)]
+        truncate: Option<usize>
+    },
 }

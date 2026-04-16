@@ -122,9 +122,9 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                     fs::write(format!("{:03}-{}-{}.contrib", i+1, c.verifying_key.as_ref().as_hex()?, name_no_space), bytes)?;
                 }
             },
-            AdminCommand::SmokeTestLatest => {
+            AdminCommand::SmokeTestLatest { truncate } => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
-                smoke_test_latest(&my_sk).await?;
+                smoke_test_latest(&my_sk, truncate).await?;
             }
         }
     }

@@ -11,4 +11,5 @@ pub mod boilerplate_trait_impls;
 pub mod messages;
 pub mod constants;
 pub mod upload;
+pub mod truncate;
 pub(crate) mod parallel_ark_serde;
