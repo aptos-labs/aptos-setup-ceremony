@@ -2,34 +2,16 @@ use ark_ec::pairing::Pairing;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use tabled::Tabled;
 
 use crate::{errors::{ContributionGenerationFailure, ContributionVerificationFailure, DeserializationError}, multipairing_equation::MultipairingEquation};
 
 // TODO switch this file to use SHA2 instead of blake3
 
-#[derive(Tabled, Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Contributor {
     pub name: String,
     pub email: String,
-    #[tabled(format("{:?}", hex::encode(self.verifying_key.as_bytes())))]
     pub verifying_key: VerifyingKey,
-}
-
-impl Ord for Contributor {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.name.cmp(&other.name) {
-            core::cmp::Ordering::Equal => {}
-            ord => return ord,
-        }
-        self.email.cmp(&other.email)
-    }
-}
-
-impl PartialOrd for Contributor {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 impl Contributor {

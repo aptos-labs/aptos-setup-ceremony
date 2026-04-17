@@ -12,6 +12,10 @@ pub enum ContributionGenerationFailure {
 pub enum ContributionVerificationFailure {
     #[error("Contribution hashes mismatch")]
     ContributionHashMismatch,
+    #[error("Contribution has secret set to 0")]
+    TrivialContribution,
+    #[error("Contribution has wrong shape")]
+    ShapeMismatch,
     #[error("Multipairing equation had a nonzero result")]
     MultipairingEquationNonZeroResult,
     #[error("Params mismatch")]

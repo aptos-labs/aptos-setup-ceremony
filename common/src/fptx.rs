@@ -205,6 +205,17 @@ impl ContributionInner for FPTXContributionInner {
             self.randomized_tau_powers_g1.len() != params.num_rounds {
             return Err(ContributionVerificationFailure::ParamsMismatch)
         }
+        for alpha_g2 in &self.alphas_g2 {
+            if *alpha_g2 == G2Affine::zero() {
+                return Err(ContributionVerificationFailure::TrivialContribution);
+            }
+        }
+        for powers in &self.randomized_tau_powers_g1 {
+            if powers.len() != params.batch_size + 1 {
+                return Err(ContributionVerificationFailure::ShapeMismatch);
+            }
+        }
+
 
         let time = std::time::Instant::now();
         let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, &PowersOfTauParams { max_power: params.batch_size })?;

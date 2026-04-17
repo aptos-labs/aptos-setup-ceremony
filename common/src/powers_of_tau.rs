@@ -121,6 +121,9 @@ where
         if self.powers.len() != params.max_power + 1 {
             return Err(ContributionVerificationFailure::ParamsMismatch);
         }
+        if self.tau_g2 == P::G2Affine::zero() {
+            return Err(ContributionVerificationFailure::TrivialContribution);
+        }
 
         let sok_check_equation = self.sok.verify(
             previous.tau_g2,

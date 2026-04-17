@@ -128,6 +128,9 @@ where
         if self.tau_powers_contrib_inner.powers.len() != params.max_power + 1 {
             return Err(ContributionVerificationFailure::ParamsMismatch);
         }
+        if self.xi_g2 == P::G2Affine::zero() {
+            return Err(ContributionVerificationFailure::TrivialContribution);
+        }
 
         let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, params)?;
         

@@ -82,10 +82,10 @@ where
     rest.par_chunks(es)
         .map(|chunk| {
             #[cfg(feature = "validate")]
-            let result = T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::No)
+            let result = T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::Yes)
                 .map_err(|e| e.to_string());
             #[cfg(not(feature = "validate"))]
-            let result = T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::Yes)
+            let result = T::deserialize_with_mode(&mut &*chunk, Compress::Yes, Validate::No)
                 .map_err(|e| e.to_string());
             result
         })
