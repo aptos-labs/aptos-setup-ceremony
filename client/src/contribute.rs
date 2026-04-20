@@ -52,6 +52,37 @@ pub enum QueueOutcome {
     Verifying,
 }
 
+pub fn print_step_outline() {
+    eprintln!("");
+    eprintln!("");
+    eprintln!("You are about to contribute to the Aptos trusted setup ceremony. The contribution");
+    eprintln!("will work as follows:");
+    eprintln!("");
+    eprintln!("");
+    eprintln!("1. The client will test your download, compute, and upload speed, as contributing");
+    eprintln!("   is computationally intensive and involves downloading and uploading over a GB.");
+    eprintln!("");
+    eprintln!("2. If the speed test passes, you will be added to the queue. Each contributor");
+    eprintln!("   participates one at a time.");
+    eprintln!("");
+    eprintln!("3. Once it is your turn, the client will start your contribution. This consists of");
+    eprintln!("   downloading the previous contribution, computing a new one, and uploading it to");
+    eprintln!("   the server. This whole process could take up to 20 minutes depending on your");
+    eprintln!("   computer's CPU power and internet connection speed.");
+    eprintln!("");
+    eprintln!("4. Once you've finished uploading, the server will verify if your contribution is");
+    eprintln!("   valid. Assuming it passes verification, the contribution will be marked as");
+    eprintln!("   finished, and you will be shown the path to your contribution file along with a");
+    eprintln!("   contribution hash. You may use both of these to verify the final ceremony contains");
+    eprintln!("   your contribution. This verification takes around 3-5 minutes.");
+    eprintln!("");
+    eprintln!("");
+    eprintln!("Note: If your client becomes unresponsive, e.g., if your connection stalls, or if you");
+    eprintln!("close your laptop during your turn, the server might kick you. In this case, you may");
+    eprintln!("run the same command to rejoin the queue. To avoid this, please ensure that your computer");
+    eprintln!("is on and connected to the internet during the whole duration of the contribution.");
+}
+
 pub async fn join_and_wait_in_queue(
     my_sk: &SigningKey,
     me: &Contributor,
@@ -67,7 +98,7 @@ pub async fn join_and_wait_in_queue(
         match response {
             StatusResponse::DidntJoin => {
                 Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
-                eprintln!("Joining queue.");
+                eprintln!("Step 2: Joining queue.");
             },
             StatusResponse::Kicked(e) => {
                 Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
@@ -102,7 +133,7 @@ pub async fn join_and_wait_in_queue(
 }
 
 pub async fn download_previous(url: &str, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<Bytes> {
-    eprintln!("It is your turn.");
+    eprintln!("Step 3: It is your turn.");
     eprintln!("Downloading previous contribution...");
     // ping loop while downloading
     let ping_loop = PingLoop::start(
@@ -234,7 +265,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
         .send_and_receive()
     .await?;
 
-    eprintln!("Testing your download speed...");
+    eprintln!("Step 1: Testing your download speed...");
 
     let start = Instant::now();
     let mut bytes : BytesMut = BytesMut::from(reqwest::get(&download_url)
@@ -293,6 +324,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
 
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
     eprintln!("Hello {}.", me.name);
+    print_step_outline();
 
     let (download, compute, upload) = test_my_speed(&my_sk, me).await?;
 
