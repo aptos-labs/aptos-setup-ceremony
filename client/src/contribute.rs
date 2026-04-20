@@ -26,7 +26,7 @@ impl PingLoop {
                     Ok(()) => {eprint!(".")},
                     Err(e) => {
                         if let Some(StatusCode::GONE) = e.code {
-                            eprintln!("You were kicked. Error from server was: {:?}", e.inner);
+                            eprintln!("{:?}", e.inner);
                         } else {
                             eprintln!("Eror pinging server: {:?}", e);
                         }
