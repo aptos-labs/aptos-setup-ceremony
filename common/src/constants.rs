@@ -16,7 +16,7 @@ lazy_static! {
 }
 
 
-pub const UPLOAD_CHUNK_SIZE: usize = 64 * 1024 * 1024; // 8 MiB (is this right?)
+pub const PARALLEL_UPLOAD_PARTS: usize = 8;
 
 
 

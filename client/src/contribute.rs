@@ -2,7 +2,7 @@
 use std::{process::{self, exit}, sync::Arc, time::{Duration, Instant}};
 
 use anyhow::{Context, bail};
-use common::{constants::{COMPUTE_TEST_CUTOFF, CeremonyContribution, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_CHUNK_SIZE, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, messages::{AuthenticatedMsg, Msg}};
+use common::{constants::{COMPUTE_TEST_CUTOFF, CeremonyContribution, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use server::handlers::StatusResponse;
@@ -170,8 +170,8 @@ pub async fn upload_my_contribution(
     eprintln!("Finished computing contribution, uploading...");
 
     let response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-    let StatusResponse::ReadyForUpload(session_url) = response else {
-        bail!("Finished compute, but server didn't give us the session url for upload");
+    let StatusResponse::ReadyForUpload(part_urls) = response else {
+        bail!("Finished compute, but server didn't give us the upload plan");
     };
 
     let ping_loop = PingLoop::start(
@@ -180,10 +180,7 @@ pub async fn upload_my_contribution(
 
     tokio::fs::write("mine.contrib", my_contribution.as_ref()).await?;
 
-    common::upload::upload_chunked(
-        &session_url,
-        &my_contribution,
-        UPLOAD_CHUNK_SIZE).await?;
+    common::upload::upload_parallel(&part_urls, &my_contribution).await?;
 
     let hash = tokio::task::spawn_blocking(move ||
         blake3::hash(&my_contribution)
@@ -254,7 +251,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
 
     bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
 
-    let session_url : String = Msg::GetTestContributionUploadLink { contributor: me.clone() }
+    let part_urls : Vec<String> = Msg::GetTestContributionUploadLink { contributor: me.clone() }
         .sign(my_sk)
         .send_and_receive()
     .await?;
@@ -262,10 +259,7 @@ pub async fn test_my_speed(my_sk: &SigningKey, me: &Contributor) -> anyhow::Resu
     eprintln!("Testing your upload speed...");
 
     let start = Instant::now();
-    common::upload::upload_chunked(
-        &session_url, 
-        &bytes, 
-        UPLOAD_CHUNK_SIZE).await?;
+    common::upload::upload_parallel(&part_urls, &bytes).await?;
     let upload_duration = start.elapsed();
     eprintln!("Upload took {:?}", upload_duration);
 

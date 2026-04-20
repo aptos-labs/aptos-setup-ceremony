@@ -2,6 +2,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use std::time::Duration;
 
+use common::constants::PARALLEL_UPLOAD_PARTS;
 use common::contribution::Contributor;
 use anyhow::{Result, bail};
 use gcp_auth::TokenProvider;
@@ -10,7 +11,8 @@ use google_cloud_gax::error::rpc::Code;
 use google_cloud_storage::builder::storage::SignedUrlBuilder;
 use google_cloud_storage::client::{Storage, StorageControl};
 use google_cloud_storage::http::Method;
-use google_cloud_storage::model::Bucket;
+use google_cloud_storage::model::compose_object_request::SourceObject;
+use google_cloud_storage::model::{Bucket, Object};
 
 fn object_name(contributor: &Contributor) -> String {
     let hex_key = contributor
@@ -20,6 +22,10 @@ fn object_name(contributor: &Contributor) -> String {
         .map(|b| format!("{:02x}", b))
         .collect::<String>();
     format!("contributions/{}.bin", hex_key)
+}
+
+fn part_object_name(contributor: &Contributor, i: usize) -> String {
+    format!("{}.part.{i}", object_name(contributor))
 }
 
 pub struct ContributionFilesStore {
@@ -90,12 +96,42 @@ impl ContributionFilesStore {
         }
     }
 
-    pub async fn get_upload_url(&self, c: &Contributor) -> Result<String> {
+    pub async fn get_upload_plan(&self, c: &Contributor) -> Result<Vec<String>> {
         let obj_name = object_name(c);
         if self.object_exists(&obj_name).await? {
             self.delete_object(&obj_name).await?;
-        } 
-        self.initiate_resumable_upload(&obj_name).await
+        }
+        for i in 0..PARALLEL_UPLOAD_PARTS {
+            let part = part_object_name(c, i);
+            if self.object_exists(&part).await? {
+                self.delete_object(&part).await?;
+            }
+        }
+        let mut urls = Vec::with_capacity(PARALLEL_UPLOAD_PARTS);
+        for i in 0..PARALLEL_UPLOAD_PARTS {
+            urls.push(self.generate_signed_upload_url(&part_object_name(c, i)).await?);
+        }
+        Ok(urls)
+    }
+
+    pub async fn finalize_upload(&self, c: &Contributor) -> Result<()> {
+        let bucket = format!("projects/_/buckets/{}", self.bucket_id);
+        let destination = Object::new()
+            .set_bucket(&bucket)
+            .set_name(object_name(c));
+        let sources: Vec<SourceObject> = (0..PARALLEL_UPLOAD_PARTS)
+            .map(|i| SourceObject::new().set_name(part_object_name(c, i)))
+            .collect();
+        self.control_client
+            .compose_object()
+            .set_destination(destination)
+            .set_source_objects(sources)
+            .send()
+            .await?;
+        for i in 0..PARALLEL_UPLOAD_PARTS {
+            let _ = self.delete_object(&part_object_name(c, i)).await;
+        }
+        Ok(())
     }
 
 
@@ -150,42 +186,6 @@ impl ContributionFilesStore {
         Ok(())
     }
 
-    async fn initiate_resumable_upload(&self, obj_name: &str) -> Result<String> {
-        let token = self.get_token().await?;
-        let url = format!(
-            "{}/upload/storage/v1/b/{}/o?uploadType=resumable&name={}",
-            self.base_url,
-            urlencoding::encode(&self.bucket_id),
-            urlencoding::encode(obj_name),
-        );
-        let resp = self
-            .client
-            .post(&url)
-            .bearer_auth(&token)
-            .header("Content-Length", "0")
-            .send()
-            .await?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            bail!(
-                "GCS resumable upload initiation failed with status {}: {}",
-                status,
-                body,
-            );
-        }
-
-        let location = resp
-            .headers()
-            .get("Location")
-            .ok_or_else(|| anyhow::anyhow!("Missing Location header in resumable upload response"))?
-            .to_str()?
-            .to_string();
-
-        Ok(location)
-    }
-
     pub async fn download_contribution(
         &self,
         contributor: &Contributor,
@@ -213,13 +213,23 @@ impl ContributionFilesStore {
         Ok(url)
     }
 
+    async fn generate_signed_upload_url(&self, obj_name: &str) -> Result<String> {
+        let bucket = format!("projects/_/buckets/{}", self.bucket_id);
+        let url = SignedUrlBuilder::for_object(&bucket, obj_name)
+            .with_method(Method::PUT)
+            .with_expiration(Duration::from_secs(3600))
+            .sign_with(&self.signer)
+            .await?;
+        Ok(url)
+    }
+
     pub async fn write_test_blob(&self, blob: Bytes) -> Result<()> {
         let bucket = format!("projects/_/buckets/{}", self.bucket_id);
         self.gcs_client
             .write_object(bucket, "test_download_blob", blob)
             .send_unbuffered()
         .await?;
-        
+
         Ok(())
     }
 

@@ -27,7 +27,7 @@ pub enum StatusResponse {
     WaitingInQueue(usize),
     ReadyToDownloadPrevious(Option<String>),
     WaitingForContributionWithPrevious(Option<String>),
-    ReadyForUpload(String),
+    ReadyForUpload(Vec<String>),
     Verifying,
     Finished,
 }
@@ -104,9 +104,9 @@ pub async fn handle_get_status(c: &Contributor, state: Arc<State>, _config: &Con
                             None => None,
                         }
                     ),
-                    CurrentContributionStep::UploadStarted {..} => 
+                    CurrentContributionStep::UploadStarted {..} =>
                     StatusResponse::ReadyForUpload(
-                        state.contribution_files_store.get_upload_url(&c).await?
+                        state.contribution_files_store.get_upload_plan(&c).await?
                     ),
                     CurrentContributionStep::Verifying { .. } => 
                     StatusResponse::Verifying,
@@ -188,6 +188,7 @@ pub async fn handle_update_upload_progress(finished: bool, hash: String, c: Cont
 
 
     if finished {
+        state.contribution_files_store.finalize_upload(&c).await?;
         row.mark_finished_upload(hash.clone(), &db_locked.pool).await?;
         let state_cloned = state.clone();
         let config_cloned = config.clone();
@@ -341,9 +342,9 @@ pub async fn handle_get_test_contribution_download_link(state: Arc<State>, _conf
     Ok(url)
 }
 
-pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config: &Config) -> Result<String> {
-    let url = state.contribution_files_store.get_upload_url(&test_upload_contributor()).await?;
-    Ok(url)
+pub async fn handle_get_test_contribution_upload_link(state: Arc<State>, _config: &Config) -> Result<Vec<String>> {
+    let urls = state.contribution_files_store.get_upload_plan(&test_upload_contributor()).await?;
+    Ok(urls)
 }
 
 pub async fn handle_download_latest(state: Arc<State>, _config: &Config) -> Result<String, ErrorWithCode> {
