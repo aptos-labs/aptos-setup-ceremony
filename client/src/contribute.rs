@@ -76,11 +76,12 @@ pub fn print_step_outline() {
     eprintln!("   contribution hash. You may use both of these to verify the final ceremony contains");
     eprintln!("   your contribution. This verification takes around 3-5 minutes.");
     eprintln!("");
-    eprintln!("");
     eprintln!("Note: If your client becomes unresponsive, e.g., if your connection stalls, or if you");
     eprintln!("close your laptop during your turn, the server might kick you. In this case, you may");
     eprintln!("run the same command to rejoin the queue. To avoid this, please ensure that your computer");
     eprintln!("is on and connected to the internet during the whole duration of the contribution.");
+    eprintln!("");
+    eprintln!("");
 }
 
 pub async fn join_and_wait_in_queue(
