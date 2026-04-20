@@ -273,7 +273,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                     current_time - start, 
                     config.download_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out: download time {:?} exceeded timeout of {:?}", current_time - start, config.download_timeout())).await?;
+                db_locked.kick_current(&format!("Timed out: download time {} exceeded timeout of {}", current_time - start, config.download_timeout())).await?;
             }
         }
         CurrentContributionStep::ComputeStarted { start } => {
@@ -284,7 +284,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                     current_time - start, 
                     config.contribute_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out: compute time {:?} exceeded timeout of {:?}", current_time - start, config.contribute_timeout())).await?;
+                db_locked.kick_current(&format!("Timed out: compute time {} exceeded timeout of {}", current_time - start, config.contribute_timeout())).await?;
             }
         }
         CurrentContributionStep::UploadStarted { start } => {
@@ -295,7 +295,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
                     current_time - start, 
                     config.upload_timeout()
                 );
-                db_locked.kick_current(&format!("Timed out: upload time {:?} exceeded timeout of {:?}", current_time - start, config.upload_timeout())).await?;
+                db_locked.kick_current(&format!("Timed out: upload time {} exceeded timeout of {}", current_time - start, config.upload_timeout())).await?;
             }
         }
         // We don't timeout contributors during verification, since even if they go offline we can
