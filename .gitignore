@@ -9,3 +9,4 @@ massif.out.*
 *.contrib
 report.csv
 digest_key.bin
+pp.bin
