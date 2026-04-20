@@ -1,7 +1,9 @@
 use crate::contribution::Contributor;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey, Verifier as _};
-use std::fmt::Debug;
+use reqwest::StatusCode;
+use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use thiserror::Error;
 
 use anyhow::Context;
 
@@ -20,28 +22,56 @@ pub struct AuthenticatedMsg<Contents: Serialize + Debug> {
     signature: Signature,
 }
 
-impl<Contents: Serialize + Debug> AuthenticatedMsg<Contents> {
-    pub fn verify_sig(&self, verifying_key: &VerifyingKey) -> anyhow::Result<()> {
-        Ok(verifying_key.verify(&bcs::to_bytes(&self.inner)?, &self.signature)?)
-    }
 
-    pub async fn send(&self) -> anyhow::Result<()> {
-        let client = reqwest::Client::new();
-        let res = client.post(server_address() + "/msg")
-            .json(&self)
-            .send()
-        .await?;
-        let status = res.status();
-        let text = res.text().await
-            .with_context(|| "While trying to fetch response text")?;
-        if status.is_client_error() || status.is_server_error() {
-            anyhow::bail!("Server returned an error: {}, with body: {}", status, text)
+#[derive(Debug, Error)]
+pub struct MsgError {
+    #[source]
+    pub inner: anyhow::Error,
+    pub code: Option<StatusCode>,
+}
+
+impl Display for MsgError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(code) = self.code {
+            f.write_fmt(format_args!("Error while communicating with server. Code: {}, body: {:?}", code, self.inner))
         } else {
-            Ok(())
+            f.write_fmt(format_args!("Error while communicating with server: {:?}", self.inner,  ))
         }
     }
+}
 
-    pub async fn send_and_receive<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+impl From<anyhow::Error> for MsgError {
+    fn from(value: anyhow::Error) -> Self {
+        Self {
+            inner: anyhow::Error::from(value),
+            code: None,
+        }
+    }
+}
+
+impl<Contents: Serialize + Debug> AuthenticatedMsg<Contents> {
+    pub fn verify_sig(&self, verifying_key: &VerifyingKey) -> anyhow::Result<()> {
+        Ok(
+            verifying_key.verify(
+                &bcs::to_bytes(&self.inner)?, 
+                &self.signature
+            )?
+        )
+    }
+
+    pub async fn send(&self) -> Result<(), MsgError> {
+        self.send_inner().await?;
+        Ok(())
+    }
+
+    pub async fn send_and_receive<T: DeserializeOwned>(&self) -> Result<T, MsgError> {
+        let text = self.send_inner().await?;
+        Ok(serde_json::from_str(&text)
+            .context(format!("Parson json failed for message: {}", text))?)
+
+    }
+
+    async fn send_inner(&self) -> Result<String, MsgError> {
         let client = reqwest::Client::new();
         let res = client.post(server_address() + "/msg")
             .json(&self)
@@ -52,10 +82,12 @@ impl<Contents: Serialize + Debug> AuthenticatedMsg<Contents> {
         let text = res.text().await
             .with_context(|| "While trying to fetch response text")?;
         if status.is_client_error() || status.is_server_error() {
-            anyhow::bail!("Server returned an error: {}, with body: {}", status, text)
+            Err(MsgError {
+                inner: anyhow::anyhow!(text),
+                code: Some(status),
+            })
         } else {
-            Ok(serde_json::from_str(&text)
-                .context(format!("Parson json failed for message: {}", text))?)
+            Ok(text)
         }
 
     }

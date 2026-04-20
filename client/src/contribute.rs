@@ -5,6 +5,7 @@ use anyhow::{Context, bail};
 use common::{constants::{COMPUTE_TEST_CUTOFF, CeremonyContribution, DOWNLOAD_TEST_CUTOFF, PARAMS, TEST_PARAMS, UPLOAD_TEST_CUTOFF}, contribution::{Contribution, Contributor}, messages::{AuthenticatedMsg, Msg}};
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
+use reqwest::StatusCode;
 use server::handlers::StatusResponse;
 use tokio::{sync::oneshot, task::JoinHandle};
 use bytes::{Bytes, BytesMut};
@@ -24,7 +25,11 @@ impl PingLoop {
                 match msg.send().await {
                     Ok(()) => {eprint!(".")},
                     Err(e) => {
-                        eprintln!("Couldn't ping server, you were probably kicked. Error: {:?}", e);
+                        if let Some(StatusCode::GONE) = e.code {
+                            eprintln!("You were kicked. Error from server was: {:?}", e.inner);
+                        } else {
+                            eprintln!("Eror pinging server: {:?}", e);
+                        }
                         exit(1)
                     }
                 }
