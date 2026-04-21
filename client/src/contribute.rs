@@ -73,8 +73,9 @@ pub fn print_step_outline() {
     eprintln!("4. Once you've finished uploading, the server will verify if your contribution is");
     eprintln!("   valid. Assuming it passes verification, the contribution will be marked as");
     eprintln!("   finished, and you will be shown the path to your contribution file along with a");
-    eprintln!("   contribution hash. You may use both of these to verify the final ceremony contains");
-    eprintln!("   your contribution. This verification takes around 3-5 minutes.");
+    eprintln!("   contribution hash. Once the final ceremony result is published, you may use both");
+    eprintln!("   of these items to verify the final ceremony contains your contribution. This");
+    eprintln!("   verification takes around 4 minutes.");
     eprintln!("");
     eprintln!("Note: If your client becomes unresponsive, e.g., if your connection stalls, or if you");
     eprintln!("close your laptop during your turn, the server might kick you. In this case, you may");
@@ -232,7 +233,7 @@ pub async fn wait_for_server_verification(
     my_sk: &SigningKey,
     me: &Contributor,
 ) -> anyhow::Result<()> {
-    eprintln!("Finished uploading, waiting for server verification. This will also take awhile...");
+    eprintln!("Step 4: Finished uploading, waiting for server verification. This will take around 4 minutes...");
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
