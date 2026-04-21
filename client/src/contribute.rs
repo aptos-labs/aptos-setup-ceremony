@@ -352,7 +352,7 @@ pub async fn wait_for_server_verification(
     my_sk: &SigningKey,
     me: &Contributor,
 ) -> anyhow::Result<()> {
-    spinner_line.spinlog("Step 4: Finished uploading, waiting for server verification. This will take around 4 minutes...");
+    spinner_line.spinlog("Step 4: Waiting for server verification. This will take around 4 minutes...");
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
@@ -367,7 +367,7 @@ pub async fn wait_for_server_verification(
                 return Ok(())
             },
             StatusResponse::Verifying => {
-                spinner_line.spinlog("Server is verifying...");
+                spinner_line.spinlog("Step 4: Server is verifying...");
                 interval.tick().await;
             },
             _ => {
