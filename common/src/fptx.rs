@@ -7,6 +7,7 @@ use aptos_batch_encryption::shared::digest::DigestKey;
 use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, Pairing};
 use aptos_crypto::arkworks::serialization::ark_se;
 use rand::thread_rng;
+use tracing::info;
 use crate::parallel_ark_serde::{par_ark_se_vec, par_ark_de_vec, par_ark_se_vec_vec, par_ark_de_vec_vec};
 use rand_core::CryptoRngCore;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator as _};
@@ -135,7 +136,7 @@ impl ContributionInner for FPTXContributionInner {
             .zip(&previous.alphas_g2)
             .map(|(alpha_fr, old_alpha_g2)| G2Affine::from(*old_alpha_g2 * alpha_fr))
             .collect();
-        println!("Finished step a in {:?}", time.elapsed());
+        info!("Finished step a in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
 
@@ -146,7 +147,7 @@ impl ContributionInner for FPTXContributionInner {
 
             })
             .collect();
-        println!("Finished step b in {:?}", time.elapsed());
+        info!("Finished step b in {:?}", time.elapsed());
 
 
         let time = std::time::Instant::now();
@@ -155,7 +156,7 @@ impl ContributionInner for FPTXContributionInner {
             &previous.tau_powers_contrib_inner, 
             &PowersOfTauParams { max_power: params.batch_size }
         )?;
-        println!("Finished step c in {:?}", time.elapsed());
+        info!("Finished step c in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let randomized_tau_powers_fr = tau_powers_randomized_fr(
@@ -163,7 +164,7 @@ impl ContributionInner for FPTXContributionInner {
             &tau_powers_fr,
             &random_alphas_fr
         );
-        println!("Finished step d in {:?}", time.elapsed());
+        info!("Finished step d in {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
         let randomized_tau_powers_g1p: Vec<Vec<G1Projective>> = randomized_tau_powers_fr
@@ -175,7 +176,7 @@ impl ContributionInner for FPTXContributionInner {
                     .map(|(new_scalar, old_g1)| *old_g1 * new_scalar)
                     .collect())
             .collect();
-        println!("Finished step e in {:?}", time.elapsed());
+        info!("Finished step e in {:?}", time.elapsed());
 
         // TODO could do batch normalization here, although it doesn't seem to be a significant
         // component of the total time to contribute
@@ -188,7 +189,7 @@ impl ContributionInner for FPTXContributionInner {
                     .collect()
             )
             .collect();
-        println!("Finished step f in {:?}", time.elapsed());
+        info!("Finished step f in {:?}", time.elapsed());
 
         Ok((Self { 
             tau_powers_contrib_inner,
@@ -219,7 +220,7 @@ impl ContributionInner for FPTXContributionInner {
 
         let time = std::time::Instant::now();
         let pot_equation = self.tau_powers_contrib_inner.verify(rng, &previous.tau_powers_contrib_inner, &PowersOfTauParams { max_power: params.batch_size })?;
-        println!("a {:?}", time.elapsed());
+        info!("a {:?}", time.elapsed());
         let time = std::time::Instant::now();
 
 
@@ -240,7 +241,7 @@ impl ContributionInner for FPTXContributionInner {
             .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2));
         
 
-        println!("b {:?}", time.elapsed());
+        info!("b {:?}", time.elapsed());
 
         let time = std::time::Instant::now();
 
@@ -263,7 +264,7 @@ impl ContributionInner for FPTXContributionInner {
             .fold(MultipairingEquations::new(), |eqs, eq2| eqs.add(eq2));
 
 
-        println!("c {:?}", time.elapsed());
+        info!("c {:?}", time.elapsed());
 
         Ok(
             MultipairingEquations::new()
