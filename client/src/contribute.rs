@@ -68,7 +68,7 @@ pub fn print_step_outline() {
     eprintln!("3. Once it is your turn, the client will start your contribution. This consists of");
     eprintln!("   downloading the previous contribution, computing a new one, and uploading it to");
     eprintln!("   the server. This whole process could take up to 20 minutes depending on your");
-    eprintln!("   computer's CPU power and internet connection speed.");
+    eprintln!("   machine's CPU power and internet connection speed.");
     eprintln!("");
     eprintln!("4. Once you've finished uploading, the server will verify if your contribution is");
     eprintln!("   valid. Assuming it passes verification, the contribution will be marked as");
@@ -77,9 +77,9 @@ pub fn print_step_outline() {
     eprintln!("   of these items to verify the final ceremony contains your contribution. This");
     eprintln!("   verification takes around 4 minutes.");
     eprintln!("");
-    eprintln!("Note: If your client becomes unresponsive, e.g., if your connection stalls, or if you");
+    eprintln!("Note: If your machine becomes unresponsive, e.g., if your connection stalls, or if you");
     eprintln!("close your laptop during your turn, the server might kick you. In this case, you may");
-    eprintln!("run the same command to rejoin the queue. To avoid this, please ensure that your computer");
+    eprintln!("run the same command to rejoin the queue. To avoid this, please ensure that your machine");
     eprintln!("is on and connected to the internet during the whole duration of the contribution.");
     eprintln!("");
     eprintln!("");
