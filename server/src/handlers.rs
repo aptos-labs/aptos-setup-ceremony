@@ -245,7 +245,9 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
 
     let current_time = Utc::now();
 
-    if current_time - current_contributor.updated_timestamp > config.ping_timeout() {
+    if current_time - current_contributor.updated_timestamp > config.ping_timeout() 
+    && current_contributor.get_current_contribution_step() != CurrentContributionStep::Verifying 
+    {
         tracing::info!(
             "[Tick] Kicking contributor {}: ping time {} exceeded timeout of {}", 
             current_contributor.name, 
@@ -259,6 +261,7 @@ pub async fn handle_tick(state: Arc<State>, config: &Config) -> Result<()> {
         )).await?;
         return Ok(());
     }
+
     match current_contributor.get_current_contribution_step() {
         CurrentContributionStep::DownloadNotStarted => {
             // On tick, if the active contributor hasn't started download, mark the
