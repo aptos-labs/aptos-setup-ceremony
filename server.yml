@@ -5,6 +5,7 @@ services:
       - "8888:8888"
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /test-gcs-server.json
+      RUST_BACKTRACE: 1
     restart: always
     volumes:
       - "/home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro"
