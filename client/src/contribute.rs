@@ -113,208 +113,6 @@ pub fn print_step_outline() {
     eprintln!("");
 }
 
-
-
-pub async fn join_and_wait_in_queue(
-    spinner_line: SpinnerLineHandle, 
-    my_sk: &SigningKey,
-    me: &Contributor,
-    test_download_secs: u64,
-    test_compute_secs: u64,
-    test_upload_secs: u64
-) -> anyhow::Result<QueueOutcome> {
-    let mut interval = tokio::time::interval(PING_INTERVAL);
-    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-
-    // loop that handles being in queue
-    loop {
-        match response {
-            StatusResponse::DidntJoin => {
-                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
-                spinner_line.spinlog("Step 2: Joining queue.");
-            },
-            StatusResponse::Kicked(e) => {
-                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
-                spinner_line.spinlog(format!("{}: Was kicked. Reason was {}. Rejoining queue.", me.name, e));
-            },
-            StatusResponse::WaitingInQueue(pos) => {
-                spinner_line.spinlog(format!("You are at position {} in the queue.", pos));
-            }
-            StatusResponse::ReadyToDownloadPrevious(_) => break,
-            StatusResponse::Finished => {
-                spinner_line.spinwarn("You have already contributed to this ceremony.");
-                return Ok(QueueOutcome::AlreadyFinished);
-            },
-            StatusResponse::Verifying => {
-                spinner_line.spinlog("Server already has your contribution and is verifying.");
-                return Ok(QueueOutcome::Verifying);
-            },
-            _ => {
-                spinner_line.spinlog("Server thinks we are in the middle of contributing/uploading. Waiting ~25 secs for timeout...");
-                tokio::time::sleep(Duration::from_secs(25)).await;
-            },
-        }
-        interval.tick().await;
-        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-    }
-
-    let StatusResponse::ReadyToDownloadPrevious(maybe_url) = response else {
-        unreachable!()
-    };
-
-    spinner_line.spinsucceed("You are at the head of the queue.");
-
-    Ok(QueueOutcome::ReadyToDownload(maybe_url))
-}
-
-pub async fn download_previous(
-    spinner_line: SpinnerLineHandle, 
-    url: &str, 
-    my_sk: &SigningKey, 
-    me: &Contributor
-) -> anyhow::Result<Bytes> {
-    spinner_line.spinlog("Step 3a: It is your turn. Downloading previous contribution...");
-    // ping loop while downloading
-    let ping_loop = PingLoop::start(
-        Msg::UpdateDownloadProgress { finished: false, contributor: me.clone() }.sign(my_sk)
-    );
-
-    let bytes = reqwest::get(url)
-        .await
-        .context("Error while downloading previous contribution.")?
-        .bytes().await
-        .context("Error while downloading previous contribution.")?;
-
-    ping_loop.stop();
-
-    spinner_line.spinsucceed("Finished downloading.");
-
-    Ok(bytes)
-}
-
-pub async fn compute_my_contribution(
-    spinner_line: SpinnerLineHandle, 
-    maybe_previous_bytes: Option<Bytes>,
-    my_sk: &SigningKey,
-    me: &Contributor
-) -> anyhow::Result<Bytes> {
-    spinner_line.spinlog("Step 3b: Starting compute step.");
-    let ping_loop = PingLoop::start(
-        Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
-    );
-
-    let (tx, rx) = oneshot::channel::<Bytes>();
-    let me_cloned = me.clone();
-
-    let spinner_line = Arc::new(spinner_line);
-
-    let spinner_line_cloned = spinner_line.clone();
-    rayon::spawn(move || {
-        let mut rng = thread_rng();
-        // deserialize here b/c its computationally expensive, and is done in parallel w/
-        // rayon
-        spinner_line_cloned.spinlog("Step 3b: Deserializing previous contribution...");
-        let start = Instant::now();
-        let maybe_previous : Option<CeremonyContribution> = match maybe_previous_bytes { 
-            Some(previous) => 
-            Some(bcs::from_bytes(&previous)
-                .context("Error while deserializing previous contribution.")
-                .unwrap()),
-            None => None 
-        };
-        spinner_line_cloned.spinlog(format!("Step 3b: Finished deserializing previous in {:?}", start.elapsed()));
-
-        spinner_line_cloned.spinlog("Step 3b: Computing your contribution. Will take a while...");
-        let start = Instant::now();
-        let my_contribution = Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
-            .expect("There was a problem computing your contribution");
-        spinner_line_cloned.spinlog(format!("Finished computing contribution in {:?}", start.elapsed()));
-
-        // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
-        spinner_line_cloned.spinlog("Step 3b: Serializing your contribution...");
-        let start = Instant::now();
-        let my_contribution_bytes = Bytes::from(bcs::to_bytes(&my_contribution)
-            .expect("There was a problem serializing your contribution."));
-        spinner_line_cloned.spinlog(format!("Step 3b: Finished serializing contribution in {:?}", start.elapsed()));
-
-        tx.send(my_contribution_bytes).expect("Should never fail to send")
-    });
-
-    let my_contribution = rx.await?;
-
-    ping_loop.stop();
-
-    Arc::<SpinnerLineHandle>::into_inner(spinner_line)
-        .expect("Should never fail to get inner")
-        .spinsucceed("Finished computation.");
-
-    Ok(my_contribution)
-}
-
-
-pub async fn upload_my_contribution(
-    spinner_line: SpinnerLineHandle, 
-    my_contribution: Arc<Bytes>, 
-    my_sk: &SigningKey, 
-    me: &Contributor) -> anyhow::Result<String> {
-    spinner_line.spinlog("Finished computing contribution, uploading...");
-
-    let response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-    let StatusResponse::ReadyForUpload(part_urls) = response else {
-        bail!("Finished compute, but server didn't give us the upload plan");
-    };
-
-    let ping_loop = PingLoop::start(
-        Msg::UpdateUploadProgress { finished: false, hash: format!(""), contributor: me.clone() }.sign(my_sk)
-    );
-
-    tokio::fs::write("mine.contrib", my_contribution.as_ref()).await?;
-
-    common::upload::upload_parallel(&part_urls, &my_contribution).await?;
-
-    let hash = tokio::task::spawn_blocking(move ||
-        blake3::hash(&my_contribution)
-    ).await?.to_string();
-
-    ping_loop.stop();
-
-    spinner_line.spinsucceed("Finished upload.");
-
-    Ok(hash)
-}
-
-pub async fn wait_for_server_verification(
-    spinner_line: SpinnerLineHandle, 
-    my_sk: &SigningKey,
-    me: &Contributor,
-) -> anyhow::Result<()> {
-    spinner_line.spinlog("Step 4: Finished uploading, waiting for server verification. This will take around 4 minutes...");
-    let mut interval = tokio::time::interval(PING_INTERVAL);
-    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-
-    // loop while server is verifying
-    loop {
-        match response {
-            StatusResponse::Kicked(e) => {
-                bail!("Kicked: {}", e);
-            },
-            StatusResponse::Finished => {
-                spinner_line.spinsucceed("Finished contributing!");
-                return Ok(())
-            },
-            StatusResponse::Verifying => {
-                spinner_line.spinlog("Server is verifying...");
-                interval.tick().await;
-            },
-            _ => {
-                bail!("Unexpected status response: {:?}", response);
-            }
-        }
-        interval.tick().await;
-        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
-    }
-}
-
 pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, me: &Contributor) -> anyhow::Result<(u64, u64, u64)> {
 
     let download_url : String = Msg::GetTestContributionDownloadLink { contributor: me.clone() }
@@ -380,6 +178,208 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         bail!(err_string)
     }
 }
+
+
+pub async fn join_and_wait_in_queue(
+    spinner_line: SpinnerLineHandle, 
+    my_sk: &SigningKey,
+    me: &Contributor,
+    test_download_secs: u64,
+    test_compute_secs: u64,
+    test_upload_secs: u64
+) -> anyhow::Result<QueueOutcome> {
+    let mut interval = tokio::time::interval(PING_INTERVAL);
+    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
+
+    // loop that handles being in queue
+    loop {
+        match response {
+            StatusResponse::DidntJoin => {
+                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
+                spinner_line.spinlog("Step 2: Joining queue.");
+            },
+            StatusResponse::Kicked(e) => {
+                Msg::Join { contributor: me.clone(), test_download_secs, test_compute_secs, test_upload_secs }.sign(my_sk).send().await?;
+                spinner_line.spinlog(format!("{}: Was kicked. Reason was {}. Rejoining queue.", me.name, e));
+            },
+            StatusResponse::WaitingInQueue(pos) => {
+                spinner_line.spinlog(format!("You are at position {} in the queue.", pos));
+            }
+            StatusResponse::ReadyToDownloadPrevious(_) => break,
+            StatusResponse::Finished => {
+                spinner_line.spinwarn("You have already contributed to this ceremony.");
+                return Ok(QueueOutcome::AlreadyFinished);
+            },
+            StatusResponse::Verifying => {
+                spinner_line.spinlog("Server already has your contribution and is verifying.");
+                return Ok(QueueOutcome::Verifying);
+            },
+            _ => {
+                spinner_line.spinlog("Server thinks we are in the middle of contributing/uploading. Waiting ~25 secs for timeout...");
+                tokio::time::sleep(Duration::from_secs(25)).await;
+            },
+        }
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
+    }
+
+    let StatusResponse::ReadyToDownloadPrevious(maybe_url) = response else {
+        unreachable!()
+    };
+
+    spinner_line.spinsucceed("Step 2: You are at the head of the queue.");
+
+    Ok(QueueOutcome::ReadyToDownload(maybe_url))
+}
+
+pub async fn download_previous(
+    spinner_line: SpinnerLineHandle, 
+    url: &str, 
+    my_sk: &SigningKey, 
+    me: &Contributor
+) -> anyhow::Result<Bytes> {
+    spinner_line.spinlog("Step 3a: It is your turn. Downloading previous contribution...");
+    // ping loop while downloading
+    let ping_loop = PingLoop::start(
+        Msg::UpdateDownloadProgress { finished: false, contributor: me.clone() }.sign(my_sk)
+    );
+
+    let bytes = reqwest::get(url)
+        .await
+        .context("Error while downloading previous contribution.")?
+        .bytes().await
+        .context("Error while downloading previous contribution.")?;
+
+    ping_loop.stop();
+
+    spinner_line.spinsucceed("Step 3a: Finished downloading.");
+
+    Ok(bytes)
+}
+
+pub async fn compute_my_contribution(
+    spinner_line: SpinnerLineHandle, 
+    maybe_previous_bytes: Option<Bytes>,
+    my_sk: &SigningKey,
+    me: &Contributor
+) -> anyhow::Result<Bytes> {
+    spinner_line.spinlog("Step 3b: Starting compute step.");
+    let ping_loop = PingLoop::start(
+        Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
+    );
+
+    let (tx, rx) = oneshot::channel::<Bytes>();
+    let me_cloned = me.clone();
+
+    let spinner_line = Arc::new(spinner_line);
+
+    let spinner_line_cloned = spinner_line.clone();
+    rayon::spawn(move || {
+        let mut rng = thread_rng();
+        // deserialize here b/c its computationally expensive, and is done in parallel w/
+        // rayon
+        spinner_line_cloned.spinlog("Step 3b: Deserializing previous contribution...");
+        let start = Instant::now();
+        let maybe_previous : Option<CeremonyContribution> = match maybe_previous_bytes { 
+            Some(previous) => 
+            Some(bcs::from_bytes(&previous)
+                .context("Error while deserializing previous contribution.")
+                .unwrap()),
+            None => None 
+        };
+        spinner_line_cloned.spinlog(format!("Step 3b: Finished deserializing previous in {:?}", start.elapsed()));
+
+        spinner_line_cloned.spinlog("Step 3b: Computing your contribution. Will take a while...");
+        let start = Instant::now();
+        let my_contribution = Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
+            .expect("There was a problem computing your contribution");
+        spinner_line_cloned.spinlog(format!("Finished computing contribution in {:?}", start.elapsed()));
+
+        // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
+        spinner_line_cloned.spinlog("Step 3b: Serializing your contribution...");
+        let start = Instant::now();
+        let my_contribution_bytes = Bytes::from(bcs::to_bytes(&my_contribution)
+            .expect("There was a problem serializing your contribution."));
+        spinner_line_cloned.spinlog(format!("Step 3b: Finished serializing contribution in {:?}", start.elapsed()));
+
+        tx.send(my_contribution_bytes).expect("Should never fail to send")
+    });
+
+    let my_contribution = rx.await?;
+
+    ping_loop.stop();
+
+    Arc::<SpinnerLineHandle>::into_inner(spinner_line)
+        .expect("Should never fail to get inner")
+        .spinsucceed("Step 3b: Finished computation.");
+
+    Ok(my_contribution)
+}
+
+
+pub async fn upload_my_contribution(
+    spinner_line: SpinnerLineHandle, 
+    my_contribution: Arc<Bytes>, 
+    my_sk: &SigningKey, 
+    me: &Contributor) -> anyhow::Result<String> {
+    spinner_line.spinlog("Step 3c: Uploading...");
+
+    let response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
+    let StatusResponse::ReadyForUpload(part_urls) = response else {
+        bail!("Finished compute, but server didn't give us the upload plan");
+    };
+
+    let ping_loop = PingLoop::start(
+        Msg::UpdateUploadProgress { finished: false, hash: format!(""), contributor: me.clone() }.sign(my_sk)
+    );
+
+    tokio::fs::write("mine.contrib", my_contribution.as_ref()).await?;
+
+    common::upload::upload_parallel(&part_urls, &my_contribution).await?;
+
+    let hash = tokio::task::spawn_blocking(move ||
+        blake3::hash(&my_contribution)
+    ).await?.to_string();
+
+    ping_loop.stop();
+
+    spinner_line.spinsucceed("Step 3c: Finished upload.");
+
+    Ok(hash)
+}
+
+pub async fn wait_for_server_verification(
+    spinner_line: SpinnerLineHandle, 
+    my_sk: &SigningKey,
+    me: &Contributor,
+) -> anyhow::Result<()> {
+    spinner_line.spinlog("Step 4: Finished uploading, waiting for server verification. This will take around 4 minutes...");
+    let mut interval = tokio::time::interval(PING_INTERVAL);
+    let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
+
+    // loop while server is verifying
+    loop {
+        match response {
+            StatusResponse::Kicked(e) => {
+                bail!("Kicked: {}", e);
+            },
+            StatusResponse::Finished => {
+                spinner_line.spinsucceed("Finished contributing!");
+                return Ok(())
+            },
+            StatusResponse::Verifying => {
+                spinner_line.spinlog("Server is verifying...");
+                interval.tick().await;
+            },
+            _ => {
+                bail!("Unexpected status response: {:?}", response);
+            }
+        }
+        interval.tick().await;
+        response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
+    }
+}
+
 
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
     eprintln!("Hello {}.", me.name);
