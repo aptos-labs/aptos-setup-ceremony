@@ -6,6 +6,7 @@ use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pair
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
+use tracing::info;
 
 use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::{ContributionGenerationFailure, ContributionVerificationFailure}, multipairing_equation::{MultipairingEquation, MultipairingEquations}, powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams}};
 
@@ -105,7 +106,7 @@ where
             }
         );
 
-        println!("Finished hiding KZG contrib in {:?}", start.elapsed());
+        info!("Finished hiding KZG contrib in {:?}", start.elapsed());
 
         Ok((
             Self {

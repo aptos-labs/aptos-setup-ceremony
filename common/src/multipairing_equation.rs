@@ -8,6 +8,7 @@ use rand_core::CryptoRngCore;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
+use tracing::info;
 
 use crate::errors::MultipairingEquationNonZeroResult;
 
@@ -83,7 +84,7 @@ where
 
     /// Test if this multipairing equation equals zero.
     pub fn equals_zero(&self) -> Result<(), MultipairingEquationNonZeroResult> {
-        println!("multipairing size: {}", self.g1s.len());
+        info!("multipairing size: {}", self.g1s.len());
         let time = std::time::Instant::now();
         let g1s_prepared: Vec<P::G1Prepared> = self
             .g1s
@@ -96,7 +97,7 @@ where
             .map(|g| P::G2Prepared::from(*g))
             .collect();
         let output = P::multi_pairing(g1s_prepared, g2s_prepared);
-        println!("equals_zero: {:?}", time.elapsed());
+        info!("equals_zero: {:?}", time.elapsed());
 
         if output == PairingOutput::zero() {
             Ok(())
@@ -132,7 +133,7 @@ impl<P: Pairing> MultipairingEquations<P> {
     }
 
     pub fn compact(self, rng: &mut impl CryptoRngCore) -> MultipairingEquation<P> {
-        println!("compact size: {}", self.eqns.len());
+        info!("compact size: {}", self.eqns.len());
         let time = std::time::Instant::now();
         let mut random_scalars = Vec::new();
         for _ in 0..self.eqns.len() {
@@ -151,7 +152,7 @@ impl<P: Pairing> MultipairingEquations<P> {
             .flatten()
             .collect();
 
-        println!("compact: {:?}", time.elapsed());
+        info!("compact: {:?}", time.elapsed());
 
         MultipairingEquation::simple(g1s, g2s)
     }
