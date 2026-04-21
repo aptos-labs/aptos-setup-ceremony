@@ -37,9 +37,10 @@ pub fn test_upload_contributor() -> Contributor {
 
 
 lazy_static! {
-    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1000);
-    // 12 seconds for computing 1/100th of the real size => ~1200 secs = 20 mins for the real size.
-    // Note that this doesn't test deserialization so there is built-in inaccuracy
-    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(12);
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(1000);
+    // download timeout 90 => this should be 90/3.2
+    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(29);
+    // contribute timeout 900 => this should be 900/100
+    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(9);
+    // upload timeout 350 => this should be 350/3.2 
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(109);
 }
