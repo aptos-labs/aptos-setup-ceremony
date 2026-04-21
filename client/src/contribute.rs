@@ -378,6 +378,8 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     let (download, compute, upload) = test_my_speed(step_1_line, &my_sk, me).await?;
 
+    eprintln!("Based on your speed tests, we estimate that step 3a will take {} seconds, step 3b will take {} seconds, and step 3c will take {} seconds.", download as f64 * 3.2, compute * 112, upload as f64 * 3.2);
+
     let step_2_line = multispinner_handle.add("");
 
     let maybe_url = match join_and_wait_in_queue(step_2_line, &my_sk, me, download, compute, upload).await? {
