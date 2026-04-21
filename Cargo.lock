@@ -1048,6 +1048,7 @@ dependencies = [
  "dirs",
  "ed25519-dalek 2.2.0",
  "hex",
+ "nanospinner",
  "rand 0.8.5",
  "rayon",
  "reqwest 0.12.28",
@@ -1056,6 +1057,9 @@ dependencies = [
  "server",
  "tabled",
  "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber 0.3.23",
 ]
 
 [[package]]
@@ -1684,6 +1688,7 @@ dependencies = [
  "client",
  "common",
  "ed25519-dalek 2.2.0",
+ "nanospinner",
  "rand 0.8.5",
  "rustls",
  "server",
@@ -3272,6 +3277,12 @@ name = "more-asserts"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
+
+[[package]]
+name = "nanospinner"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "189900f581af8fe6a8e02d4a31aecffbebcdb7a0266a7aed3c35f14fc4ca6bf8"
 
 [[package]]
 name = "native-tls"

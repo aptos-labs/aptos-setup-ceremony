@@ -4,6 +4,7 @@ use anyhow::{bail, Result};
 use common::contribution::Contributor;
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
+use nanospinner::MultiSpinner;
 use rand::thread_rng;
 use server::handlers::ReportResponse;
 use server::config::Config;
@@ -33,14 +34,15 @@ async fn test_contribute(
     me: &Contributor,
     crash_at: Option<CrashPhase>,
 ) -> Result<()> {
-    match contribute::join_and_wait_in_queue(sk, me, 0, 0, 0).await? {
+    let multispinner_handle = MultiSpinner::new().start();
+    match contribute::join_and_wait_in_queue(multispinner_handle.add(""), sk, me, 0, 0, 0).await? {
         QueueOutcome::AlreadyFinished => return Ok(()),
         QueueOutcome::Verifying => {
             if matches!(crash_at, Some(CrashPhase::Verify)) {
                 info!("[{}] Simulating crash during VERIFY", me.name);
                 bail!("Simulated crash during verify");
             }
-            contribute::wait_for_server_verification(sk, me).await?;
+            contribute::wait_for_server_verification(multispinner_handle.add(""), sk, me).await?;
             return Ok(());
         }
         QueueOutcome::ReadyToDownload(maybe_url) => {
@@ -51,7 +53,7 @@ async fn test_contribute(
             }
 
             let maybe_previous = match maybe_url {
-                Some(url) => Some(contribute::download_previous(&url, sk, me).await?),
+                Some(url) => Some(contribute::download_previous(multispinner_handle.add(""), &url, sk, me).await?),
                 None => None,
             };
 
@@ -66,7 +68,7 @@ async fn test_contribute(
                 bail!("Simulated crash during compute");
             }
 
-            let my_contribution = Arc::new(contribute::compute_my_contribution(maybe_previous, sk, me).await?);
+            let my_contribution = Arc::new(contribute::compute_my_contribution(multispinner_handle.add(""), maybe_previous, sk, me).await?);
 
             Msg::UpdateComputeProgress { finished: true, contributor: me.clone() }
                 .sign(sk)
@@ -79,7 +81,7 @@ async fn test_contribute(
                 bail!("Simulated crash during upload");
             }
 
-            let hash = contribute::upload_my_contribution(my_contribution, sk, me).await?;
+            let hash = contribute::upload_my_contribution(multispinner_handle.add(""), my_contribution, sk, me).await?;
             
 
             Msg::UpdateUploadProgress { finished: true, contributor: me.clone(), hash }
@@ -93,7 +95,7 @@ async fn test_contribute(
                 bail!("Simulated crash during verify");
             }
 
-            contribute::wait_for_server_verification(sk, me).await?;
+            contribute::wait_for_server_verification(multispinner_handle.add(""), sk, me).await?;
         }
     }
 
