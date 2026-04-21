@@ -92,7 +92,7 @@ impl ContributionFilesStore {
         if self.object_exists(&obj_name).await? {
             self.generate_signed_download_url(&obj_name).await
         } else {
-            bail!("Contributor's file does not exist")
+            bail!("Contributor {}'s file does not exist", c.name)
         }
     }
 
