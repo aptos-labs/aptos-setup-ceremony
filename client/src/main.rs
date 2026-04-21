@@ -16,7 +16,8 @@ async fn main() {
     let file_appender = tracing_appender::rolling::never("./", "contribution.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let file_layer = tracing_subscriber::fmt::layer()
-        .with_writer(non_blocking);
+        .with_writer(non_blocking)
+        .with_filter(LevelFilter::INFO);
 
     let stderr_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stderr)

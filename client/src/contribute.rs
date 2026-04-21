@@ -162,6 +162,8 @@ pub async fn join_and_wait_in_queue(
         unreachable!()
     };
 
+    spinner_line.spinsucceed("You are at the head of the queue.");
+
     Ok(QueueOutcome::ReadyToDownload(maybe_url))
 }
 
@@ -185,6 +187,8 @@ pub async fn download_previous(
 
     ping_loop.stop();
 
+    spinner_line.spinsucceed("Finished downloading.");
+
     Ok(bytes)
 }
 
@@ -194,7 +198,7 @@ pub async fn compute_my_contribution(
     my_sk: &SigningKey,
     me: &Contributor
 ) -> anyhow::Result<Bytes> {
-    spinner_line.spinlog("Step 3b: Finished downloading, starting compute step.");
+    spinner_line.spinlog("Step 3b: Starting compute step.");
     let ping_loop = PingLoop::start(
         Msg::UpdateComputeProgress { finished: false, contributor: me.clone() }.sign(my_sk)
     );
@@ -237,6 +241,8 @@ pub async fn compute_my_contribution(
 
     ping_loop.stop();
 
+    spinner_line.spinsucceed("Finished computation.");
+
     Ok(my_contribution)
 }
 
@@ -266,6 +272,8 @@ pub async fn upload_my_contribution(
     ).await?.to_string();
 
     ping_loop.stop();
+
+    spinner_line.spinsucceed("Finished upload.");
 
     Ok(hash)
 }
