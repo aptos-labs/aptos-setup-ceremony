@@ -129,7 +129,7 @@ impl ContributionFilesStore {
             .send()
             .await?;
         for i in 0..PARALLEL_UPLOAD_PARTS {
-            let _ = self.delete_object(&part_object_name(c, i)).await;
+            self.delete_object(&part_object_name(c, i)).await?;
         }
         Ok(())
     }

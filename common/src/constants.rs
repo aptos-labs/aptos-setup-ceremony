@@ -15,17 +15,10 @@ lazy_static! {
     ).unwrap();
 }
 
-
 pub const PARALLEL_UPLOAD_PARTS: usize = 8;
 
 
-
-
-
-
 // constants related to download/compute/upload test that client does
-
-
 
 lazy_static! {
     pub static ref TEST_PARAMS : AptosParams = AptosParams::new(
