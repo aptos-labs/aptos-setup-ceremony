@@ -206,11 +206,14 @@ pub async fn compute_my_contribution(
     let (tx, rx) = oneshot::channel::<Bytes>();
     let me_cloned = me.clone();
 
+    let spinner_line = Arc::new(spinner_line);
+
+    let spinner_line_cloned = spinner_line.clone();
     rayon::spawn(move || {
         let mut rng = thread_rng();
         // deserialize here b/c its computationally expensive, and is done in parallel w/
         // rayon
-        spinner_line.spinlog("Step 3b: Deserializing previous contribution...");
+        spinner_line_cloned.spinlog("Step 3b: Deserializing previous contribution...");
         let start = Instant::now();
         let maybe_previous : Option<CeremonyContribution> = match maybe_previous_bytes { 
             Some(previous) => 
@@ -219,20 +222,20 @@ pub async fn compute_my_contribution(
                 .unwrap()),
             None => None 
         };
-        spinner_line.spinlog(format!("Step 3b: Finished deserializing previous in {:?}", start.elapsed()));
+        spinner_line_cloned.spinlog(format!("Step 3b: Finished deserializing previous in {:?}", start.elapsed()));
 
-        spinner_line.spinlog("Step 3b: Computing your contribution. Will take a while...");
+        spinner_line_cloned.spinlog("Step 3b: Computing your contribution. Will take a while...");
         let start = Instant::now();
         let my_contribution = Contribution::generate(&mut rng, maybe_previous.as_ref(), &me_cloned, &PARAMS)
             .expect("There was a problem computing your contribution");
-        spinner_line.spinlog(format!("Finished computing contribution in {:?}", start.elapsed()));
+        spinner_line_cloned.spinlog(format!("Finished computing contribution in {:?}", start.elapsed()));
 
         // serialize here b/c it's computationally expensive, and is done in parallel w/ rayon
-        spinner_line.spinlog("Step 3b: Serializing your contribution...");
+        spinner_line_cloned.spinlog("Step 3b: Serializing your contribution...");
         let start = Instant::now();
         let my_contribution_bytes = Bytes::from(bcs::to_bytes(&my_contribution)
             .expect("There was a problem serializing your contribution."));
-        spinner_line.spinlog(format!("Step 3b: Finished serializing contribution in {:?}", start.elapsed()));
+        spinner_line_cloned.spinlog(format!("Step 3b: Finished serializing contribution in {:?}", start.elapsed()));
 
         tx.send(my_contribution_bytes).expect("Should never fail to send")
     });
@@ -241,7 +244,9 @@ pub async fn compute_my_contribution(
 
     ping_loop.stop();
 
-    spinner_line.spinsucceed("Finished computation.");
+    Arc::<SpinnerLineHandle>::into_inner(spinner_line)
+        .expect("Should never fail to get inner")
+        .spinsucceed("Finished computation.");
 
     Ok(my_contribution)
 }
