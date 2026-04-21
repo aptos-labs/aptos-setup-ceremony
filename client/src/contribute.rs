@@ -391,7 +391,9 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     let (download, compute, upload) = test_my_speed(step_1_line, &my_sk, me).await?;
 
-    eprintln!("Based on your speed tests, we estimate that step 3a will take {} seconds, step 3b will take {} seconds, and step 3c will take {} seconds.", download as f64 * 3.2, compute * 112, upload as f64 * 3.2);
+    let speed_test_results_line = multispinner_handle.add("");
+
+    speed_test_results_line.info_with(format!("Based on your speed tests, we estimate that step 3a will take {} seconds, step 3b will take {} seconds, and step 3c will take {} seconds.", download as f64 * 3.2, compute * 112, upload as f64 * 3.2));
 
     let step_2_line = multispinner_handle.add("");
 
@@ -439,7 +441,8 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     wait_for_server_verification(step_4_line, &my_sk, me).await?;
 
-    eprintln!("Finished contributing!");
+    eprintln!("");
+    eprintln!("");
     eprintln!("Your contribution hash is {}, and your contribution file is './mine.contrib'.", hash);
     eprintln!("You may use this file and hash to verify that the final output contains your contribution.");
 
