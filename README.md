@@ -12,6 +12,8 @@ You will need the following in order to contribute:
 
 ## Instructions
 
+Before starting, clone this repo:
+
 ```
 git clone git@github.com:aptos-labs/aptos-setup-ceremony; cd aptos-setup-ceremony
 ```
