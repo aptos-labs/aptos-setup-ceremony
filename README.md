@@ -18,6 +18,9 @@ Before starting, clone this repo:
 git clone git@github.com:aptos-labs/aptos-setup-ceremony; cd aptos-setup-ceremony
 ```
 
+Or if you would rather download directly instead of using git, [visit this release page](https://github.com/aptos-labs/aptos-setup-ceremony/releases/tag/dress-rehearsal) 
+and download the linked zip file.
+
 You should have received a hex keypair. First step:
 
 ```
