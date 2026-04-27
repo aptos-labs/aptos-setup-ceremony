@@ -2,6 +2,14 @@
 
 # Aptos Trusted Setup Ceremony
 
+## Prerequisites
+
+You will need the following in order to contribute:
+
+- Access to internal `aptos-labs` git repos
+- Rust (see [here](https://rustup.rs/) to install)
+- A reasonably fast computer (e.g. a MacBook with an M-series chip) and a fast internet connection
+
 ## Instructions
 
 ```
