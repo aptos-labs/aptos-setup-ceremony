@@ -27,8 +27,6 @@ fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contribut
 }
 
 pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
-    // TODO change this back for prod?
-    //let my_keypair_file = config_dir.join(cli::KEYPAIR_FILE);
     let my_keypair_file = PathBuf::from_str(cli::KEYPAIR_FILE)?;
 
     match cli.command {
@@ -37,8 +35,10 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
                 bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
             let mut rng = thread_rng();
-            let keypair_json = serde_json::to_string(&Contributor::new(&name, &email, &mut rng))?;
+            let me = Contributor::new(&name, &email, &mut rng);
+            let keypair_json = serde_json::to_string(&me)?;
             fs::write(&my_keypair_file, keypair_json)?;
+            eprintln!("Your verifying key is {}", me.1.verifying_key.as_hex()?);
             eprintln!("Keypair file written to {:?}", my_keypair_file);
         },
         Command::Identify { contributor_keypair_hex, force } => {
