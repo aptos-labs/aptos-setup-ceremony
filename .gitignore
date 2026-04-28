@@ -10,3 +10,4 @@ massif.out.*
 report.csv
 digest_key.bin
 pp.bin
+keypair.json
