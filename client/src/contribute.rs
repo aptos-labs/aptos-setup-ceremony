@@ -18,6 +18,7 @@ trait SpinLog {
     fn spinlog(&self, msg: impl Into<String>);
     fn spinwarn(self, msg: impl Into<String>);
     fn spinsucceed(self, msg: impl Into<String>);
+    fn spinfail(self, msg: impl Into<String>);
 }
 
 impl SpinLog for SpinnerLineHandle {
@@ -35,6 +36,11 @@ impl SpinLog for SpinnerLineHandle {
         let msg_string : String = msg.into();
         info!(msg_string);
         self.success_with(msg_string);
+    }
+    fn spinfail(self, msg: impl Into<String>) {
+        let msg_string : String = msg.into();
+        error!(msg_string);
+        self.fail_with(msg_string);
     }
 }
 
@@ -174,8 +180,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         spinner_line.spinsucceed("Step 1: Speed test passed.");
         Ok((download_duration.as_secs(), compute_duration.as_secs(), upload_duration.as_secs()))
     } else {
-        info!(err_string);
-        spinner_line.fail_with(format!("Speed test failed. {}", err_string));
+        spinner_line.spinfail(format!("Speed test failed. {}", err_string));
         bail!(err_string)
     }
 }
