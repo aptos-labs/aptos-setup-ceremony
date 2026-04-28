@@ -41,6 +41,6 @@ lazy_static! {
     pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(29);
     // contribute timeout 900 => this should be 900/100
     pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(9);
-    // upload timeout 350 => this should be 350/3.2 
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(109);
+    // upload timeout 350 => this should be 450/3.2 (add padding)
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(140);
 }
