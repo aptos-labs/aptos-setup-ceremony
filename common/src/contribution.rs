@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::{PUBLIC_KEY_LENGTH, SigningKey, VerifyingKey};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -60,11 +60,14 @@ impl AsAndFromHex for (SigningKey, Contributor) {
 
 impl AsAndFromHex for VerifyingKey {
     fn as_hex(&self) -> anyhow::Result<String> {
-        Ok(hex::encode(bcs::to_bytes(&self)?))
+        Ok(hex::encode(self.to_bytes()))
     }
     fn from_hex(hex: &str) -> anyhow::Result<Self> {
-        Ok(bcs::from_bytes(&hex::decode(hex)?)?)
+        let bytes : [u8; PUBLIC_KEY_LENGTH] = hex::decode(hex)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Expected 32 bytes"))?;
 
+        Ok(Self::from_bytes(&bytes)?)
     }
 }
 

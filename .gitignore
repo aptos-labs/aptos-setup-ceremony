@@ -11,3 +11,5 @@ report.csv
 digest_key.bin
 pp.bin
 keypair.json
+users.csv
+luma.csv
