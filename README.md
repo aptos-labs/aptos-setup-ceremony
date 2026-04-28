@@ -18,13 +18,13 @@ Before starting, clone this repo:
 git clone git@github.com:aptos-labs/aptos-setup-ceremony; cd aptos-setup-ceremony
 ```
 
-Or if you would rather download directly instead of using git, [visit this release page](https://github.com/aptos-labs/aptos-setup-ceremony/releases/tag/dress-rehearsal) 
+Or if you would rather download directly instead of using git, [visit this release page](https://github.com/aptos-labs/aptos-setup-ceremony/releases/tag/v2)
 and download the linked zip file.
 
-You should have received a hex keypair. First step:
+You should have received an authentication code. First step:
 
 ```
-cargo run --release identify <keypair>
+cargo run --release identify <auth code>
 ```
 
 If this step succeeds, run:
