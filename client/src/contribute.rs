@@ -74,6 +74,7 @@ impl PingLoop {
 
 
 
+
 pub enum QueueOutcome {
     ReadyToDownload(Option<String>),
     AlreadyFinished,
@@ -120,7 +121,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         .send_and_receive()
     .await?;
 
-    spinner_line.update("Step 1: Testing your download speed...");
+    spinner_line.spinlog("Step 1: Testing your download speed...");
 
     let start = Instant::now();
     let mut bytes : BytesMut = BytesMut::from(reqwest::get(&download_url)
@@ -129,16 +130,16 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         .bytes().await
         .context("Error while downloading test contribution.")?);
     let download_duration = start.elapsed();
-    spinner_line.update(format!("Download took {:?}", download_duration));
+    spinner_line.spinlog(format!("Download took {:?}", download_duration));
 
     // NOTE we are being somewhat inaccurate here, b/c we aren't testing deserialize speed...
-    spinner_line.update("Step 1: Testing your compute speed...");
+    spinner_line.spinlog("Step 1: Testing your compute speed...");
 
     let start = Instant::now();
     let my_test_contrib : CeremonyContribution = Contribution::generate(&mut thread_rng(), None, me, &*TEST_PARAMS)?;
     let compute_duration = start.elapsed();
     let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
-    spinner_line.update(format!("Compute took {:?}", compute_duration));
+    spinner_line.spinlog(format!("Compute took {:?}", compute_duration));
 
     bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
 
@@ -152,7 +153,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
     let start = Instant::now();
     common::upload::upload_parallel(&part_urls, &bytes).await?;
     let upload_duration = start.elapsed();
-    spinner_line.update(format!("Upload took {:?}", upload_duration));
+    spinner_line.spinlog(format!("Upload took {:?}", upload_duration));
 
     let mut err_string = format!("One or more speed tests failed (shown below). Please use a faster connection and/or machine and try again.\n\n");
     let mut too_slow = false;
@@ -170,7 +171,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
     }
 
     if !too_slow {
-        spinner_line.success_with("Step 1: Speed test passed.");
+        spinner_line.spinsucceed("Step 1: Speed test passed.");
         Ok((download_duration.as_secs(), compute_duration.as_secs(), upload_duration.as_secs()))
     } else {
         info!(err_string);

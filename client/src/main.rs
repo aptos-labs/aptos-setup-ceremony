@@ -21,7 +21,7 @@ async fn main() {
 
     let stderr_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stderr)
-        .with_filter(LevelFilter::WARN);
+        .with_filter(LevelFilter::ERROR);
 
     tracing_subscriber::registry()
         .with(file_layer)
