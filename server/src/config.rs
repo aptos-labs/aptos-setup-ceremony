@@ -1,17 +1,16 @@
 use chrono::TimeDelta;
+use common::contribution::AsAndFromHex;
 use ed25519_dalek::VerifyingKey;
 use serde::{Deserialize, Deserializer};
 
 
 fn deserialize_verifying_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<VerifyingKey, D::Error> {
     let hex_str = String::deserialize(deserializer)?;
-    let bytes: Vec<u8> = (0..hex_str.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&hex_str[i..i + 2], 16))
-        .collect::<Result<Vec<u8>, _>>()
-        .map_err(serde::de::Error::custom)?;
-    let bytes: [u8; 32] = bytes.try_into().map_err(|_| serde::de::Error::custom("verifying key must be 32 bytes"))?;
-    VerifyingKey::from_bytes(&bytes).map_err(serde::de::Error::custom)
+    Ok(VerifyingKey::from_hex(&hex_str)
+        .map_err(|e| 
+            serde::de::Error::custom(format!("{:?}", e))
+        )?
+    )
 }
 
 
@@ -35,9 +34,9 @@ pub struct Config {
 }
 
 fn default_ping_timeout() -> i64 { 20 }
-fn default_download_timeout() -> i64 { 200 }
-fn default_contribute_timeout() -> i64 { 1500 }
-fn default_upload_timeout() -> i64 { 600 }
+fn default_download_timeout() -> i64 { 90 }
+fn default_contribute_timeout() -> i64 { 900 }
+fn default_upload_timeout() -> i64 { 450 }
 fn default_port() -> u16 { 8888 }
 
 impl Config {

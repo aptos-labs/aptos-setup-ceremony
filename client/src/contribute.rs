@@ -18,6 +18,7 @@ trait SpinLog {
     fn spinlog(&self, msg: impl Into<String>);
     fn spinwarn(self, msg: impl Into<String>);
     fn spinsucceed(self, msg: impl Into<String>);
+    fn spinfail(self, msg: impl Into<String>);
 }
 
 impl SpinLog for SpinnerLineHandle {
@@ -35,6 +36,11 @@ impl SpinLog for SpinnerLineHandle {
         let msg_string : String = msg.into();
         info!(msg_string);
         self.success_with(msg_string);
+    }
+    fn spinfail(self, msg: impl Into<String>) {
+        let msg_string : String = msg.into();
+        error!(msg_string);
+        self.fail_with(msg_string);
     }
 }
 
@@ -71,6 +77,7 @@ impl PingLoop {
         self.handle.abort();
     }
 }
+
 
 
 
@@ -120,7 +127,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         .send_and_receive()
     .await?;
 
-    spinner_line.update("Step 1: Testing your download speed...");
+    spinner_line.spinlog("Step 1: Testing your download speed...");
 
     let start = Instant::now();
     let mut bytes : BytesMut = BytesMut::from(reqwest::get(&download_url)
@@ -129,16 +136,16 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
         .bytes().await
         .context("Error while downloading test contribution.")?);
     let download_duration = start.elapsed();
-    spinner_line.update(format!("Download took {:?}", download_duration));
+    spinner_line.spinlog(format!("Download took {:?}", download_duration));
 
     // NOTE we are being somewhat inaccurate here, b/c we aren't testing deserialize speed...
-    spinner_line.update("Step 1: Testing your compute speed...");
+    spinner_line.spinlog("Step 1: Testing your compute speed...");
 
     let start = Instant::now();
     let my_test_contrib : CeremonyContribution = Contribution::generate(&mut thread_rng(), None, me, &*TEST_PARAMS)?;
     let compute_duration = start.elapsed();
     let my_test_contrib_bytes = bcs::to_bytes(&my_test_contrib)?;
-    spinner_line.update(format!("Compute took {:?}", compute_duration));
+    spinner_line.spinlog(format!("Compute took {:?}", compute_duration));
 
     bytes[..my_test_contrib_bytes.len()].copy_from_slice(&my_test_contrib_bytes);
 
@@ -152,7 +159,7 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
     let start = Instant::now();
     common::upload::upload_parallel(&part_urls, &bytes).await?;
     let upload_duration = start.elapsed();
-    spinner_line.update(format!("Upload took {:?}", upload_duration));
+    spinner_line.spinlog(format!("Upload took {:?}", upload_duration));
 
     let mut err_string = format!("One or more speed tests failed (shown below). Please use a faster connection and/or machine and try again.\n\n");
     let mut too_slow = false;
@@ -170,11 +177,10 @@ pub async fn test_my_speed(spinner_line: SpinnerLineHandle, my_sk: &SigningKey, 
     }
 
     if !too_slow {
-        spinner_line.success_with("Step 1: Speed test passed.");
+        spinner_line.spinsucceed("Step 1: Speed test passed.");
         Ok((download_duration.as_secs(), compute_duration.as_secs(), upload_duration.as_secs()))
     } else {
-        info!(err_string);
-        spinner_line.fail_with(format!("Speed test failed. {}", err_string));
+        spinner_line.spinfail(format!("Speed test failed. {}", err_string));
         bail!(err_string)
     }
 }
@@ -352,7 +358,7 @@ pub async fn wait_for_server_verification(
     my_sk: &SigningKey,
     me: &Contributor,
 ) -> anyhow::Result<()> {
-    spinner_line.spinlog("Step 4: Finished uploading, waiting for server verification. This will take around 4 minutes...");
+    spinner_line.spinlog("Step 4: Waiting for server verification. This will take around 4 minutes...");
     let mut interval = tokio::time::interval(PING_INTERVAL);
     let mut response = Msg::GetStatus { contributor: me.clone() }.sign(my_sk).send_and_receive::<StatusResponse>().await?;
 
@@ -367,7 +373,7 @@ pub async fn wait_for_server_verification(
                 return Ok(())
             },
             StatusResponse::Verifying => {
-                spinner_line.spinlog("Server is verifying...");
+                spinner_line.spinlog("Step 4: Server is verifying...");
                 interval.tick().await;
             },
             _ => {
