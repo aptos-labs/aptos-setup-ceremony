@@ -446,6 +446,8 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     wait_for_server_verification(step_4_line, &my_sk, me).await?;
 
+    multispinner_handle.stop();
+
     eprintln!("");
     eprintln!("");
     eprintln!("Your contribution hash is {}, and your contribution file is './mine.contrib'.", hash);
