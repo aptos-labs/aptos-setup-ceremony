@@ -461,6 +461,9 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
     eprintln!("");
     eprintln!("Your contribution hash is {}, and your contribution file is './mine.contrib'.", hash);
     eprintln!("You may use this file and hash to verify that the final output contains your contribution.");
+    eprintln!("Thanks again for participating!");
+    eprintln!("");
+    eprintln!("");
 
     Ok(())
 }
