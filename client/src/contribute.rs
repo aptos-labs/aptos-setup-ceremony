@@ -387,7 +387,10 @@ pub async fn wait_for_server_verification(
 
 
 pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<()> {
+    eprintln!("");
+    eprintln!("");
     eprintln!("Hello {}.", me.name);
+
     print_step_outline();
 
     let multispinner_handle = MultiSpinner::new().start();
