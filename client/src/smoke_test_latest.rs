@@ -53,6 +53,17 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let num_rounds = dk.num_rounds();
     let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
+    smoke_test_all_rounds(&smoke_test, num_rounds);
+
+    eprintln!("{}: Succeeded!", chrono::Local::now());
+
+    eprintln!("{}: Serializing pp...", chrono::Local::now());
+    fs::write("pp.bin", &bcs::to_bytes(&pp).unwrap()).unwrap();
+
+    Ok(())
+}
+
+pub fn smoke_test_all_rounds(smoke_test: &SmokeTest<FPTXWeighted>, num_rounds: usize) {
     let now = Instant::now();
     smoke_test.run_with_one_ct(0);
     smoke_test.run_with_max_cts(0);
@@ -69,10 +80,4 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
         smoke_test.run_with_one_ct(round as u64);
         smoke_test.run_with_max_cts(round as u64);
     }
-    eprintln!("{}: Succeeded!", chrono::Local::now());
-
-    eprintln!("{}: Serializing pp...", chrono::Local::now());
-    fs::write("pp.bin", &bcs::to_bytes(&pp).unwrap()).unwrap();
-
-    Ok(())
 }

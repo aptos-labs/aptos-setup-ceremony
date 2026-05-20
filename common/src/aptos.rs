@@ -1,5 +1,7 @@
+use std::{io::Write as _, time::Instant};
+
 use crate::{contribution::ContributionInner, errors::BatchSizeNotPowerOfTwo, fptx::{FPTXContributionInner, FPTXParams, M2C}, hiding_kzg::{HidingKZGContributionInner, HidingKZGParams}, multipairing_equation::MultipairingEquations};
-use aptos_batch_encryption::{group::{Pairing, Fr}, shared::digest::DigestKey};
+use aptos_batch_encryption::{group::{Fr, Pairing}, schemes::fptx_weighted::FPTXWeighted, shared::digest::DigestKey, tests::smoke::SmokeTest};
 use aptos_dkg::{pcs::univariate_hiding_kzg, pvss::chunky::chunked_elgamal::num_chunks_per_scalar};
 use serde::{Deserialize, Serialize};
 
@@ -71,15 +73,33 @@ impl ContributionInner for AptosContributionInner {
     }
 }
 
+pub fn smoke_test_all_rounds(smoke_test: &SmokeTest<FPTXWeighted>, num_rounds: usize) {
+    let now = Instant::now();
+    smoke_test.run_with_one_ct(0);
+    smoke_test.run_with_max_cts(0);
+    let duration = now.elapsed();
+    eprintln!("One round took {:?}, so {} rounds should take {:?}", duration, num_rounds, duration * num_rounds.try_into().unwrap());
+
+
+    eprint!("Testing round {} out of {}", 1, num_rounds-1);
+    std::io::stderr().flush().unwrap();
+    for round in 1..num_rounds {
+        eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds-1);
+        std::io::stderr().flush().unwrap();
+        // Test both full and non-full batches
+        smoke_test.run_with_one_ct(round as u64);
+        smoke_test.run_with_max_cts(round as u64);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{io::Write as _, time::Instant};
 
     use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::{SmokeTest, fptx_weighted_smoke::run_pvss_with_hkzg}};
     use aptos_crypto::weighted_config::WeightedConfigArkworks;
     use rand::thread_rng;
 
-    use crate::{aptos::{AptosContributionInner, AptosParams}, contribution::ContributionInner as _};
+    use crate::{aptos::{AptosContributionInner, AptosParams, smoke_test_all_rounds}, contribution::ContributionInner as _};
 
 
     #[test]
@@ -106,22 +126,7 @@ mod tests {
         let num_rounds = dk.num_rounds();
         let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
-
-        let now = Instant::now();
-        smoke_test.run_with_one_ct(0);
-        smoke_test.run_with_max_cts(0);
-        let duration = now.elapsed();
-        eprintln!("One round took {:?}, so {} rounds should take {:?}", duration, num_rounds, duration * num_rounds.try_into().unwrap());
-
-        eprint!("Testing round {} out of {}", 1, num_rounds);
-        std::io::stderr().flush().unwrap();
-        for round in 1..num_rounds {
-            eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds);
-            std::io::stderr().flush().unwrap();
-            // Test both full and non-full batches
-            smoke_test.run_with_one_ct(round as u64);
-            smoke_test.run_with_max_cts(round as u64);
-        }
-        eprintln!("{}: Succeeded!", chrono::Local::now());
+        smoke_test_all_rounds(&smoke_test, num_rounds);
     }
 }
+
