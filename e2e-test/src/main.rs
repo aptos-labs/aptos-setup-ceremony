@@ -168,6 +168,7 @@ async fn main() -> Result<()> {
         contribute_timeout_secs: 300,
         upload_timeout_secs: 30,
         port: 0,
+        stopped: false
     });
 
     let config: &'static Config = Box::leak(config);

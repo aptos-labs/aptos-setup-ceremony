@@ -19,6 +19,7 @@ pub struct Config {
     pub db_path: String,
     pub bucket_id: String,
     pub gcp_project_id: String,
+    pub stopped: bool,
     #[serde(deserialize_with = "deserialize_verifying_key")]
     pub admin_verifying_key: VerifyingKey,
     #[serde(default = "default_ping_timeout")]

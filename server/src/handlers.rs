@@ -366,8 +366,14 @@ pub async fn handle(msg: Msg, state: Arc<State>, config: &Config) -> Result<serd
 
     Ok(match msg {
         Msg::Join { contributor, test_download_secs, test_compute_secs, test_upload_secs } => {
-            handle_join(&contributor, state, config, test_download_secs, test_compute_secs, test_upload_secs).await?;
-            json!("ok")
+            if !config.stopped {
+                handle_join(&contributor, state, config, test_download_secs, test_compute_secs, test_upload_secs).await?;
+                json!("ok")
+            } else {
+                Err(anyhow!("Ceremony is not accepting new contributions."))
+                    .use_code_on_error(StatusCode::FORBIDDEN)?;
+                json!("unreachable")
+            }
         }
         Msg::GetStatus { contributor } => {
             json!(
