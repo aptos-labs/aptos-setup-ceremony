@@ -24,10 +24,10 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
 
     eprintln!("trace:");
 
-    eprintln!("{}: {}", latest_contribution.contributor().name, latest_contribution.hash());
     for (c, hash) in latest_contribution.previous_hashes() {
         eprintln!("{}: {}", c.name, hash.to_string());
     }
+    eprintln!("{}: {}", latest_contribution.contributor().name, latest_contribution.hash());
 
     if let Some(truncate_size) = truncate {
         eprintln!("{}: Truncating latest to {}", chrono::Local::now(), truncate_size);
