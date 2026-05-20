@@ -152,7 +152,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "aptos-batch-encryption"
 version = "0.1.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#89ccf13ea5905984dce1c81881b519160341a0a6"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=main#c6ddbb96f9a292c848f35125c46fbd3b0a6e1e0f"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -184,7 +184,7 @@ dependencies = [
 [[package]]
 name = "aptos-crypto"
 version = "0.0.3"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#89ccf13ea5905984dce1c81881b519160341a0a6"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=main#c6ddbb96f9a292c848f35125c46fbd3b0a6e1e0f"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -249,7 +249,7 @@ dependencies = [
 [[package]]
 name = "aptos-crypto-derive"
 version = "0.0.3"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#89ccf13ea5905984dce1c81881b519160341a0a6"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=main#c6ddbb96f9a292c848f35125c46fbd3b0a6e1e0f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -259,7 +259,7 @@ dependencies = [
 [[package]]
 name = "aptos-dkg"
 version = "0.2.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#89ccf13ea5905984dce1c81881b519160341a0a6"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=main#c6ddbb96f9a292c848f35125c46fbd3b0a6e1e0f"
 dependencies = [
  "anyhow",
  "aptos-crypto",
@@ -299,7 +299,7 @@ dependencies = [
 [[package]]
 name = "aptos-runtimes"
 version = "0.1.0"
-source = "git+https://github.com/aptos-labs/aptos-core?branch=main#89ccf13ea5905984dce1c81881b519160341a0a6"
+source = "git+https://github.com/aptos-labs/aptos-core?branch=main#c6ddbb96f9a292c848f35125c46fbd3b0a6e1e0f"
 dependencies = [
  "rayon",
  "tokio",
