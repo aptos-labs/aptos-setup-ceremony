@@ -26,7 +26,8 @@ main README.md, which contains instructions for contributors.
   cutoff. Would be good to report in terms of Mbps speed, so that
   participants can more easily debug their connection speed.
 - Queue length statistics. It would be nice to know max/min/avg queue
-  length, times queue is hot, etc.
+  length, times queue is hot, etc. At very least should record
+  per-contributor wait time.
 - Automated email invite functionality. It might be nice to have the system
   handle directly the sending of invite emails with auth codes, to send
   reminders, etc. Although I'm not convinced the RoI is that great here for
