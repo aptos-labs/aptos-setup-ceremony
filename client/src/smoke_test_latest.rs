@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use aptos_batch_encryption::{
-    schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke} 
+    schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, run_smoke_all_rounds} 
 };
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
 use common::{constants::CeremonyContribution, messages::Msg, truncate::Truncate};
@@ -53,7 +53,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
     eprintln!("{}: Running a batch encryption round...", chrono::Local::now());
-    run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
+    run_smoke_all_rounds::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
     eprintln!("{}: Succeeded!", chrono::Local::now());
 
     eprintln!("{}: Serializing pp...", chrono::Local::now());
