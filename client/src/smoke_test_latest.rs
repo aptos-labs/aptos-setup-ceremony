@@ -22,13 +22,9 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let mut latest_contribution : CeremonyContribution = bcs::from_bytes(&bytes)?;
 
 
-    eprintln!("Latest is from: {} and has hash {}", 
-        latest_contribution.contributor().name, 
-        latest_contribution.hash()
-    );
-
     eprintln!("trace:");
 
+    eprintln!("{}: {}", latest_contribution.contributor().name, latest_contribution.hash());
     for (c, hash) in latest_contribution.previous_hashes() {
         eprintln!("{}: {}", c.name, hash.to_string());
     }
