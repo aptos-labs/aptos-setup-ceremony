@@ -1,4 +1,4 @@
-use std::{fs, io::Write as _, path::Path};
+use std::{fs, io::Write as _, path::Path, time::Instant};
 
 use aptos_batch_encryption::{
     schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, SmokeTest} 
@@ -53,13 +53,18 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let num_rounds = dk.num_rounds();
     let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
-    eprint!("Testing round {} out of {}", 0, num_rounds-1);
+    let now = Instant::now();
+    smoke_test.run_with_one_ct(0);
+    smoke_test.run_with_max_cts(0);
+    let duration = now.elapsed();
+    eprintln!("One round took {:?}, so {} rounds should take {:?}", duration, num_rounds, duration * num_rounds.try_into().unwrap());
+
+
+    eprint!("Testing round {} out of {}", 1, num_rounds-1);
     std::io::stderr().flush().unwrap();
-    for round in 0..num_rounds {
-        if round % 100 == 0 {
-            eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds-1);
-            std::io::stderr().flush().unwrap();
-        }
+    for round in 1..num_rounds {
+        eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds-1);
+        std::io::stderr().flush().unwrap();
         // Test both full and non-full batches
         smoke_test.run_with_one_ct(round as u64);
         smoke_test.run_with_max_cts(round as u64);

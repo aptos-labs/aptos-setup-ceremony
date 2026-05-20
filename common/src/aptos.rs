@@ -73,6 +73,8 @@ impl ContributionInner for AptosContributionInner {
 
 #[cfg(test)]
 mod tests {
+    use std::{io::Write as _, time::Instant};
+
     use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::{SmokeTest, fptx_weighted_smoke::run_pvss_with_hkzg}};
     use aptos_crypto::weighted_config::WeightedConfigArkworks;
     use rand::thread_rng;
@@ -83,7 +85,7 @@ mod tests {
     #[test]
     fn test_aptos_output_smoke() {
         let mut rng = thread_rng();
-        let params = AptosParams::new(8, 4, 8).unwrap();
+        let params = AptosParams::new(128, 40, 8).unwrap();
 
         let first_contrib : AptosContributionInner = AptosContributionInner::first_contribution(&params);
         let (new_contrib, _) = AptosContributionInner::generate(&mut rng, &first_contrib, &params).unwrap();
@@ -101,8 +103,25 @@ mod tests {
         let (_, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
 
+        let num_rounds = dk.num_rounds();
         let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
-        smoke_test.run_with_one_ct(0).test_decryption_verification();
-        smoke_test.run_with_max_cts(0).test_decryption_verification();
+
+
+        let now = Instant::now();
+        smoke_test.run_with_one_ct(0);
+        smoke_test.run_with_max_cts(0);
+        let duration = now.elapsed();
+        eprintln!("One round took {:?}, so {} rounds should take {:?}", duration, num_rounds, duration * num_rounds.try_into().unwrap());
+
+        eprint!("Testing round {} out of {}", 1, num_rounds);
+        std::io::stderr().flush().unwrap();
+        for round in 1..num_rounds {
+            eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds);
+            std::io::stderr().flush().unwrap();
+            // Test both full and non-full batches
+            smoke_test.run_with_one_ct(round as u64);
+            smoke_test.run_with_max_cts(round as u64);
+        }
+        eprintln!("{}: Succeeded!", chrono::Local::now());
     }
 }
