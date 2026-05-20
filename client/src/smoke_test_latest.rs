@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, io::Write as _, path::Path};
 
 use aptos_batch_encryption::{
     schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, SmokeTest} 
@@ -49,18 +49,20 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>) -> R
     let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
     eprintln!("{}: Running batch encryption rounds...", chrono::Local::now());
-    eprint!("\r\x1b[2KTesting round {}", 0);
-
-    let smoke_test = SmokeTest::new(tc, ek, dk, vks, msk_shares);
 
     let num_rounds = dk.num_rounds();
+    let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+
+    eprint!("Testing round {} out of {}", 0, num_rounds-1);
+    std::io::stderr().flush().unwrap();
     for round in 0..num_rounds {
         if round % 100 == 0 {
             eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds-1);
-            // Test both full and non-full batches
-            smoke_test.run_with_one_ct(round);
-            smoke_test.run_with_max_cts(round);
+            std::io::stderr().flush().unwrap();
         }
+        // Test both full and non-full batches
+        smoke_test.run_with_one_ct(round as u64);
+        smoke_test.run_with_max_cts(round as u64);
     }
     eprintln!("{}: Succeeded!", chrono::Local::now());
 

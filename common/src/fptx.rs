@@ -287,8 +287,7 @@ impl ContributionInner for FPTXContributionInner {
 #[cfg(test)]
 mod tests {
     use aptos_batch_encryption::{
-        schemes::fptx_weighted::FPTXWeighted, tests::smoke::run_smoke, 
-        group::{G1Affine, G2Affine},
+        group::{G1Affine, G2Affine}, schemes::fptx_weighted::FPTXWeighted, tests::smoke::SmokeTest
     };
     use ark_ec::AffineRepr;
     use rand::thread_rng;
@@ -458,7 +457,9 @@ mod tests {
         let (_, tc, ek, vks, msk_shares) = run_pvss(&dk);
 
 
-        run_smoke::<FPTXWeighted>(tc, ek, dk, vks, msk_shares);
+        let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+        smoke_test.run_with_one_ct(0).test_decryption_verification();
+        smoke_test.run_with_max_cts(0).test_decryption_verification();
     }
 
     // TODO test invalid contributions
