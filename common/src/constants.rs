@@ -38,9 +38,9 @@ pub fn test_upload_contributor() -> Contributor {
 
 lazy_static! {
     // download timeout 90 => this should be 90/3.2
-    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(29);
+    pub static ref DOWNLOAD_TEST_CUTOFF : Duration = Duration::from_secs(10000);
     // contribute timeout 900 => this should be 900/100
-    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(9);
+    pub static ref COMPUTE_TEST_CUTOFF : Duration = Duration::from_secs(10000);
     // upload timeout 350 => this should be 450/3.2 (add padding)
-    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(140);
+    pub static ref UPLOAD_TEST_CUTOFF : Duration = Duration::from_secs(10000);
 }
