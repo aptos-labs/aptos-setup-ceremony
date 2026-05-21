@@ -2,6 +2,6 @@ db_path = "sqlite:ceremony.sqlite3?mode=rwc"
 bucket_id = "aptos-setup-ceremony-may-2025"
 gcp_project_id = "benchmark-zkid-circuit"
 admin_verifying_key = "98765b35e3a22b53a415ddabe4577fa463a583ef05fe4d03e1fae80505688158"
-stopped: false
+stopped = false
 
 
