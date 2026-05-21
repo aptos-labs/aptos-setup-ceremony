@@ -90,6 +90,7 @@ pub fn smoke_test_all_rounds(smoke_test: &SmokeTest<FPTXWeighted>, num_rounds: u
         smoke_test.run_with_one_ct(round as u64);
         smoke_test.run_with_max_cts(round as u64);
     }
+    eprintln!(""); // so that next printed line starts at the right place
 }
 
 #[cfg(test)]
