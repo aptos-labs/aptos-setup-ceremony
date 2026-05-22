@@ -29,6 +29,17 @@ pub enum Command {
 
     Contribute,
 
+    Verify {
+        first_file: String,
+        second_file: Option<String>,
+    },
+
+    ComputeOutput {
+        contribution_file: String,
+        #[arg(short, long)]
+        truncate: Option<usize>
+    },
+
     Admin {
         #[command(subcommand)]
         command: AdminCommand

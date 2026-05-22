@@ -1,9 +1,14 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::str::FromStr as _;
 
+use aptos_batch_encryption::shared::digest_key_file;
+use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss_with_hkzg;
+use aptos_crypto::weighted_config::WeightedConfigArkworks;
+use common::constants::{CeremonyContribution, PARAMS};
 use common::contribution::{AsAndFromHex, Contributor};
 use common::messages::Msg;
+use common::truncate::Truncate;
 use ed25519_dalek::SigningKey;
 use rand::thread_rng;
 use serde_json;
@@ -34,7 +39,7 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             if fs::exists(&my_keypair_file)? && !force {
                 bail!("Your keypair already exists at {:?}. Please delete it or use --force to overwrite.", my_keypair_file);
             }
-            let mut rng = thread_rng();
+let mut rng = thread_rng();
             let me = Contributor::new(&name, &email, &mut rng);
             let keypair_json = serde_json::to_string(&me)?;
             fs::write(&my_keypair_file, keypair_json)?;
@@ -56,6 +61,69 @@ pub async fn run(cli: Cli, _config_dir: PathBuf) -> anyhow::Result<()> {
             let (my_sk, me) = try_read_keypair_file(my_keypair_file)?;
 
             contribute::contribute(my_sk, &me).await?;
+        },
+        Command::Verify { first_file, second_file } => {
+            eprintln!("{}: Reading first file...", chrono::Local::now());
+            let first_bytes = fs::read(&first_file)?;
+            eprintln!("{}: Computing hash for first file...", chrono::Local::now());
+            let first_hash = blake3::hash(&first_bytes);
+            eprintln!("First hash: {}", first_hash);
+            eprintln!("{}: Deserializing first file...", chrono::Local::now());
+            let first : CeremonyContribution = bcs::from_bytes(&first_bytes)?;
+
+            let second : Option<CeremonyContribution> = match second_file {
+                None => None,
+                Some(second_file) => {
+                    eprintln!("{}: Reading second file...", chrono::Local::now());
+                    let second_bytes = fs::read(&second_file)?;
+                    eprintln!("{}: Computing hash for second file...", chrono::Local::now());
+                    let second_hash = blake3::hash(&second_bytes);
+                    eprintln!("second hash: {}", second_hash);
+                    eprintln!("{}: Deserializing second file...", chrono::Local::now());
+                    let second : CeremonyContribution = bcs::from_bytes(&second_bytes)?;
+                    Some(second)
+                }
+            };
+
+            eprintln!("{}: Verifying...", chrono::Local::now());
+            let mut rng = thread_rng();
+            match second {
+                Some(second) => {
+                    second.verify(&mut rng, Some(&first), &PARAMS)?;
+                },
+                None => {
+                    first.verify(&mut rng, None, &PARAMS)?;
+                }
+            }
+            eprintln!("{}: Succeeded.", chrono::Local::now());
+
+        },
+        Command::ComputeOutput { contribution_file, truncate } => {
+            eprintln!("{}: Reading first file...", chrono::Local::now());
+            let contribution_bytes = fs::read(&contribution_file)?;
+            eprintln!("{}: Computing hash for first file...", chrono::Local::now());
+            let contribution_hash = blake3::hash(&contribution_bytes);
+            eprintln!("contribution hash: {}", contribution_hash);
+            let mut contribution : CeremonyContribution = bcs::from_bytes(&contribution_bytes)?;
+
+            if let Some(truncate_size) = truncate {
+                eprintln!("{}: Truncating contribution to {}", chrono::Local::now(), truncate_size);
+                contribution.truncate(truncate_size);
+            }
+
+            eprintln!("{}: Computing digest key and hkzg setup...", chrono::Local::now());
+            let (dk, hkzg_setup) = contribution.output();
+
+            eprintln!("dk size: num rounds {}, max batch size {}", dk.num_rounds(), dk.max_batch_size());
+
+            eprintln!("{}: Computing pp...", chrono::Local::now());
+            let tc = WeightedConfigArkworks::new(256, vec![1; 256]).unwrap();
+            let (pp, _, _, _, _) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
+
+            eprintln!("{}: Serializing dk...", chrono::Local::now());
+            digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk)?;
+            eprintln!("{}: Serializing pp...", chrono::Local::now());
+            fs::write("pp.bin", &bcs::to_bytes(&pp)?)?;
         },
         Command::Admin { command } => match command {
             AdminCommand::GenerateAllKeypairs { file } => {
