@@ -125,6 +125,8 @@ let mut rng = thread_rng();
             eprintln!("{}: Serializing pp...", chrono::Local::now());
             fs::write("pp.bin", &bcs::to_bytes(&pp)?)?;
 
+            eprintln!("{}: Finished.", chrono::Local::now());
+
             if smoke_test_all {
                 eprintln!("{}: Batch encryption smoke test...", chrono::Local::now());
                 let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
