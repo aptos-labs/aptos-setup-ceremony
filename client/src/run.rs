@@ -95,11 +95,12 @@ let mut rng = thread_rng();
 
         },
         Command::ComputeOutput { contribution_file, truncate, smoke_test_one, smoke_test_all } => {
-            eprintln!("{}: Reading first file...", chrono::Local::now());
+            eprintln!("{}: Reading contribution file...", chrono::Local::now());
             let contribution_bytes = fs::read(&contribution_file)?;
-            eprintln!("{}: Computing hash for first file...", chrono::Local::now());
+            eprintln!("{}: Computing hash for contribution file...", chrono::Local::now());
             let contribution_hash = blake3::hash(&contribution_bytes);
             eprintln!("contribution hash: {}", contribution_hash);
+            eprintln!("{}: Deserializing contribution file...", chrono::Local::now());
             let mut contribution : CeremonyContribution = bcs::from_bytes(&contribution_bytes)?;
 
             if let Some(truncate_size) = truncate {
