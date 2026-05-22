@@ -30,8 +30,8 @@ pub enum Command {
     Contribute,
 
     Verify {
-        first_file: String,
-        second_file: Option<String>,
+        current_file: String,
+        previous_file: Option<String>,
     },
 
     ComputeOutput {

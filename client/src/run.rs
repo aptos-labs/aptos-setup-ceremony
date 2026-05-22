@@ -65,39 +65,32 @@ let mut rng = thread_rng();
 
             contribute::contribute(my_sk, &me).await?;
         },
-        Command::Verify { first_file, second_file } => {
-            eprintln!("{}: Reading first file...", chrono::Local::now());
-            let first_bytes = fs::read(&first_file)?;
-            eprintln!("{}: Computing hash for first file...", chrono::Local::now());
-            let first_hash = blake3::hash(&first_bytes);
-            eprintln!("First hash: {}", first_hash);
-            eprintln!("{}: Deserializing first file...", chrono::Local::now());
-            let first : CeremonyContribution = bcs::from_bytes(&first_bytes)?;
+        Command::Verify { current_file, previous_file } => {
+            eprintln!("{}: Reading current file...", chrono::Local::now());
+            let current_bytes = fs::read(&current_file)?;
+            eprintln!("{}: Computing hash for current file...", chrono::Local::now());
+            let current_hash = blake3::hash(&current_bytes);
+            eprintln!("current hash: {}", current_hash);
+            eprintln!("{}: Deserializing current file...", chrono::Local::now());
+            let current : CeremonyContribution = bcs::from_bytes(&current_bytes)?;
 
-            let second : Option<CeremonyContribution> = match second_file {
+            let previous : Option<CeremonyContribution> = match previous_file {
                 None => None,
-                Some(second_file) => {
-                    eprintln!("{}: Reading second file...", chrono::Local::now());
-                    let second_bytes = fs::read(&second_file)?;
-                    eprintln!("{}: Computing hash for second file...", chrono::Local::now());
-                    let second_hash = blake3::hash(&second_bytes);
-                    eprintln!("second hash: {}", second_hash);
-                    eprintln!("{}: Deserializing second file...", chrono::Local::now());
-                    let second : CeremonyContribution = bcs::from_bytes(&second_bytes)?;
-                    Some(second)
+                Some(previous_file) => {
+                    eprintln!("{}: Reading previous file...", chrono::Local::now());
+                    let previous_bytes = fs::read(&previous_file)?;
+                    eprintln!("{}: Computing hash for previous file...", chrono::Local::now());
+                    let previous_hash = blake3::hash(&previous_bytes);
+                    eprintln!("previous hash: {}", previous_hash);
+                    eprintln!("{}: Deserializing previous file...", chrono::Local::now());
+                    let previous : CeremonyContribution = bcs::from_bytes(&previous_bytes)?;
+                    Some(previous)
                 }
             };
 
             eprintln!("{}: Verifying...", chrono::Local::now());
             let mut rng = thread_rng();
-            match second {
-                Some(second) => {
-                    second.verify(&mut rng, Some(&first), &PARAMS)?;
-                },
-                None => {
-                    first.verify(&mut rng, None, &PARAMS)?;
-                }
-            }
+            current.verify(&mut rng, previous.as_ref(), &PARAMS)?;
             eprintln!("{}: Succeeded.", chrono::Local::now());
 
         },
