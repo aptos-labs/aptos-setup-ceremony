@@ -117,11 +117,8 @@ let mut rng = thread_rng();
             let tc = WeightedConfigArkworks::new(256, vec![1; 256]).unwrap();
             let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
 
-
             eprintln!("{}: Serializing dk...", chrono::Local::now());
             digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk)?;
-
-
 
             eprintln!("{}: Serializing pp...", chrono::Local::now());
             fs::write("pp.bin", &bcs::to_bytes(&pp)?)?;
