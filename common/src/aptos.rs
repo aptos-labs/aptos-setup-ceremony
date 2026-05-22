@@ -93,6 +93,11 @@ pub fn smoke_test_all_rounds(smoke_test: &SmokeTest<FPTXWeighted>, num_rounds: u
     eprintln!(""); // so that next printed line starts at the right place
 }
 
+pub fn smoke_test_one_round(smoke_test: &SmokeTest<FPTXWeighted>) {
+    smoke_test.run_with_one_ct(0);
+    smoke_test.run_with_max_cts(0);
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -37,7 +37,11 @@ pub enum Command {
     ComputeOutput {
         contribution_file: String,
         #[arg(short, long)]
-        truncate: Option<usize>
+        truncate: Option<usize>,
+        #[arg(short, long)]
+        smoke_test_one: bool,
+        #[arg(short, long)]
+        smoke_test_all: bool,
     },
 
     Admin {
@@ -60,6 +64,8 @@ pub enum AdminCommand {
     DownloadAll,
     SmokeTestLatest {
         #[arg(short, long)]
-        truncate: Option<usize>
+        truncate: Option<usize>,
+        #[arg(short, long)]
+        all: bool,
     },
 }

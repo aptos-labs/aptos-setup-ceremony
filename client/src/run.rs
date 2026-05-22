@@ -2,9 +2,12 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::str::FromStr as _;
 
+use aptos_batch_encryption::schemes::fptx_weighted::FPTXWeighted;
 use aptos_batch_encryption::shared::digest_key_file;
+use aptos_batch_encryption::tests::smoke::SmokeTest;
 use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss_with_hkzg;
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
+use common::aptos::{smoke_test_all_rounds, smoke_test_one_round};
 use common::constants::{CeremonyContribution, PARAMS};
 use common::contribution::{AsAndFromHex, Contributor};
 use common::messages::Msg;
@@ -98,7 +101,7 @@ let mut rng = thread_rng();
             eprintln!("{}: Succeeded.", chrono::Local::now());
 
         },
-        Command::ComputeOutput { contribution_file, truncate } => {
+        Command::ComputeOutput { contribution_file, truncate, smoke_test_one, smoke_test_all } => {
             eprintln!("{}: Reading first file...", chrono::Local::now());
             let contribution_bytes = fs::read(&contribution_file)?;
             eprintln!("{}: Computing hash for first file...", chrono::Local::now());
@@ -118,12 +121,32 @@ let mut rng = thread_rng();
 
             eprintln!("{}: Computing pp...", chrono::Local::now());
             let tc = WeightedConfigArkworks::new(256, vec![1; 256]).unwrap();
-            let (pp, _, _, _, _) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
+            let (pp, tc, ek, vks, msk_shares) = run_pvss_with_hkzg(&dk, (hkzg_setup.1, hkzg_setup.0), &tc);
+
 
             eprintln!("{}: Serializing dk...", chrono::Local::now());
             digest_key_file::write_digest_key(Path::new("digest_key.bin"), dk)?;
+
+
+
             eprintln!("{}: Serializing pp...", chrono::Local::now());
             fs::write("pp.bin", &bcs::to_bytes(&pp)?)?;
+
+            if smoke_test_all {
+                eprintln!("{}: Batch encryption smoke test...", chrono::Local::now());
+                let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
+                let num_rounds = dk.num_rounds();
+                let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+
+                smoke_test_all_rounds(&smoke_test, num_rounds);
+            } else if smoke_test_one { 
+                eprintln!("{}: Batch encryption smoke test...", chrono::Local::now());
+                let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
+                let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+
+                smoke_test_one_round(&smoke_test);
+            }
+
         },
         Command::Admin { command } => match command {
             AdminCommand::GenerateAllKeypairs { file } => {
@@ -190,9 +213,9 @@ let mut rng = thread_rng();
                     fs::write(format!("{:03}-{}-{}.contrib", i+1, c.verifying_key.as_ref().as_hex()?, name_no_space), bytes)?;
                 }
             },
-            AdminCommand::SmokeTestLatest { truncate } => {
+            AdminCommand::SmokeTestLatest { truncate, all } => {
                 let (my_sk, _) = try_read_keypair_file(my_keypair_file)?;
-                smoke_test_latest(&my_sk, truncate).await?;
+                smoke_test_latest(&my_sk, truncate, all).await?;
             }
         }
     }
