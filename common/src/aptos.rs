@@ -81,10 +81,10 @@ pub fn smoke_test_all_rounds(smoke_test: &SmokeTest<FPTXWeighted>, num_rounds: u
     eprintln!("One round took {:?}, so {} rounds should take {:?}", duration, num_rounds, duration * num_rounds.try_into().unwrap());
 
 
-    eprint!("Testing round {} out of {}", 1, num_rounds-1);
+    eprint!("Testing round {} out of {}", 2, num_rounds);
     std::io::stderr().flush().unwrap();
     for round in 1..num_rounds {
-        eprint!("\r\x1b[2KTesting round {} out of {}", round, num_rounds-1);
+        eprint!("\r\x1b[2KTesting round {} out of {}", round+1, num_rounds);
         std::io::stderr().flush().unwrap();
         // Test both full and non-full batches
         smoke_test.run_with_one_ct(round as u64);
