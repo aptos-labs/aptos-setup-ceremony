@@ -39,5 +39,6 @@ main README.md, which contains instructions for contributors.
   handle directly the sending of invite emails with auth codes, to send
   reminders, etc. Although I'm not convinced the RoI is that great here for
   the ceremony sizes we are planning on.
+- Better client-server API error handling. Right now this error handling story is _bad_. Would be great to define an error enum, just like right now there's a Message enum that defines the possible API calls.
 
 
