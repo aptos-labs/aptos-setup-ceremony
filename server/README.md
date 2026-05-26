@@ -4,6 +4,13 @@ This crate contains the code for the queue manager server. This server both
 manages the queue and verifies each participant's contribution as they come
 in.
 
+## monitoring
+
+```
+ ~/.local/bin/harlequin -a duckdb ceremony.sqlite3
+lnav logs/server.log
+```
+
 ## TODO for debugging high memory
 
 - Restart and see what happens
