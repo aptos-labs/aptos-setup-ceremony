@@ -2,10 +2,10 @@
 name = "client"
 version = "0.1.0"
 edition = "2024"
-default-run = "aptos-setup-ceremony"
+default-run = "trx-setup-ceremony"
 
 [[bin]]
-name = "aptos-setup-ceremony"
+name = "trx-setup-ceremony"
 path = "src/main.rs"
 test = false
 bench = false
@@ -39,5 +39,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 nanospinner = { workspace = true }
-
 

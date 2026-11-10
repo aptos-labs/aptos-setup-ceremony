@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 pub const KEYPAIR_FILE : &str = "keypair.json";
 
 #[derive(Parser)]
-#[command(name = "aptos-setup-ceremony", about = "Use this program to contribute to the Aptos setup ceremony.")]
+#[command(name = "trx-setup-ceremony", about = "Use this program to contribute to the TrX setup ceremony.")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

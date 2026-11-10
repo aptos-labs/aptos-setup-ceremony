@@ -28,7 +28,7 @@ use crate::smoke_test_latest::smoke_test_latest;
 
 fn try_read_keypair_file(file: PathBuf) -> anyhow::Result<(SigningKey, Contributor)> {
     if !fs::exists(&file)? {
-        bail!("Your keypair file does not exist. Please run `aptos-setup-ceremony identify`.");
+        bail!("Your keypair file does not exist. Please run `trx-setup-ceremony identify`.");
     }
 
     Ok(serde_json::from_slice(&fs::read(file)?)?)

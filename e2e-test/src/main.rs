@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use common::contribution::Contributor;
 use common::messages::Msg;
 use ed25519_dalek::SigningKey;
@@ -160,8 +160,10 @@ async fn main() -> Result<()> {
     // ---- Server config ----
     let config = Box::new(Config {
         db_path: "sqlite::memory:".to_string(),
-        bucket_id: "e2e-test-ceremony-bucket".to_string(),
-        gcp_project_id: "benchmark-zkid-circuit".to_string(),
+        bucket_id: std::env::var("SERVER_BUCKET_ID")
+            .context("Set SERVER_BUCKET_ID for the integration test")?,
+        gcp_project_id: std::env::var("SERVER_GCP_PROJECT_ID")
+            .context("Set SERVER_GCP_PROJECT_ID for the integration test")?,
         admin_verifying_key: admin_vk,
         ping_timeout_secs: 20,
         download_timeout_secs: 30,

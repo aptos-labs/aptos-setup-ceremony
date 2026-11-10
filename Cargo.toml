@@ -1,6 +1,13 @@
 [workspace]
 resolver = "3"
 members = ["client", "common", "server", "e2e-test"]
+exclude = [
+    "vendor/aptos-batch-encryption",
+    "vendor/aptos-crypto",
+    "vendor/aptos-crypto-derive",
+    "vendor/aptos-dkg",
+    "vendor/aptos-runtimes",
+]
 
 [profile.release]
 debug = true
@@ -16,9 +23,9 @@ ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 rand_core = "0.6.4"
 rand = "0.8.5"
 serde = { version = "1.0.228", features = ["derive"] }
-aptos-batch-encryption = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
-aptos-crypto = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
-aptos-dkg = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
+aptos-batch-encryption = { path = "vendor/aptos-batch-encryption" }
+aptos-crypto = { path = "vendor/aptos-crypto" }
+aptos-dkg = { path = "vendor/aptos-dkg" }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "time", "chrono"] }
 tokio = { version = "1.49.0", features = ["full"] }
 thiserror = "2.0.18"
@@ -69,4 +76,3 @@ ark-ff-macros = { git = "https://github.com/aptos-labs/algebra", branch = "fix-f
 ark-ff-asm = { git = "https://github.com/aptos-labs/algebra", branch = "fix-fft-parallelism-cutoff" }
 ark-poly = { git = "https://github.com/aptos-labs/algebra", branch = "fix-fft-parallelism-cutoff" }
 ark-serialize = { git = "https://github.com/aptos-labs/algebra", branch = "fix-fft-parallelism-cutoff" }
-

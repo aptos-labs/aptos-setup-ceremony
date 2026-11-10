@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use anyhow::Context;
 
-const DEFAULT_SERVER_ADDRESS: &str = "https://encrypted-mempool.setup-ceremony.aptos.dev";
+const DEFAULT_SERVER_ADDRESS: &str = "http://127.0.0.1:8888";
 
 fn server_address() -> String {
     std::env::var("CEREMONY_SERVER_ADDRESS")
@@ -156,4 +156,3 @@ impl Msg {
         }
     }
 }
-

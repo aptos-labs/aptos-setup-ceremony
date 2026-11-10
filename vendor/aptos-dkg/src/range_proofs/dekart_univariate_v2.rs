@@ -1,0 +1,1371 @@
+// Copyright (c) Aptos Foundation
+// Licensed pursuant to the Innovation-Enabling Source Code License, available at https://github.com/aptos-labs/aptos-core/blob/main/LICENSE
+
+//! This file implements the range proof described here: <https://alinush.github.io/dekart>
+
+use super::scalars_to_bits;
+use crate::{
+    algebra::polynomials,
+    fiat_shamir::{serialize_canonical_for_transcript, SerializeForFiatShamirTranscript},
+    pcs::univariate_hiding_kzg,
+    range_proofs::{traits, PublicStatement},
+    sigma_protocol::{
+        self,
+        homomorphism::{self, Trait as _, TrivialShape},
+        traits::Trait as _,
+    },
+    Scalar,
+};
+use anyhow::{anyhow, ensure, Result};
+use aptos_crypto::arkworks::{
+    self,
+    msm::{msm_bool, MsmInput},
+    random::{
+        sample_field_element, sample_field_elements, unsafe_random_point, unsafe_random_points,
+    },
+    srs::{SrsBasis, SrsType},
+    GroupGenerators,
+};
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup, PrimeGroup, VariableBaseMSM};
+use ark_ff::{AdditiveGroup, Field, PrimeField};
+use ark_poly::{self, EvaluationDomain, Polynomial};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
+};
+use num_integer::Roots;
+use rand_core::{CryptoRng, RngCore};
+use sigma_protocol::homomorphism::TrivialShape as HkzgCommitment;
+// With feature `range_proof_timing_univariate_v2`, timing is printed for setup/prove/verify/commit.
+// To see it: run the integration test with stdout shown, e.g.
+//   cargo test -p aptos-dkg --features range_proof_timing_univariate_v2 --test range_proof -- --nocapture
+#[cfg(feature = "range_proof_timing_univariate_v2")]
+use std::time::{Duration, Instant};
+use std::{fmt::Debug, io::Write};
+
+/// ArkSize(E=Bls12_381): 385 + 80·ell.
+#[allow(non_snake_case)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Proof<E: Pairing> {
+    /// ArkSize(E=Bls12_381): 48.
+    hat_C: E::G1Affine,
+    /// ArkSize(E=Bls12_381): 113.
+    pi_PoK: sigma_protocol::Proof<E::ScalarField, two_term_msm::Homomorphism<E::G1>>,
+    /// ArkSize(E=Bls12_381): 8 + 48·ell.
+    Cs: Vec<E::G1Affine>,
+    /// ArkSize(E=Bls12_381): 48.
+    D: E::G1Affine,
+    /// ArkSize(E=Bls12_381): 32.
+    a: E::ScalarField,
+    /// ArkSize(E=Bls12_381): 32.
+    a_h: E::ScalarField,
+    /// ArkSize(E=Bls12_381): 8 + 32·ell.
+    a_js: Vec<E::ScalarField>,
+    /// ArkSize(E=Bls12_381): 96.
+    pi_gamma: univariate_hiding_kzg::OpeningProof<E>,
+}
+
+// Because of Fiat-Shamir usage, everything is already affine here, except the final opening proof
+#[allow(non_snake_case)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ProofProjective<E: Pairing> {
+    hat_C: E::G1Affine,
+    pi_PoK: sigma_protocol::Proof<E::ScalarField, two_term_msm::Homomorphism<E::G1>>,
+    Cs: Vec<E::G1Affine>, // has length ell
+    D: E::G1Affine,
+    a: E::ScalarField,
+    a_h: E::ScalarField,
+    a_js: Vec<E::ScalarField>, // has length ell
+    pi_gamma: univariate_hiding_kzg::OpeningProofProjective<E>,
+}
+
+impl<E: Pairing> From<ProofProjective<E>> for Proof<E> {
+    fn from(p: ProofProjective<E>) -> Self {
+        Self {
+            hat_C: p.hat_C,
+            pi_PoK: p.pi_PoK,
+            Cs: p.Cs,
+            D: p.D,
+            a: p.a,
+            a_h: p.a_h,
+            a_js: p.a_js,
+            pi_gamma: p.pi_gamma.into(),
+        }
+    }
+}
+
+impl<E: Pairing> Proof<E> {
+    /// Generates a random looking proof (but not a valid one).
+    /// Useful for testing and benchmarking. TODO: might be able to derive this through derive macros etc
+    pub fn generate<R: rand::Rng + rand::CryptoRng>(ell: usize, rng: &mut R) -> Self {
+        Self {
+            hat_C: unsafe_random_point(rng),
+            pi_PoK: two_term_msm::Proof::generate(rng),
+            Cs: unsafe_random_points(ell, rng),
+            D: unsafe_random_point(rng),
+            a: sample_field_element(rng),
+            a_h: sample_field_element(rng),
+            a_js: sample_field_elements(ell, rng),
+            pi_gamma: univariate_hiding_kzg::OpeningProof::generate(rng),
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ProverKey<E: Pairing> {
+    pub(crate) vk: VerificationKey<E>,
+    pub(crate) ck_S: univariate_hiding_kzg::CommitmentKey<E>,
+    pub(crate) max_n: usize,
+    pub(crate) prover_precomputed: ProverPrecomputed<E>,
+}
+
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VerificationKey<E: Pairing> {
+    xi_1: E::G1Affine,
+    lagr_0: E::G1Affine,
+    vk_hkzg: univariate_hiding_kzg::VerificationKey<E>,
+    verifier_precomputed: VerifierPrecomputed<E>,
+}
+
+impl<E: Pairing> SerializeForFiatShamirTranscript for VerificationKey<E> {
+    fn serialize_compressed_for_transcript<W: Write>(
+        &self,
+        w: &mut W,
+    ) -> Result<(), SerializationError> {
+        // We skip serializing `verifier_precomputed` here
+        self.xi_1.serialize_with_mode(&mut *w, Compress::Yes)?;
+        self.lagr_0.serialize_with_mode(&mut *w, Compress::Yes)?;
+        serialize_canonical_for_transcript(&self.vk_hkzg, w)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProverPrecomputed<E: Pairing> {
+    pub(crate) powers_of_two: Vec<E::ScalarField>,
+    h_denom_eval: Vec<E::ScalarField>,
+}
+
+// Custom `CanonicalSerialize/CanonicalDeserialize` for `VerifierPrecomputed` because most of it can be recomputed
+impl<E: Pairing> CanonicalSerialize for ProverPrecomputed<E> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        self.powers_of_two
+            .len()
+            .serialize_with_mode(&mut writer, compress)?;
+        let triangular_number = self.h_denom_eval[0]
+            .inverse()
+            .expect("Could not invert h_denom_eval[0]");
+        let num_omegas = floored_triangular_root(
+            arkworks::scalar_to_u32(&triangular_number)
+                .expect("triangular number did not fit in u32") as usize,
+        ) + 1;
+        num_omegas.serialize_with_mode(&mut writer, compress)?;
+
+        Ok(())
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        let mut size = 0;
+        size += 2 * self.powers_of_two.len().serialized_size(compress); // `num_omegas` is also a usize
+        size
+    }
+}
+
+impl<E: Pairing> CanonicalDeserialize for ProverPrecomputed<E> {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let powers_len = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+        let num_omegas = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+
+        let powers_of_two = arkworks::powers_of_two::<E::ScalarField>(powers_len);
+
+        let roots_of_unity = arkworks::compute_roots_of_unity::<E::ScalarField>(num_omegas);
+        let h_denom_eval = compute_h_denom_eval::<E>(&roots_of_unity);
+
+        Ok(Self {
+            powers_of_two,
+            h_denom_eval,
+        })
+    }
+}
+
+// Required by `CanonicalDeserialize`
+// TODO: should we add maximum allowed lengths, to prevent DoS attacks when deserializing from untrusted input?
+impl<E: Pairing> Valid for ProverPrecomputed<E> {
+    #[inline]
+    fn check(&self) -> Result<(), SerializationError> {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifierPrecomputed<E: Pairing> {
+    powers_of_two: Vec<E::ScalarField>,
+    roots_of_unity: Vec<E::ScalarField>,
+}
+
+// Custom `CanonicalSerialize/CanonicalDeserialize` for `VerifierPrecomputed` because most of it can be recomputed
+// TODO: similarly, not resistant to DoS attacks etc
+impl<E: Pairing> CanonicalSerialize for VerifierPrecomputed<E> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        self.roots_of_unity
+            .len()
+            .serialize_with_mode(&mut writer, compress)?;
+        self.powers_of_two
+            .len()
+            .serialize_with_mode(&mut writer, compress)?;
+
+        Ok(())
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        self.roots_of_unity.len().serialized_size(compress)
+            + self.powers_of_two.len().serialized_size(compress)
+    }
+}
+
+impl<E: Pairing> CanonicalDeserialize for VerifierPrecomputed<E> {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        let num_omegas = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+        let max_ell = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+
+        let roots_of_unity = arkworks::compute_roots_of_unity::<E::ScalarField>(num_omegas);
+        let powers_of_two = arkworks::powers_of_two::<E::ScalarField>(max_ell);
+
+        // Reconstruct the VerificationKey
+        Ok(Self {
+            roots_of_unity,
+            powers_of_two,
+        })
+    }
+}
+
+// Required by CanonicalDeserialize
+impl<E: Pairing> Valid for VerifierPrecomputed<E> {
+    #[inline]
+    fn check(&self) -> Result<(), SerializationError> {
+        Ok(())
+    }
+}
+
+fn compute_h_denom_eval<E: Pairing>(
+    roots_of_unity_in_eval_dom: &Vec<E::ScalarField>,
+) -> Vec<E::ScalarField> {
+    let num_omegas = roots_of_unity_in_eval_dom.len();
+    assert!(
+        num_omegas >= 2,
+        "num_omegas must be at least 2 (max_n >= 1)"
+    );
+    let mut h_denom_eval = Vec::with_capacity(num_omegas);
+
+    // First element: inverse of (max_n * (max_n + 1) / 2)
+    h_denom_eval.push(
+        E::ScalarField::from(((num_omegas - 1) * num_omegas / 2) as u64)
+            .inverse()
+            .expect("Value should be invertible"),
+    );
+
+    // Remaining elements: h_denom_eval[i] is the inverse of (max_n + 1) / (ω^i (ω^i - 1) )
+    h_denom_eval.extend(roots_of_unity_in_eval_dom.iter().skip(1).map(|&root| {
+        (root * (root - E::ScalarField::ONE)) / E::ScalarField::from(num_omegas as u64)
+    }));
+
+    h_denom_eval
+}
+
+impl<E: Pairing> traits::BatchedRangeProof<E> for Proof<E> {
+    type Commitment = univariate_hiding_kzg::Commitment<E>;
+    type CommitmentKey = univariate_hiding_kzg::CommitmentKey<E>;
+    type CommitmentNormalised = univariate_hiding_kzg::CommitmentNormalised<E>;
+    type CommitmentRandomness = univariate_hiding_kzg::CommitmentRandomness<E::ScalarField>;
+    type Input = E::ScalarField;
+    type ProofProjective = ProofProjective<E>;
+    type ProverKey = ProverKey<E>;
+    type PublicStatement = PublicStatement<E>;
+    type VerificationKey = VerificationKey<E>;
+
+    /// Domain-separation tag (DST) used to ensure that all cryptographic hashes and
+    /// transcript operations within the protocol are uniquely namespaced
+    const DST: &[u8] = b"APTOS_UNIVARIATE_DEKART_V2_RANGE_PROOF_DST";
+
+    fn commitment_key_from_prover_key(pk: &Self::ProverKey) -> Self::CommitmentKey {
+        pk.ck_S.clone()
+    }
+
+    #[allow(non_snake_case)]
+    fn setup(
+        max_ell: usize,
+        vk_hkzg: univariate_hiding_kzg::VerificationKey<E>,
+        ck_S: univariate_hiding_kzg::CommitmentKey<E>,
+    ) -> (ProverKey<E>, VerificationKey<E>) {
+        let h_denom_eval = compute_h_denom_eval::<E>(&ck_S.roots_of_unity_in_eval_dom);
+
+        let powers_of_two = arkworks::powers_of_two::<E::ScalarField>(max_ell.into());
+
+        let prover_precomputed = ProverPrecomputed {
+            powers_of_two: powers_of_two.clone(),
+            h_denom_eval,
+        };
+
+        let verifier_precomputed = VerifierPrecomputed {
+            powers_of_two,
+            roots_of_unity: ck_S.roots_of_unity_in_eval_dom.clone(),
+        };
+
+        let lagr_0: E::G1Affine = match &ck_S.msm_basis {
+            SrsBasis::Lagrange { lagr: lagr_g1 } => lagr_g1[0],
+            SrsBasis::PowersOfTau { .. } => panic!("Wrong basis, this should not happen"),
+        };
+
+        let vk = VerificationKey {
+            xi_1: ck_S.xi_1,
+            lagr_0,
+            vk_hkzg,
+            verifier_precomputed,
+        };
+        let prk = ProverKey {
+            vk: vk.clone(),
+            max_n: ck_S.msm_basis.size() - 1,
+            ck_S,
+            prover_precomputed,
+        };
+
+        (prk, vk)
+    }
+
+    #[allow(non_snake_case)]
+    fn setup_for_testing<R: RngCore + CryptoRng>(
+        max_n: usize,
+        max_ell: usize,
+        group_generators: GroupGenerators<E>,
+        rng: &mut R,
+    ) -> (ProverKey<E>, VerificationKey<E>) {
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let setup_start = Instant::now();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut cumulative = Duration::ZERO;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut print_cumulative = |name: &str, duration: Duration| {
+            cumulative += duration;
+            println!(
+                "  {:>10.2} ms  ({:>10.2} ms cum.)  [dekart_univariate_v2 setup] {}",
+                duration.as_secs_f64() * 1000.0,
+                cumulative.as_secs_f64() * 1000.0,
+                name
+            );
+        };
+
+        let num_omegas = max_n + 1;
+        assert!(num_omegas.is_power_of_two());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Generate trapdoor elements
+        let trapdoor = univariate_hiding_kzg::Trapdoor::<E>::rand(rng);
+        let xi_1_proj: E::G1 = group_generators.g1 * trapdoor.xi;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("trapdoor + xi_1_proj", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let (vk_hkzg, ck_S) = univariate_hiding_kzg::setup_with_trapdoor(
+            max_n + 1,
+            SrsType::Lagrange,
+            group_generators.clone(),
+            trapdoor,
+        );
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("univariate_hiding_kzg::setup", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let h_denom_eval = compute_h_denom_eval::<E>(&ck_S.roots_of_unity_in_eval_dom);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("compute_h_denom_eval", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let powers_of_two = arkworks::powers_of_two::<E::ScalarField>(max_ell.into());
+
+        let prover_precomputed = ProverPrecomputed {
+            powers_of_two: powers_of_two.clone(),
+            h_denom_eval,
+        };
+
+        let verifier_precomputed = VerifierPrecomputed {
+            powers_of_two,
+            roots_of_unity: ck_S.roots_of_unity_in_eval_dom.clone(),
+        };
+
+        let lagr_0: E::G1Affine = match &ck_S.msm_basis {
+            SrsBasis::Lagrange { lagr: lagr_g1 } => lagr_g1[0],
+            SrsBasis::PowersOfTau { .. } => panic!("Wrong basis, this should not happen"),
+        };
+
+        let vk = VerificationKey {
+            xi_1: xi_1_proj.into_affine(),
+            lagr_0,
+            vk_hkzg,
+            verifier_precomputed,
+        };
+        let prk = ProverKey {
+            vk: vk.clone(),
+            ck_S,
+            max_n,
+            prover_precomputed,
+        };
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("powers_of_two + precomputed + vk/prk", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        println!(
+            "  [dekart_univariate_v2 setup] TOTAL: {:.2} ms",
+            setup_start.elapsed().as_secs_f64() * 1000.0
+        );
+
+        (prk, vk)
+    }
+
+    // By the way, this blinding approach seems a bit convoluted. Simpler to already generate the beta mask
+    // here in the commit_with_randomness() function, and then add it into the main sigma protocol of chunky,
+    // rather than doing this blinding / re-randomising stuff inside DeKART during prove() and verify().
+    #[allow(non_snake_case)]
+    fn commit_with_randomness(
+        ck_S: &Self::CommitmentKey,
+        values: &[Self::Input],
+        rho: &Self::CommitmentRandomness,
+    ) -> Self::Commitment {
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let mut values_shifted = vec![E::ScalarField::ZERO]; // start with 0,
+        values_shifted.extend(values); // then append all values from the original vector
+
+        let comm = univariate_hiding_kzg::commit_with_randomness(ck_S, &values_shifted, rho);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        println!(
+            "  {:>10.2} ms  [dekart_univariate_v2 commit_with_randomness]",
+            start.elapsed().as_secs_f64() * 1000.0
+        );
+        comm
+    }
+
+    #[allow(non_snake_case)]
+    fn prove<R: RngCore + CryptoRng>(
+        pk: &ProverKey<E>,
+        values: &[Self::Input],
+        ell: usize,
+        comm: &Self::CommitmentNormalised,
+        rho: &Self::CommitmentRandomness,
+        rng: &mut R,
+    ) -> ProofProjective<E> {
+        let comm_g1 = comm.0.into_group();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let prove_start = Instant::now();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut cumulative = Duration::ZERO;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut print_cumulative = |name: &str, duration: Duration| {
+            cumulative += duration;
+            println!(
+                "  {:>10.2} ms  ({:>10.2} ms cum.)  [dekart_univariate_v2 prove] {}",
+                duration.as_secs_f64() * 1000.0,
+                cumulative.as_secs_f64() * 1000.0,
+                name
+            );
+        };
+
+        // It was decided that the range proof should use an internal FS transcript,
+        // to make security proofs easier
+        let mut fs_t = merlin::Transcript::new(Self::DST);
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 1a: parse the prover key
+        let ProverKey {
+            vk,
+            ck_S,
+            max_n,
+            prover_precomputed,
+        } = pk;
+
+        let n = values.len();
+        let max_ell: usize = prover_precomputed.powers_of_two.len();
+
+        assert!(
+            n <= *max_n,
+            "n (got {}) must be ≤ max_n (which is {})",
+            n,
+            max_n
+        );
+        // TODO: Use an appropriate subdomain to make the FFTs smaller, when n is much smaller than max_n
+        assert!(
+            ell <= max_ell,
+            "ell (got {}) must be ≤ max_ell (which is {})",
+            ell,
+            max_ell
+        );
+
+        let num_omegas = max_n + 1;
+
+        let univariate_hiding_kzg::CommitmentKey {
+            xi_1,
+            msm_basis,
+            eval_dom,
+            m_inv: num_omegas_inv,
+            ..
+        } = ck_S;
+
+        let lagr_g1: &[E::G1Affine] = match msm_basis {
+            SrsBasis::Lagrange { lagr: lagr_g1 } => lagr_g1,
+            SrsBasis::PowersOfTau { .. } => {
+                panic!("Expected Lagrange basis, somehow got PowersOfTau basis instead")
+            },
+        };
+
+        debug_assert_eq!(
+            *num_omegas_inv,
+            E::ScalarField::from(num_omegas as u64).inverse().unwrap()
+        );
+
+        // Step 1b
+        fiat_shamir::append_initial_data(&mut fs_t, Self::DST, vk, PublicStatement {
+            n,
+            ell,
+            comm: TrivialShape(comm_g1), // TODO: it's already normalised...
+        });
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("unpack pk + append_initial_data", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 2a
+        let r = sample_field_element(rng);
+        let delta_rho = sample_field_element(rng);
+        let hatC_proj: E::G1 = *xi_1 * delta_rho + lagr_g1[0] * r + comm_g1;
+        let hat_C = hatC_proj.into_affine();
+
+        // Step 2b
+        fiat_shamir::append_hat_f_commitment::<E>(&mut fs_t, &hat_C);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("hatC (r, delta_rho, hatC) + append_hat_f", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 3a
+        let pi_PoK = two_term_msm::Homomorphism {
+            base_1: lagr_g1[0],
+            base_2: *xi_1,
+        }
+        .prove(
+            &two_term_msm::Witness {
+                poly_randomness: Scalar(r),
+                hiding_kzg_randomness: Scalar(delta_rho),
+            },
+            two_term_msm::CodomainShape(hatC_proj - comm_g1), // This one is going to be projective
+            &Self::DST,
+            rng,
+        )
+        .expect("sigma prove")
+        .0; // We're throwing away the normalised statement here; I don't think storing it in the proof would ultimately decrease verification time
+
+        // Step 3b
+        fiat_shamir::append_sigma_proof::<E>(&mut fs_t, &pi_PoK);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative(
+            "pi_PoK (two_term_msm prove) + append_sigma",
+            start.elapsed(),
+        );
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 4a (match multivariate: precompute bits, then f_j evals from them)
+        let bits = scalars_to_bits::scalars_to_bits_le(values, ell);
+        let f_j_evals_without_r = scalars_to_bits::transpose_bit_matrix(&bits);
+
+        let rs: Vec<E::ScalarField> = sample_field_elements(ell, rng);
+
+        let f_js_evals: Vec<Vec<E::ScalarField>> = f_j_evals_without_r
+            .iter()
+            .enumerate()
+            .map(|(j, col)| {
+                let mut evals: Vec<E::ScalarField> = vec![rs[j]];
+                evals.extend(col.iter().map(|&b| E::ScalarField::from(b)));
+                evals.resize(num_omegas, E::ScalarField::ZERO);
+                evals
+            })
+            .collect();
+
+        let rhos: Vec<E::ScalarField> = sample_field_elements(ell, rng);
+
+        let hkzg_commitment_hom = univariate_hiding_kzg::CommitmentHomomorphism::<E> {
+            msm_basis: lagr_g1,
+            xi_1: *xi_1,
+        };
+        // f_j_evals[0] is blinding rs[j]; f_j_evals[1..(1+n)] are 0/1 from f_j_evals_without_r[j]. Compute commitment as xi_1*rho + lagr_g1[0]*f_j_evals[0] + msm_bool(lagr_g1[1..(1+n)], bits).
+        let Cs_proj: Vec<E::G1> = f_js_evals
+            .iter()
+            .zip(rhos.iter())
+            .enumerate()
+            .map(|(j, (f_j_evals, &rho))| {
+                let bits = &f_j_evals_without_r[j];
+                let sum = lagr_g1[0] * f_j_evals[0] + msm_bool(&lagr_g1[1..(1 + n)], bits);
+                *xi_1 * rho + sum // TODO: could turn this into a 3-term MSM, should be faster
+            })
+            .collect();
+
+        // Step 4b
+        let Cs = E::G1::normalize_batch(&Cs_proj);
+        fiat_shamir::append_f_j_commitments::<E>(&mut fs_t, &Cs);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative(
+            "f_js_evals + rhos + Cs (hkzg commits) + append_f_j",
+            start.elapsed(),
+        );
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 6
+        let (beta, betas) = fiat_shamir::get_beta_challenges::<E>(&mut fs_t, ell);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("get_beta_challenges", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let hat_f_evals: Vec<E::ScalarField> = {
+            let mut v = Vec::with_capacity(num_omegas);
+            v.push(r);
+            v.extend_from_slice(values);
+            v.resize(num_omegas, E::ScalarField::ZERO);
+            v
+        };
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("hat_f_evals", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let hat_f_coeffs = eval_dom.ifft(&hat_f_evals);
+        debug_assert_eq!(hat_f_coeffs.len(), pk.max_n + 1);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("hat_f_coeffs (ifft)", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let diff_hat_f_evals: Vec<E::ScalarField> = {
+            let mut result = polynomials::differentiate(&hat_f_coeffs);
+            eval_dom.fft_in_place(&mut result);
+            result
+        };
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("diff_hat_f_evals (fft)", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let f_j_coeffs: Vec<Vec<E::ScalarField>> = (0..ell)
+            .map(|j| {
+                let mut f_j = f_js_evals[j].clone();
+                debug_assert_eq!(f_j.len(), pk.max_n + 1);
+                eval_dom.ifft_in_place(&mut f_j);
+                debug_assert_eq!(f_j.len(), pk.max_n + 1);
+                f_j
+            })
+            .collect();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("f_j_coeffs (ifft)", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let diff_f_js_evals: Vec<Vec<E::ScalarField>> = f_js_evals
+            .iter()
+            .map(|f_j_eval| {
+                let mut result = eval_dom.ifft(f_j_eval); // Convert to coefficients
+                polynomials::differentiate_in_place(&mut result); // Differentiate
+                eval_dom.fft_in_place(&mut result); // Convert back to evaluations
+                result
+            })
+            .collect();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("diff_f_js_evals (ifft)", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let h_evals: Vec<E::ScalarField> = {
+            let ell_usize = ell;
+            let two = E::ScalarField::from(2u64);
+            let pow2_j = &prover_precomputed.powers_of_two;
+
+            let first_h_eval = {
+                let mut pow2 = E::ScalarField::ONE;
+                let mut sum_pow2_rs = E::ScalarField::ZERO;
+                for r_j in &rs {
+                    sum_pow2_rs += pow2 * r_j;
+                    pow2 = pow2.double();
+                }
+
+                let sum_betas_term: E::ScalarField = betas
+                    .iter()
+                    .zip(&rs)
+                    .map(|(&beta_j, r_j)| beta_j * r_j * (*r_j - E::ScalarField::ONE))
+                    .sum();
+
+                let numerator = beta * (r - sum_pow2_rs) + sum_betas_term;
+                numerator * num_omegas_inv
+            };
+
+            let mut result = Vec::with_capacity(num_omegas);
+            result.push(first_h_eval);
+            for i in 1..num_omegas {
+                result.push(beta * diff_hat_f_evals[i]);
+            }
+
+            // j-outer, i-inner: sequential access to diff_f_js_evals[j] and f_js_evals[j]
+            for j in 0..ell_usize {
+                let diff_f_j = &diff_f_js_evals[j];
+                let f_j = &f_js_evals[j];
+                let pow2 = pow2_j[j];
+                let beta_j = betas[j];
+                let coeff1 = beta * pow2;
+                for i in 1..num_omegas {
+                    let d = diff_f_j[i];
+                    result[i] -= coeff1 * d;
+                    result[i] += beta_j * d * (two * f_j[i] - E::ScalarField::ONE);
+                }
+            }
+
+            for i in 1..num_omegas {
+                result[i] *= prover_precomputed.h_denom_eval[i];
+            }
+
+            result
+        };
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("h_evals", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let rho_h = sample_field_element(rng);
+        let D_proj = hkzg_commitment_hom
+            .apply(&univariate_hiding_kzg::Witness {
+                hiding_randomness: Scalar(rho_h),
+                values: Scalar::vec_from_inner_slice(&h_evals),
+            })
+            .expect("KZG apply")
+            .0;
+        // Step 7b
+        let D = D_proj.into_affine();
+        fiat_shamir::append_h_commitment::<E>(&mut fs_t, &D);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("D (hkzg commit to h_evals) + append_h", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 8
+        let gamma =
+            fiat_shamir::get_gamma_challenge::<E>(&mut fs_t, &ck_S.roots_of_unity_in_eval_dom);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("Step 8: gamma", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 9a
+        let a: E::ScalarField = {
+            let poly = ark_poly::univariate::DensePolynomial {
+                coeffs: hat_f_coeffs,
+            };
+            poly.evaluate(&gamma)
+        }; // This algorithm should be Horner's, hence a bit faster than barycentric interpolation
+
+        let a_h = polynomials::barycentric_eval(
+            &h_evals,
+            &ck_S.roots_of_unity_in_eval_dom,
+            gamma,
+            *num_omegas_inv,
+        );
+
+        let a_js: Vec<E::ScalarField> = (0..ell)
+            .map(|i| {
+                let poly = ark_poly::univariate::DensePolynomial {
+                    coeffs: f_j_coeffs[i].clone(),
+                };
+                poly.evaluate(&gamma)
+            }) // Again, using Horner's here
+            .collect();
+
+        // Step 9b
+        fiat_shamir::append_evaluations_at_gamma::<E>(&mut fs_t, a, a_h, &a_js);
+
+        // Step 9c:
+        let (mu, mu_h, mus) = fiat_shamir::get_mu_challenges::<E>(&mut fs_t, ell);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative(
+            "Step 9: a,a_h,a_js + append_evaluations_at_gamma + get_mu_challenges",
+            start.elapsed(),
+        );
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 10
+        let u_values: Vec<_> = (0..num_omegas)
+            .map(|i| {
+                mu * hat_f_evals[i]
+                    + mu_h * h_evals[i]
+                    + mus
+                        .iter()
+                        .zip(&f_js_evals)
+                        .map(|(&mu_j, f_j)| mu_j * f_j[i])
+                        .sum::<E::ScalarField>()
+            })
+            .collect();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("Step 10: u_values", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 10 (continued)
+        let s = sample_field_element(rng);
+
+        let rho_u = mu * (rho.0 + delta_rho)
+            + mu_h * rho_h
+            + mus
+                .iter()
+                .zip(&rhos)
+                .map(|(&mu_j, &rho_j)| mu_j * rho_j)
+                .sum::<E::ScalarField>();
+
+        let u_val = polynomials::barycentric_eval(
+            &u_values,
+            &ck_S.roots_of_unity_in_eval_dom,
+            gamma,
+            *num_omegas_inv,
+        );
+        let pi_gamma = univariate_hiding_kzg::CommitmentHomomorphism::open(
+            ck_S,
+            u_values,
+            rho_u,
+            gamma,
+            u_val,
+            &Scalar(s),
+            0, // the `offset`
+        );
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("rho_u + u_val + pi_gamma (hkzg open)", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        println!(
+            "  [dekart_univariate_v2 prove] TOTAL: {:.2} ms",
+            prove_start.elapsed().as_secs_f64() * 1000.0
+        );
+
+        ProofProjective {
+            hat_C,
+            pi_PoK,
+            Cs,
+            D,
+            a,
+            a_h,
+            a_js,
+            pi_gamma,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn pairing_for_verify<R: RngCore + CryptoRng>(
+        &self,
+        vk: &Self::VerificationKey,
+        n: usize,
+        ell: usize,
+        comm: &Self::CommitmentNormalised,
+        rng: &mut R,
+    ) -> Result<(Vec<E::G1Affine>, Vec<E::G2Affine>)> {
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let verify_start = Instant::now();
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut cumulative = Duration::ZERO;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let mut print_cumulative = |name: &str, duration: Duration| {
+            cumulative += duration;
+            println!(
+                "  {:>10.2} ms  ({:>10.2} ms cum.)  [dekart_univariate_v2 verify] {}",
+                duration.as_secs_f64() * 1000.0,
+                cumulative.as_secs_f64() * 1000.0,
+                name
+            );
+        };
+
+        let mut fs_t = merlin::Transcript::new(Self::DST);
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 1
+        let VerificationKey {
+            xi_1,
+            lagr_0,
+            vk_hkzg,
+            verifier_precomputed,
+        } = vk;
+
+        let max_ell = verifier_precomputed.powers_of_two.len();
+        ensure!(
+            ell <= max_ell,
+            "ell (got {}) must be ≤ max_ell (which is {})",
+            ell,
+            max_ell
+        );
+        let max_n = verifier_precomputed.roots_of_unity.len().saturating_sub(1);
+        ensure!(
+            n <= max_n,
+            "n (got {}) must be ≤ max_n (which is {})",
+            n,
+            max_n
+        );
+
+        let Proof {
+            hat_C,
+            pi_PoK,
+            Cs,
+            D,
+            a,
+            a_h,
+            a_js,
+            pi_gamma,
+        } = self;
+
+        ensure!(
+            Cs.len() == ell,
+            "Cs length must equal ell (got {} vs ell {})",
+            Cs.len(),
+            ell
+        );
+        ensure!(
+            a_js.len() == ell,
+            "a_js length must equal ell (got {} vs ell {})",
+            a_js.len(),
+            ell
+        );
+
+        // Step 2a
+        fiat_shamir::append_initial_data(&mut fs_t, Self::DST, vk, PublicStatement {
+            n,
+            ell,
+            comm: TrivialShape(comm.0.into_group()), // TODO!!! change this
+        });
+
+        // Step 2b
+        fiat_shamir::append_hat_f_commitment::<E>(&mut fs_t, &hat_C);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative(
+            "unpack + append_initial_data + append_hat_f",
+            start.elapsed(),
+        );
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 3
+        let hom = two_term_msm::Homomorphism::<E::G1> {
+            base_1: *lagr_0,
+            base_2: *xi_1,
+        };
+        <two_term_msm::Homomorphism<E::G1> as sigma_protocol::Trait>::verify(
+            &hom,
+            &(two_term_msm::CodomainShape((*hat_C - comm.0).into_affine())),
+            pi_PoK,
+            &Self::DST,
+            rng,
+        )?;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("two_term_msm verify", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 4a
+        fiat_shamir::append_sigma_proof::<E>(&mut fs_t, &pi_PoK);
+
+        // Step 4b
+        fiat_shamir::append_f_j_commitments::<E>(&mut fs_t, &Cs);
+
+        // Step 5
+        let (beta, beta_js) = fiat_shamir::get_beta_challenges::<E>(&mut fs_t, ell);
+
+        // Step 6
+        fiat_shamir::append_h_commitment::<E>(&mut fs_t, &D);
+
+        // Step 7
+        let gamma =
+            fiat_shamir::get_gamma_challenge::<E>(&mut fs_t, &verifier_precomputed.roots_of_unity);
+
+        // Step 8:
+        fiat_shamir::append_evaluations_at_gamma::<E>(&mut fs_t, *a, *a_h, &a_js);
+
+        // Step 9:
+        let (mu, mu_h, mu_js) = fiat_shamir::get_mu_challenges::<E>(&mut fs_t, ell);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("Step 4a–9: append_sigma + append_f_j + get_beta + append_h + gamma + append_evaluations_at_gamma + get_mu_challenges", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 10
+        let U_bases: Vec<E::G1Affine> = {
+            let mut v = Vec::with_capacity(2 + Cs.len());
+            v.push(*hat_C);
+            v.push(*D);
+            v.extend_from_slice(&Cs);
+            v
+        };
+
+        let U_scalars: Vec<E::ScalarField> = {
+            let mut v = Vec::with_capacity(2 + mu_js.len());
+            v.push(mu);
+            v.push(mu_h);
+            v.extend_from_slice(&mu_js);
+            v
+        };
+
+        let U = E::G1::msm(&U_bases, &U_scalars).map_err(|min_len| {
+            anyhow!(
+                "Failed to compute MSM in DeKARTv2 (bases/scalars min length: {})",
+                min_len
+            )
+        })?;
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("Step 10: U_bases + U_scalars + MSM", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+
+        // Step 10 (continued)
+        let a_u = *a * mu
+            + *a_h * mu_h
+            + a_js
+                .iter()
+                .zip(&mu_js)
+                .map(|(&a_j, &mu_j)| a_j * mu_j)
+                .sum::<E::ScalarField>();
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("Step 10: a_u", start.elapsed());
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        // Step 11
+        let num_omegas = verifier_precomputed.roots_of_unity.len();
+
+        let LHS = {
+            // First compute V_SS^*(gamma), where V_SS^*(X) is the polynomial (X^{max_n + 1} - 1) / (X - 1)
+            let denom = (gamma - E::ScalarField::ONE).inverse().ok_or_else(|| {
+                anyhow!("gamma must not be 1 (division by zero in V_SS^* evaluation)")
+            })?;
+            let V_eval_gamma = {
+                let gamma_pow = gamma.pow([num_omegas as u64]);
+                (gamma_pow - E::ScalarField::ONE) * denom
+            };
+
+            *a_h * V_eval_gamma
+        };
+
+        let RHS = {
+            // Compute sum_j 2^j a_j
+            let sum1: E::ScalarField = verifier_precomputed
+                .powers_of_two
+                .iter()
+                .zip(a_js.iter())
+                .map(|(&power_of_two, aj)| power_of_two * aj)
+                .sum();
+
+            // Compute sum_j beta_j a_j (a_j - 1)
+            let sum2: E::ScalarField = beta_js
+                .iter()
+                .zip(a_js.iter())
+                .map(|(beta, &a)| a * (a - E::ScalarField::ONE) * beta) // TODO: submit PR to change arkworks so beta can be on the left...
+                .sum();
+
+            beta * (*a - sum1) + sum2
+        };
+
+        ensure!(LHS == RHS);
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative(
+            "LHS/RHS (V_eval_gamma + sum1 + sum2) + ensure",
+            start.elapsed(),
+        );
+
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        let start = Instant::now();
+        let result = univariate_hiding_kzg::CommitmentHomomorphism::pairing_for_verify(
+            *vk_hkzg,
+            HkzgCommitment(U), // TODO: Ugh univariate_hiding_kzg::Commitment(U) does not work because it's a tuple struct, see https://github.com/rust-lang/rust/issues/17422; So make it a struct with one named field?
+            gamma,
+            a_u,
+            pi_gamma.clone(),
+        );
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        print_cumulative("hkzg pairing_for_verify", start.elapsed());
+        #[cfg(feature = "range_proof_timing_univariate_v2")]
+        println!(
+            "  [dekart_univariate_v2 verify] TOTAL: {:.2} ms",
+            verify_start.elapsed().as_secs_f64() * 1000.0
+        );
+        Ok(result)
+    }
+
+    fn maul(&mut self) {
+        self.D = (self.D + E::G1::generator()).into_affine();
+    }
+}
+
+// TODO: Move some of this to the range proof trait in the fiat_shamir file? Or not?
+mod fiat_shamir {
+    use super::*;
+    use crate::fiat_shamir::{PolynomialCommitmentScheme, RangeProof};
+    use merlin::Transcript;
+
+    pub(crate) fn append_initial_data<E: Pairing>(
+        fs_t: &mut Transcript,
+        dst: &[u8],
+        vk: &VerificationKey<E>,
+        ps: PublicStatement<E>,
+    ) {
+        <Transcript as RangeProof<E, Proof<E>>>::append_sep(fs_t, dst);
+        <Transcript as RangeProof<E, Proof<E>>>::append_vk(fs_t, vk);
+        <Transcript as RangeProof<E, Proof<E>>>::append_public_statement(fs_t, ps);
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn append_hat_f_commitment<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        hatC: &E::G1Affine,
+    ) {
+        <Transcript as RangeProof<E, Proof<E>>>::append_hat_f_commitment(fs_transcript, hatC);
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn append_sigma_proof<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        pi_PoK: &sigma_protocol::Proof<E::ScalarField, two_term_msm::Homomorphism<E::G1>>,
+    ) {
+        <Transcript as RangeProof<E, Proof<E>>>::append_sigma_proof(fs_transcript, pi_PoK);
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn append_f_j_commitments<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        Cs: &Vec<E::G1Affine>,
+    ) {
+        <Transcript as RangeProof<E, Proof<E>>>::append_f_j_commitments(fs_transcript, Cs);
+    }
+
+    pub(crate) fn get_beta_challenges<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        ell: usize,
+    ) -> (E::ScalarField, Vec<E::ScalarField>) {
+        let mut betas =
+            <Transcript as RangeProof<E, Proof<E>>>::challenges_for_quotient_polynomials(
+                fs_transcript,
+                ell,
+            );
+        let beta = betas
+            .pop()
+            .expect("The betas must have at least one element");
+        (beta, betas)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn append_h_commitment<E: Pairing>(fs_transcript: &mut Transcript, D: &E::G1Affine) {
+        <Transcript as RangeProof<E, Proof<E>>>::append_h_commitment(fs_transcript, D);
+    }
+
+    pub(crate) fn append_evaluations_at_gamma<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        a: E::ScalarField,
+        a_h: E::ScalarField,
+        a_js: &Vec<E::ScalarField>,
+    ) {
+        let mut points = vec![a, a_h];
+        points.extend(a_js);
+        fs_transcript.append_evaluation_points(&points);
+    }
+
+    pub(crate) fn get_mu_challenges<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        ell: usize,
+    ) -> (E::ScalarField, E::ScalarField, Vec<E::ScalarField>) {
+        let mut mus = <Transcript as RangeProof<E, Proof<E>>>::challenges_for_linear_combination(
+            fs_transcript,
+            ell + 2,
+        );
+
+        let mu = mus.pop().expect("The mus must have at least one element");
+        let mu_h = mus.pop().expect("The mus must have at least two elements");
+
+        (mu, mu_h, mus)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn get_gamma_challenge<E: Pairing>(
+        fs_transcript: &mut Transcript,
+        roots_of_unity: &Vec<E::ScalarField>,
+    ) -> E::ScalarField {
+        loop {
+            let gamma = <Transcript as RangeProof<E, Proof<E>>>::challenge_scalar(fs_transcript);
+            if !roots_of_unity.contains(&gamma) {
+                return gamma;
+            }
+        }
+    }
+}
+
+/// This module defines a homomorphism that takes two scalar inputs and
+/// maps them to a single group element output using two fixed base points.
+/// Conceptually, this behaves similarly to a Pedersen commitment:
+///
+/// `output = base_1 * scalar_1 + base_2 * scalar_2`
+///
+/// The resulting sigma protocol is also known as Okamoto's protocol (see 19.5.1 in the book of Boneh-Shoup)
+pub mod two_term_msm {
+    // TODO: maybe fixed_base_msms should become a folder and put its code inside mod.rs? Then put this mod inside of that folder?
+    use super::*;
+    use crate::sigma_protocol::{homomorphism::fixed_base_msms, FirstProofItem};
+    use aptos_crypto::arkworks::random::UniformRand;
+    use aptos_crypto_derive::SigmaProtocolWitness;
+    use ark_ec::AffineRepr;
+    pub use sigma_protocol::homomorphism::TrivialShape as CodomainShape;
+    pub type Proof<C> = sigma_protocol::Proof<
+        <<C as CurveGroup>::Affine as AffineRepr>::ScalarField,
+        Homomorphism<C>,
+    >;
+
+    impl<C: CurveGroup> Proof<C> {
+        /// Generates a random looking proof (but not a valid one).
+        /// Useful for testing and benchmarking. TODO: might be able to derive this through macros etc
+        pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+            Self {
+                first_proof_item: FirstProofItem::Commitment(CodomainShape(unsafe_random_point(
+                    rng,
+                ))),
+                z: Witness {
+                    poly_randomness: Scalar::rand(rng),
+                    hiding_kzg_randomness: Scalar::rand(rng),
+                },
+            }
+        }
+    }
+
+    /// Represents a homomorphism with two base points over an elliptic curve group.
+    ///
+    /// This structure defines a map from two scalars to one group element:
+    /// `f(x1, x2) = base_1 * x1 + base_2 * x2`.
+    #[derive(CanonicalSerialize, Clone, Debug, PartialEq, Eq)]
+    pub struct Homomorphism<C: CurveGroup> {
+        pub base_1: C::Affine,
+        pub base_2: C::Affine,
+    }
+
+    /// ArkSize(F=Bls12_381::Fr): 64.
+    #[derive(
+        SigmaProtocolWitness, CanonicalSerialize, CanonicalDeserialize, Clone, Debug, PartialEq, Eq,
+    )]
+    pub struct Witness<F: PrimeField> {
+        /// ArkSize(F=Bls12_381::Fr): 32.
+        pub poly_randomness: Scalar<F>,
+        /// ArkSize(F=Bls12_381::Fr): 32.
+        pub hiding_kzg_randomness: Scalar<F>,
+    }
+
+    impl<C: CurveGroup> homomorphism::Trait for Homomorphism<C> {
+        type Codomain = CodomainShape<C>;
+        type CodomainNormalized = CodomainShape<C::Affine>;
+        type Domain = Witness<C::ScalarField>;
+
+        fn apply(&self, input: &Self::Domain) -> Result<Self::Codomain> {
+            // Not doing `self.apply_msm(self.msm_terms(input))` because E::G1::msm is slower!
+            // `msm_terms()` is still useful for verification though: there the code will use it to produce an MSM
+            //  of size 2+2 (the latter two are for the first prover message A and the statement P)
+            Ok(CodomainShape(
+                self.base_1 * input.poly_randomness.0 + self.base_2 * input.hiding_kzg_randomness.0,
+            ))
+        }
+
+        fn normalize(&self, value: Self::Codomain) -> Self::CodomainNormalized {
+            <Homomorphism<C> as fixed_base_msms::Trait>::normalize_output(value)
+        }
+    }
+
+    impl<C: CurveGroup> fixed_base_msms::Trait for Homomorphism<C> {
+        type Base = C::Affine;
+        type CodomainShape<T>
+            = CodomainShape<T>
+        where
+            T: CanonicalSerialize + CanonicalDeserialize + Clone + Eq + Debug;
+        type MsmOutput = C;
+        type Scalar = C::ScalarField;
+
+        fn msm_terms(
+            &self,
+            input: &Self::Domain,
+        ) -> Result<Self::CodomainShape<MsmInput<Self::Base, Self::Scalar>>> {
+            let mut scalars = Vec::with_capacity(2);
+            scalars.push(input.poly_randomness.0);
+            scalars.push(input.hiding_kzg_randomness.0);
+
+            let mut bases = Vec::with_capacity(2);
+            bases.push(self.base_1);
+            bases.push(self.base_2);
+
+            Ok(CodomainShape(MsmInput { bases, scalars }))
+        }
+
+        fn msm_eval(input: MsmInput<Self::Base, Self::Scalar>) -> Result<Self::MsmOutput> {
+            C::msm(input.bases(), input.scalars())
+                .map_err(|e| anyhow!("MSM failed: length mismatch (min length {})", e))
+        }
+
+        fn batch_normalize(msm_output: Vec<Self::MsmOutput>) -> Vec<Self::Base> {
+            C::normalize_batch(&msm_output)
+        }
+    }
+
+    impl<C: CurveGroup> sigma_protocol::CurveGroupTrait for Homomorphism<C> {
+        type Group = C;
+
+        fn dst(&self) -> Vec<u8> {
+            b"DEKART_V2_SIGMA_PROTOCOL".to_vec()
+        }
+    }
+}
+
+/// The `n`th triangular number is the sum of the `n` natural numbers from 1 to `n`.
+/// Here we compute the maximum `n` such that `1 + 2 + ... + n <= a`, using integer
+/// arithmetic and the num_integer crate.
+fn floored_triangular_root(a: usize) -> usize {
+    // Solve `n*(n+1)/2 <= a`, or equivalently `n^2 + n - 2a <= 0`
+    let discriminant = 1 + 8 * a;
+    let sqrt_disc = discriminant.sqrt(); // integer sqrt
+    (sqrt_disc - 1) / 2
+}
+
+#[cfg(test)]
+mod test_floored_triangular_root {
+    use super::floored_triangular_root;
+
+    #[test]
+    fn test_invert_triangular_number_small_values() {
+        assert_eq!(floored_triangular_root(0), 0);
+        assert_eq!(floored_triangular_root(1), 1); // 1 <= 1
+        assert_eq!(floored_triangular_root(2), 1); // 1+2 > 2
+        assert_eq!(floored_triangular_root(3), 2); // 1+2=3 <= 3
+        assert_eq!(floored_triangular_root(5), 2); // 1+2+3=6 > 5
+        assert_eq!(floored_triangular_root(6), 3);
+    }
+}

@@ -1,15 +1,19 @@
 services:
-  aptos-setup-ceremony-server:
-    image: us-central1-docker.pkg.dev/benchmark-zkid-circuit/aptos-setup-ceremony/server:latest
+  ceremony-server:
+    image: ${CEREMONY_IMAGE:-ceremony-server:latest}
     ports:
       - "8888:8888"
     environment:
-      GOOGLE_APPLICATION_CREDENTIALS: /test-gcs-server.json
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials.json
+      SERVER_GCP_PROJECT_ID: ${SERVER_GCP_PROJECT_ID:?Set your GCP project}
+      SERVER_BUCKET_ID: ${SERVER_BUCKET_ID:?Set your GCS bucket}
+      SERVER_ADMIN_VERIFYING_KEY: ${SERVER_ADMIN_VERIFYING_KEY:?Set your administrator public key}
+      SERVER_DB_PATH: "sqlite:/data/ceremony.sqlite3?mode=rwc"
       RUST_BACKTRACE: 1
     restart: always
     volumes:
-      - "/home/rex_fernando_aptoslabs_com/test-gcs-server.json:/test-gcs-server.json:ro"
-      - "./server/ceremony.sqlite3:/ceremony.sqlite3"
+      - "${GOOGLE_APPLICATION_CREDENTIALS:?Set your credentials file path}:/credentials.json:ro"
+      - ceremony_data:/data
       - "./server/logs:/logs"
 
   caddy:
@@ -18,10 +22,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    command: caddy reverse-proxy --from encrypted-mempool.setup-ceremony.aptos.dev --to aptos-setup-ceremony-server:8888
+    command: caddy reverse-proxy --from ${CEREMONY_HOST:-localhost} --to ceremony-server:8888
     volumes:
       - caddy_data:/data
 
 
 volumes:
   caddy_data:
+  ceremony_data:

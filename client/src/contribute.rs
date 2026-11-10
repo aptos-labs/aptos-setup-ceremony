@@ -90,7 +90,7 @@ pub enum QueueOutcome {
 pub fn print_step_outline() {
     eprintln!("");
     eprintln!("");
-    eprintln!("You are about to contribute to the Aptos trusted setup ceremony. The contribution");
+    eprintln!("You are about to contribute to the TrX trusted setup ceremony. The contribution");
     eprintln!("will work as follows:");
     eprintln!("");
     eprintln!("");
@@ -467,4 +467,3 @@ pub async fn contribute(my_sk: SigningKey, me: &Contributor) -> anyhow::Result<(
 
     Ok(())
 }
-

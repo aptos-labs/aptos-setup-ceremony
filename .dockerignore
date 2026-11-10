@@ -1,3 +1,8 @@
 target
 Dockerfile
 scripts
+.git
+**/*.log
+**/keypair.json
+**/*.sqlite3
+test-gcs-server.json

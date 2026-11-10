@@ -31,7 +31,7 @@ async fn main() {
 
     let cli = Cli::parse();
     let config_dir = dirs::config_dir()
-        .map(|d| d.join("aptos-setup-ceremony"))
+        .map(|d| d.join("trx-setup-ceremony"))
         .expect("no config dir found");
         
     std::fs::create_dir_all(&config_dir).expect("Should be able to create dir");
