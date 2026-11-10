@@ -3,7 +3,7 @@
 This artifact implements a multi-party ceremony for the common reference
 string used by our batch threshold encryption scheme. It adapts
 powers-of-tau techniques from [Bowe, Gabizon, and Miers](https://eprint.iacr.org/2017/1050)
-and [Kohlweiss et al.](https://eprint.iacr.org/2021/219).
+and [Kohlweiss et al.](https://eprint.iacr.org/2021/219), and contains both a server which maintains a queue of contributors, and a client which performs the actual contribution. As in the prior work, contributions happen non-interactively, one at a time.
 
 This branch uses **BN254**, matching the paper's evaluation. The ceremony
 and bundled batch-encryption code use the same curve aliases. Public-input
