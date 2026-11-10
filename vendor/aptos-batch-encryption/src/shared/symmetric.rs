@@ -2,15 +2,12 @@
 // Licensed pursuant to the Innovation-Enabling Source Code License, available at https://github.com/aptos-labs/aptos-core/blob/main/LICENSE
 use crate::{
     errors::BatchEncryptionError,
-    group::{G1Affine, G1Config, G1Projective, G2Affine},
+    group::{G1Affine, G1Hasher, G2Affine},
     traits::Plaintext,
 };
 use aes_gcm::{aead::Aead as _, aes::Aes128, AeadCore, Aes128Gcm, AesGcm, Key, KeySizeUser, Nonce};
 use anyhow::Result;
-use ark_ec::hashing::{
-    curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher, HashToCurve,
-};
-use ark_ff::field_hashers::DefaultFieldHasher;
+use ark_ec::hashing::HashToCurve;
 use ark_serialize::CanonicalSerialize as _;
 use ark_std::rand::{CryptoRng, RngCore};
 use hmac::{Hmac, Mac};
@@ -148,14 +145,10 @@ pub fn hmac_kdf(
 }
 
 /// Domain separation tag for hash-to-curve.
-/// This must be identical between Rust and TypeScript implementations.
-const HASH_G2_ELEMENT_DST: &[u8] = b"APTOS_BATCH_ENCRYPTION_HASH_G2_ELEMENT";
+/// Specific to the BN254 artifact's hash-to-curve encoding.
+const HASH_G2_ELEMENT_DST: &[u8] = b"TRX_BATCH_ENCRYPTION_HASH_G2_ELEMENT_BN254_V1";
 
-/// Type alias for the hash-to-curve hasher for BLS12-381 G1.
-type G1Hasher = MapToCurveBasedHasher<G1Projective, DefaultFieldHasher<Sha256>, WBMap<G1Config>>;
-
-/// Hash a G2 element to a G1 element using the standard hash-to-curve algorithm (RFC 9380).
-/// This uses the WB (Wahby-Boneh) map.
+/// Hash a public G2 element to BN254 G1 using try-and-increment.
 pub fn hash_g2_element(g2_element: G2Affine) -> Result<G1Affine> {
     let mut bytes = Vec::new();
     g2_element.serialize_compressed(&mut bytes)?;

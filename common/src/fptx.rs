@@ -1,6 +1,5 @@
 
-use ark_ec::hashing::curve_maps::wb::WBMap;
-use ark_ec::{AffineRepr, CurveGroup, ScalarMul as _};
+use ark_ec::{AffineRepr, ScalarMul as _};
 use ark_ff::UniformRand;
 use ark_std::One;
 use aptos_batch_encryption::shared::digest::DigestKey;
@@ -19,7 +18,7 @@ use crate::errors::{BatchSizeNotPowerOfTwo, ContributionGenerationFailure, Contr
 use crate::multipairing_equation::{MultipairingEquation, MultipairingEquations};
 use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
-pub(crate) type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+pub(crate) type M2C = aptos_batch_encryption::group::G1Hasher;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXContributionInner {
@@ -464,4 +463,3 @@ mod tests {
 
     // TODO test invalid contributions
 }
-

@@ -2,7 +2,7 @@ use std::ops::Neg;
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use crate::{errors::ContributionGenerationFailure, parallel_ark_serde::{par_ark_de_vec, par_ark_se_vec}};
-use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, hashing::HashToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
@@ -27,7 +27,7 @@ impl PowersOfTauParams {
 pub struct PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -55,7 +55,7 @@ where
     P: Pairing,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
 {
     type P = P;
 
@@ -153,14 +153,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::{CurveGroup, hashing::curve_maps::wb::WBMap};
+    use aptos_batch_encryption::group::G1Hasher;
     use rand::thread_rng;
 
     use crate::powers_of_tau::PowersOfTauContributionInner;
     use crate::contribution::ContributionInner;
 
-    use aptos_batch_encryption::group::{G1Projective, Pairing};
-    type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+    use aptos_batch_encryption::group::Pairing;
+    type M2C = G1Hasher;
 
 
     #[test]

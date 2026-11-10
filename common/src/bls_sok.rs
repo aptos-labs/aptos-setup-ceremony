@@ -1,13 +1,9 @@
 use std::{marker::PhantomData, ops::Neg};
 
 use ark_ec::{
-    AffineRepr, hashing::{
-        HashToCurve, map_to_curve_hasher::{MapToCurve, MapToCurveBasedHasher}
-    }, pairing::Pairing
+    AffineRepr, hashing::HashToCurve, pairing::Pairing
 };
-use ark_ff::field_hashers::DefaultFieldHasher;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 
 use crate::multipairing_equation::MultipairingEquation;
@@ -20,7 +16,7 @@ use crate::multipairing_equation::MultipairingEquation;
 pub struct BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -33,12 +29,12 @@ where
 impl<P, M2C> BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
     pub fn hash_point(msg: &impl Serialize) -> P::G1Affine {
-        let hasher: MapToCurveBasedHasher<P::G1, DefaultFieldHasher<Sha256>, M2C> = MapToCurveBasedHasher::new(&[0u8]).unwrap();
+        let hasher = M2C::new(b"TRX_CEREMONY_BLS_SOK_BN254_V1").unwrap();
 
         hasher.hash(
             &bcs::to_bytes(&msg)
@@ -73,13 +69,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::group::{Fr, G1Projective, Pairing, G2Affine, G1Affine};
-    use ark_ec::{AffineRepr, CurveGroup,  hashing::curve_maps::wb::WBMap};
+    use aptos_batch_encryption::group::{Fr, G1Hasher, Pairing, G2Affine, G1Affine};
+    use ark_ec::AffineRepr;
     use ark_ff::UniformRand;
     use rand::thread_rng;
 
     use crate::bls_sok::BLSSoK;
-    type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+    type M2C = G1Hasher;
 
     #[test]
     fn test_bls_sign_and_verify() {

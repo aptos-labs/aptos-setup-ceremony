@@ -3,14 +3,14 @@
 //! are parameterized by it, and the default derive macros have this requirement.
 use std::ops::Neg;
 
-use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, hashing::HashToCurve, pairing::Pairing};
 
 use crate::{bls_sok::BLSSoK, hiding_kzg::HidingKZGContributionInner, powers_of_tau::PowersOfTauContributionInner};
 
 impl<P: Eq, M2C> Eq for BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -19,7 +19,7 @@ where
 impl<P: PartialEq, M2C> PartialEq for BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -31,7 +31,7 @@ where
 impl<P: Clone, M2C> Clone for BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -43,7 +43,7 @@ where
 impl<P: std::fmt::Debug, M2C> std::fmt::Debug for BLSSoK<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -55,7 +55,7 @@ where
 impl<P: Eq, M2C> Eq for PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -64,7 +64,7 @@ where
 impl<P: PartialEq, M2C> PartialEq for PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -76,7 +76,7 @@ where
 impl<P: Clone, M2C> Clone for PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -88,7 +88,7 @@ where
 impl<P: std::fmt::Debug, M2C> std::fmt::Debug for PowersOfTauContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -100,7 +100,7 @@ where
 impl<P: Eq, M2C> Eq for HidingKZGContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -109,7 +109,7 @@ where
 impl<P: PartialEq, M2C> PartialEq for HidingKZGContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -121,7 +121,7 @@ where
 impl<P: Clone, M2C> Clone for HidingKZGContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {
@@ -138,7 +138,7 @@ where
 impl<P: std::fmt::Debug, M2C> std::fmt::Debug for HidingKZGContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
 {

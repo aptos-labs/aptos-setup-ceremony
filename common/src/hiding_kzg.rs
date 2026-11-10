@@ -2,7 +2,7 @@ use std::{ops::Neg, time::Instant};
 
 use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
 use aptos_dkg::pcs::univariate_hiding_kzg;
-use ark_ec::{AffineRepr, hashing::map_to_curve_hasher::MapToCurve, pairing::Pairing};
+use ark_ec::{AffineRepr, hashing::HashToCurve, pairing::Pairing};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use ark_std::{One, UniformRand};
@@ -17,7 +17,7 @@ use crate::{bls_sok::BLSSoK, contribution::ContributionInner, errors::{Contribut
 pub struct HidingKZGContributionInner<P, M2C>
 where
     P: Pairing,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
  
@@ -57,7 +57,7 @@ where
     P: Pairing,
     P::G2Affine: AffineRepr + Neg<Output = P::G2Affine>,
     P::G1Affine: AffineRepr,
-    M2C: MapToCurve<P::G1>,
+    M2C: HashToCurve<P::G1>,
 {
     type P = P;
     type Params = HidingKZGParams;
@@ -163,13 +163,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::{AffineRepr, CurveGroup, hashing::curve_maps::wb::WBMap};
+    use ark_ec::AffineRepr;
     use rand::thread_rng;
 
     use crate::{contribution::ContributionInner, hiding_kzg::{HidingKZGContributionInner, HidingKZGParams}};
-    use aptos_batch_encryption::group::{G1Affine, G2Affine, Pairing, G1Projective};
+    use aptos_batch_encryption::group::{G1Affine, G2Affine, Pairing};
 
-    type M2C = WBMap<<G1Projective as CurveGroup>::Config>;
+    type M2C = aptos_batch_encryption::group::G1Hasher;
 
     #[test]
     fn test_hkzg_contribute() {
