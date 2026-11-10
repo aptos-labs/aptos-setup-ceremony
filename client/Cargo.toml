@@ -1,5 +1,5 @@
 [package]
-name = "client"
+name = "trx-setup-ceremony"
 version = "0.1.0"
 edition = "2024"
 default-run = "trx-setup-ceremony"
@@ -39,4 +39,3 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 nanospinner = { workspace = true }
-

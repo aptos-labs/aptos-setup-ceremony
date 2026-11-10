@@ -1,7 +1,7 @@
 use std::process;
 use clap::Parser;
 
-use client::{cli::Cli, run};
+use trx_setup_ceremony::{cli::Cli, run};
 use tracing::{error, level_filters::LevelFilter};
 use tracing_subscriber::{Layer as _, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 

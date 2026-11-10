@@ -11,7 +11,7 @@ use server::config::Config;
 use tokio::task::JoinSet;
 use tracing::{info, warn, error};
 
-use client::{contribute::{
+use trx_setup_ceremony::{contribute::{
     self, QueueOutcome,
 }, smoke_test_latest::smoke_test_latest};
 
@@ -27,7 +27,7 @@ enum CrashPhase {
     Verify,
 }
 
-/// A modified version of `client::contribute::contribute` that can simulate a
+/// A modified version of `trx_setup_ceremony::contribute::contribute` that can simulate a
 /// crash at a specified phase by bailing out before the phase completes.
 async fn test_contribute(
     sk: &SigningKey,

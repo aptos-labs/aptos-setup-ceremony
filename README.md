@@ -19,7 +19,7 @@ specified in `rust-toolchain.toml`. On Linux, a C compiler and `lld` are
 also required by the build configuration.
 
 ```sh
-cargo build --locked --release -p client -p server
+cargo build --locked --release -p trx-setup-ceremony -p server
 cargo test --locked -p common --lib
 cargo test --locked -p server --lib
 ```
@@ -68,12 +68,12 @@ Set the client endpoint to your server (the default is local port 8888):
 
 ```sh
 export CEREMONY_SERVER_ADDRESS=http://127.0.0.1:8888
-cargo run --locked --release -p client -- identify '<auth code>'
-cargo run --locked --release -p client -- contribute
+cargo run --locked --release -p trx-setup-ceremony -- identify '<auth code>'
+cargo run --locked --release -p trx-setup-ceremony -- contribute
 ```
 
 Use an authentication code supplied by the administrator of your ceremony.
 The client tests download, computation, and upload performance before
 joining the queue. Contributions are compute-intensive; keep laptops
-connected to power. See `cargo run --locked -p client -- --help` for
+connected to power. See `cargo run --locked -p trx-setup-ceremony -- --help` for
 offline transcript verification and CRS extraction commands.

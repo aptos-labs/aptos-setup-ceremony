@@ -278,10 +278,6 @@ impl AggregatableTranscript for Transcript {
         //
         // Correctness of encryptions check
         //
-        // (see [WVUF Overleaf](https://www.overleaf.com/project/63a1c2c222be94ece7c4b862) for
-        //  explanation of how batching works)
-        //
-
         // TODO(Performance): Change the Fiat-Shamir transform to use 128-bit random exponents.
         // r_i = \tau^i, \forall i \in [n]
         // TODO: benchmark this

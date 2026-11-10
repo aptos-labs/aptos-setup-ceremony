@@ -16,7 +16,7 @@ debug = true
 [workspace.dependencies]
 common = { path = "common" }
 server = { path = "server" }
-client = { path = "client" }
+trx-setup-ceremony = { path = "client" }
 bcs = "0.1.6"
 blake3 = { version = "1.8.3", features = ["serde"] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
