@@ -1,6 +1,6 @@
 //! Compute wire sizes without allocating the full CRS or discrete-log table.
 use aptos_batch_encryption::{
-    group::{G1Affine, G1Projective, G2Affine, Pairing},
+    group::{G1Affine, G1Projective, G2Affine},
     shared::digest_key_file::Header,
 };
 use aptos_dkg::{
@@ -98,6 +98,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aptos_batch_encryption::group::Pairing;
     use aptos_batch_encryption::shared::digest_key_file::{read_digest_key, write_digest_key};
     use aptos_dkg::pvss::chunky::PublicParameters;
 
