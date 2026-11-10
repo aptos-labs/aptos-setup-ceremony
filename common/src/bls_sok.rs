@@ -69,7 +69,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::group::{Fr, G1Hasher, Pairing, G2Affine, G1Affine};
+    use batch_encryption::group::{Fr, G1Hasher, Pairing, G2Affine, G1Affine};
     use ark_ec::AffineRepr;
     use ark_ff::UniformRand;
     use rand::thread_rng;

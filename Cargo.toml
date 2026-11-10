@@ -2,7 +2,7 @@
 resolver = "3"
 members = ["client", "common", "server", "e2e-test"]
 exclude = [
-    "vendor/aptos-batch-encryption",
+    "vendor/batch-encryption",
     "vendor/aptos-crypto",
     "vendor/aptos-crypto-derive",
     "vendor/aptos-dkg",
@@ -23,7 +23,7 @@ ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 rand_core = "0.6.4"
 rand = "0.8.5"
 serde = { version = "1.0.228", features = ["derive"] }
-aptos-batch-encryption = { path = "vendor/aptos-batch-encryption" }
+batch-encryption = { path = "vendor/batch-encryption" }
 aptos-crypto = { path = "vendor/aptos-crypto" }
 aptos-dkg = { path = "vendor/aptos-dkg" }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "time", "chrono"] }

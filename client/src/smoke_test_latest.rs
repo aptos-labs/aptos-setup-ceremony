@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use aptos_batch_encryption::{
+use batch_encryption::{
     schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, SmokeTest} 
 };
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
@@ -66,4 +66,3 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>, all:
 
     Ok(())
 }
-

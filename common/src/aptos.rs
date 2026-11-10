@@ -1,7 +1,7 @@
 use std::{io::Write as _, time::Instant};
 
 use crate::{contribution::ContributionInner, errors::BatchSizeNotPowerOfTwo, fptx::{FPTXContributionInner, FPTXParams, M2C}, hiding_kzg::{HidingKZGContributionInner, HidingKZGParams}, multipairing_equation::MultipairingEquations};
-use aptos_batch_encryption::{group::{Fr, Pairing}, schemes::fptx_weighted::FPTXWeighted, shared::digest::DigestKey, tests::smoke::SmokeTest};
+use batch_encryption::{group::{Fr, Pairing}, schemes::fptx_weighted::FPTXWeighted, shared::digest::DigestKey, tests::smoke::SmokeTest};
 use aptos_dkg::{pcs::univariate_hiding_kzg, pvss::chunky::chunked_elgamal::num_chunks_per_scalar};
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,7 @@ impl AptosParams {
 }
 
 impl ContributionInner for AptosContributionInner {
-    type P = aptos_batch_encryption::group::Pairing;
+    type P = batch_encryption::group::Pairing;
     type Params = AptosParams;
     type Secrets = ();
     type Output = (DigestKey, (univariate_hiding_kzg::VerificationKey<Pairing>, univariate_hiding_kzg::CommitmentKey<Pairing>));
@@ -101,7 +101,7 @@ pub fn smoke_test_one_round(smoke_test: &SmokeTest<FPTXWeighted>) {
 #[cfg(test)]
 mod tests {
 
-    use aptos_batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::{SmokeTest, fptx_weighted_smoke::run_pvss_with_hkzg}};
+    use batch_encryption::{schemes::fptx_weighted::FPTXWeighted, tests::smoke::{SmokeTest, fptx_weighted_smoke::run_pvss_with_hkzg}};
     use aptos_crypto::weighted_config::WeightedConfigArkworks;
     use rand::thread_rng;
 
@@ -135,4 +135,3 @@ mod tests {
         smoke_test_all_rounds(&smoke_test, num_rounds);
     }
 }
-

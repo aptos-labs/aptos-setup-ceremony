@@ -1,6 +1,6 @@
 // Copyright (c) Aptos Foundation
 // Licensed pursuant to the Innovation-Enabling Source Code License, available at https://github.com/aptos-labs/aptos-core/blob/main/LICENSE
-use aptos_batch_encryption::{
+use batch_encryption::{
     group::{Fr, G1Projective},
     shared::algebra::multi_point_eval,
 };

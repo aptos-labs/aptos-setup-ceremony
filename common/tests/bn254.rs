@@ -1,4 +1,4 @@
-use aptos_batch_encryption::group::{Fr, G1Affine, G1Hasher, G1Projective, G2Affine, Pairing};
+use batch_encryption::group::{Fr, G1Affine, G1Hasher, G1Projective, G2Affine, Pairing};
 use ark_ec::{hashing::HashToCurve, AffineRepr};
 use ark_serialize::CanonicalSerialize;
 use common::bls_sok::BLSSoK;

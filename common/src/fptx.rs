@@ -2,8 +2,8 @@
 use ark_ec::{AffineRepr, ScalarMul as _};
 use ark_ff::UniformRand;
 use ark_std::One;
-use aptos_batch_encryption::shared::digest::DigestKey;
-use aptos_batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, Pairing};
+use batch_encryption::shared::digest::DigestKey;
+use batch_encryption::group::{Fr, G1Affine, G1Projective, G2Affine, Pairing};
 use aptos_crypto::arkworks::serialization::ark_se;
 use rand::thread_rng;
 use tracing::info;
@@ -18,7 +18,7 @@ use crate::errors::{BatchSizeNotPowerOfTwo, ContributionGenerationFailure, Contr
 use crate::multipairing_equation::{MultipairingEquation, MultipairingEquations};
 use crate::powers_of_tau::{PowersOfTauContributionInner, PowersOfTauParams};
 
-pub(crate) type M2C = aptos_batch_encryption::group::G1Hasher;
+pub(crate) type M2C = batch_encryption::group::G1Hasher;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FPTXContributionInner {
@@ -84,7 +84,7 @@ where
 
 
 impl ContributionInner for FPTXContributionInner {
-    type P = aptos_batch_encryption::group::Pairing;
+    type P = batch_encryption::group::Pairing;
     type Params = FPTXParams;
     /// No secret for now b/c we don't need to build other ContributionInners on top of this
     type Secrets = ();
@@ -285,7 +285,7 @@ impl ContributionInner for FPTXContributionInner {
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::{
+    use batch_encryption::{
         group::{G1Affine, G2Affine}, schemes::fptx_weighted::FPTXWeighted, tests::smoke::SmokeTest
     };
     use ark_ec::AffineRepr;
@@ -451,7 +451,7 @@ mod tests {
 
         let dk = new_contrib.output();
 
-        use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
+        use batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss;
 
         let (_, tc, ek, vks, msk_shares) = run_pvss(&dk);
 

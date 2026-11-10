@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::str::FromStr as _;
 
-use aptos_batch_encryption::schemes::fptx_weighted::FPTXWeighted;
-use aptos_batch_encryption::shared::digest_key_file;
-use aptos_batch_encryption::tests::smoke::SmokeTest;
-use aptos_batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss_with_hkzg;
+use batch_encryption::schemes::fptx_weighted::FPTXWeighted;
+use batch_encryption::shared::digest_key_file;
+use batch_encryption::tests::smoke::SmokeTest;
+use batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss_with_hkzg;
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
 use common::aptos::{smoke_test_all_rounds, smoke_test_one_round};
 use common::constants::{CeremonyContribution, PARAMS};

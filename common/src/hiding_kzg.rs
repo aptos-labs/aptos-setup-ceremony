@@ -167,9 +167,9 @@ mod tests {
     use rand::thread_rng;
 
     use crate::{contribution::ContributionInner, hiding_kzg::{HidingKZGContributionInner, HidingKZGParams}};
-    use aptos_batch_encryption::group::{G1Affine, G2Affine, Pairing};
+    use batch_encryption::group::{G1Affine, G2Affine, Pairing};
 
-    type M2C = aptos_batch_encryption::group::G1Hasher;
+    type M2C = batch_encryption::group::G1Hasher;
 
     #[test]
     fn test_hkzg_contribute() {

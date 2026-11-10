@@ -150,37 +150,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "aptos-batch-encryption"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "aptos-crypto",
- "aptos-dkg",
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-ff-asm",
- "ark-ff-macros",
- "ark-poly",
- "ark-serialize",
- "ark-std",
- "bcs 0.1.4",
- "ed25519-dalek 2.2.0",
- "generic-array",
- "hmac 0.12.1",
- "num-traits",
- "rand 0.7.3",
- "rayon",
- "serde",
- "serde_bytes",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "aptos-crypto"
 version = "0.0.3"
 dependencies = [
@@ -630,6 +599,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "batch-encryption"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "aptos-crypto",
+ "aptos-dkg",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-ff-asm",
+ "ark-ff-macros",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "bcs 0.1.4",
+ "ed25519-dalek 2.2.0",
+ "generic-array",
+ "hmac 0.12.1",
+ "num-traits",
+ "rand 0.7.3",
+ "rayon",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bcs"
 version = "0.1.4"
 source = "git+https://github.com/aptos-labs/bcs.git?rev=d31fab9d81748e2594be5cd5cdf845786a30562d#d31fab9d81748e2594be5cd5cdf845786a30562d"
@@ -1059,7 +1059,6 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "aptos-batch-encryption",
  "aptos-crypto",
  "aptos-dkg",
  "ark-bn254",
@@ -1069,6 +1068,7 @@ dependencies = [
  "ark-ff-macros",
  "ark-serialize",
  "ark-std",
+ "batch-encryption",
  "bcs 0.1.6",
  "blake3",
  "chrono",
@@ -5717,10 +5717,10 @@ name = "trx-setup-ceremony"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "aptos-batch-encryption",
  "aptos-crypto",
  "aptos-dkg",
  "ark-ec",
+ "batch-encryption",
  "bcs 0.1.6",
  "blake3",
  "bytes",

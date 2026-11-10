@@ -12,7 +12,7 @@
 [package]
 edition = "2024"
 rust-version = "1.88"
-name = "aptos-batch-encryption"
+name = "batch-encryption"
 version = "0.1.0"
 authors = ["Aptos Labs <opensource@aptoslabs.com>"]
 build = false
@@ -36,7 +36,7 @@ ignored = [
 ]
 
 [lib]
-name = "aptos_batch_encryption"
+name = "batch_encryption"
 path = "src/lib.rs"
 doctest = false
 

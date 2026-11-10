@@ -13,7 +13,7 @@ ed25519-dalek = { workspace = true }
 rand_core = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
-aptos-batch-encryption = { workspace = true }
+batch-encryption = { workspace = true }
 aptos-crypto = { workspace = true }
 aptos-dkg = { workspace = true }
 tokio = { workspace = true }

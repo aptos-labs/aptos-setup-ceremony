@@ -213,7 +213,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aptos_batch_encryption::group::{G1Affine, G1Projective, G2Affine};
+    use batch_encryption::group::{G1Affine, G1Projective, G2Affine};
     use aptos_crypto::arkworks::serialization::{ark_de, ark_se};
     use ark_ec::AffineRepr;
     use serde::{Deserialize, Serialize};

@@ -153,13 +153,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use aptos_batch_encryption::group::G1Hasher;
+    use batch_encryption::group::G1Hasher;
     use rand::thread_rng;
 
     use crate::powers_of_tau::PowersOfTauContributionInner;
     use crate::contribution::ContributionInner;
 
-    use aptos_batch_encryption::group::Pairing;
+    use batch_encryption::group::Pairing;
     type M2C = G1Hasher;
 
 

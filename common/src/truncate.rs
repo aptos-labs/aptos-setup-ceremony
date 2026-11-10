@@ -1,5 +1,5 @@
 use crate::{aptos::AptosContributionInner, contribution::{Contribution, ContributionInner}, fptx::{FPTXContributionInner, M2C}, powers_of_tau::PowersOfTauContributionInner};
-use aptos_batch_encryption::group::Pairing;
+use batch_encryption::group::Pairing;
 
 
 
