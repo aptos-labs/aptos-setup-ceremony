@@ -44,6 +44,3 @@ validate = []
 tempfile = "3"
 
 
-[[bench]]
-name = "fptx"
-harness = false

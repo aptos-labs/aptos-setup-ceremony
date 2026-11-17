@@ -1,7 +1,7 @@
 pub mod contribution;
-pub mod fptx;
+pub mod trx;
 pub mod hiding_kzg;
-pub mod aptos;
+pub mod combined;
 pub mod errors;
 pub mod bls_sok;
 pub mod powers_of_tau;

@@ -1,4 +1,4 @@
-use crate::{aptos::AptosContributionInner, contribution::{Contribution, ContributionInner}, fptx::{FPTXContributionInner, M2C}, powers_of_tau::PowersOfTauContributionInner};
+use crate::{combined::CombinedContributionInner, contribution::{Contribution, ContributionInner}, trx::{TRXContributionInner, M2C}, powers_of_tau::PowersOfTauContributionInner};
 use batch_encryption::group::Pairing;
 
 
@@ -14,7 +14,7 @@ impl Truncate for PowersOfTauContributionInner<Pairing, M2C> {
     }
 }
 
-impl Truncate for FPTXContributionInner {
+impl Truncate for TRXContributionInner {
     fn truncate(&mut self, len: usize) {
         self.tau_powers_contrib_inner.truncate(len);
         for shifted_powers in &mut self.randomized_tau_powers_g1 {
@@ -23,9 +23,9 @@ impl Truncate for FPTXContributionInner {
     }
 }
 
-impl Truncate for AptosContributionInner {
+impl Truncate for CombinedContributionInner {
     fn truncate(&mut self, len: usize) {
-        self.fptx.truncate(len);
+        self.trx.truncate(len);
     }
 }
 

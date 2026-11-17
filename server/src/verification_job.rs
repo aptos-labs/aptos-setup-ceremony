@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use bytes::Bytes;
-use common::{aptos::AptosParams, constants::CeremonyContribution, contribution::Contributor, errors::ContributionVerificationFailure};
+use common::{combined::CombinedParams, constants::CeremonyContribution, contribution::Contributor, errors::ContributionVerificationFailure};
 use rand::thread_rng;
 use rayon;
 use anyhow::{Context, Result};
@@ -21,7 +21,7 @@ impl VerificationJob {
         hash: String,
         maybe_previous: &Option<Contributor>, 
         contribution_files_store: &ContributionFilesStore,
-        params: &AptosParams,
+        params: &CombinedParams,
     ) -> Result<Self> {
         let current_contribution_bytes : Bytes = contribution_files_store.download_contribution(&current).await?;
 

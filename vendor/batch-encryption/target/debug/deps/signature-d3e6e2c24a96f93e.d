@@ -1,0 +1,12 @@
+/home/rex/coding/aptos-setup-ceremony/vendor/batch-encryption/target/debug/deps/signature-d3e6e2c24a96f93e.d: /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md
+
+/home/rex/coding/aptos-setup-ceremony/vendor/batch-encryption/target/debug/deps/libsignature-d3e6e2c24a96f93e.rmeta: /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md
+
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md:

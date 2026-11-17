@@ -1,0 +1,10 @@
+/home/rex/coding/aptos-setup-ceremony/vendor/batch-encryption/target/debug/deps/ark_relations-8c5d38f9fd737b84.d: /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/lib.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/mod.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/impl_lc.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/constraint_system.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/error.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/trace.rs
+
+/home/rex/coding/aptos-setup-ceremony/vendor/batch-encryption/target/debug/deps/libark_relations-8c5d38f9fd737b84.rmeta: /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/lib.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/mod.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/impl_lc.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/constraint_system.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/error.rs /home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/trace.rs
+
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/lib.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/mod.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/impl_lc.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/constraint_system.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/error.rs:
+/home/rex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-relations-0.5.1/src/r1cs/trace.rs:

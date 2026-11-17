@@ -46,9 +46,9 @@ remaining public dependencies normally.
 ## Repository structure
 
 - `common/src/powers_of_tau.rs`: powers-of-tau contributions and verification.
-- `common/src/fptx.rs`: ceremony for the batch-encryption CRS.
-- `common/src/hiding_kzg.rs`: hiding-KZG setup used by distributed key generation.
-- `common/src/aptos.rs`: combines the setup components and checks their output.
+- `common/src/trx.rs`: ceremony for the batch-encryption CRS.
+- `common/src/hiding_kzg.rs`: hiding-KZG setup used by a potential distributed key generation.
+- `common/src/combined.rs`: combines the setup components and checks their output.
 - `client/`: contribution, transcript verification, and output extraction.
 - `server/`: participant queue, contribution verification, and GCS storage.
 - `e2e-test/`: integration harness requiring a configured GCP project.

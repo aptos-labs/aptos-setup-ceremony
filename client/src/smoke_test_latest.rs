@@ -1,10 +1,10 @@
 use std::{fs, path::Path};
 
 use batch_encryption::{
-    schemes::fptx_weighted::FPTXWeighted, shared::digest_key_file, tests::smoke::{fptx_weighted_smoke::run_pvss_with_hkzg, SmokeTest} 
+    schemes::trx_weighted::TRXWeighted, shared::digest_key_file, tests::smoke::{trx_weighted_smoke::run_pvss_with_hkzg, SmokeTest} 
 };
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
-use common::{aptos::{smoke_test_all_rounds, smoke_test_one_round}, constants::CeremonyContribution, messages::Msg, truncate::Truncate};
+use common::{combined::{smoke_test_all_rounds, smoke_test_one_round}, constants::CeremonyContribution, messages::Msg, truncate::Truncate};
 use ed25519_dalek::SigningKey;
 use anyhow::Result;
 
@@ -51,7 +51,7 @@ pub async fn smoke_test_latest(my_sk: &SigningKey, truncate: Option<usize>, all:
     eprintln!("{}: Running batch encryption rounds...", chrono::Local::now());
 
     let num_rounds = dk.num_rounds();
-    let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+    let smoke_test = SmokeTest::<TRXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
     if all {
         smoke_test_all_rounds(&smoke_test, num_rounds);

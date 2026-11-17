@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::str::FromStr as _;
 
-use batch_encryption::schemes::fptx_weighted::FPTXWeighted;
+use batch_encryption::schemes::trx_weighted::TRXWeighted;
 use batch_encryption::shared::digest_key_file;
 use batch_encryption::tests::smoke::SmokeTest;
-use batch_encryption::tests::smoke::fptx_weighted_smoke::run_pvss_with_hkzg;
+use batch_encryption::tests::smoke::trx_weighted_smoke::run_pvss_with_hkzg;
 use aptos_crypto::weighted_config::WeightedConfigArkworks;
-use common::aptos::{smoke_test_all_rounds, smoke_test_one_round};
+use common::combined::{smoke_test_all_rounds, smoke_test_one_round};
 use common::constants::{CeremonyContribution, PARAMS};
 use common::contribution::{AsAndFromHex, Contributor};
 use common::messages::Msg;
@@ -129,13 +129,13 @@ let mut rng = thread_rng();
                 eprintln!("{}: Batch encryption smoke test...", chrono::Local::now());
                 let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
                 let num_rounds = dk.num_rounds();
-                let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+                let smoke_test = SmokeTest::<TRXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
                 smoke_test_all_rounds(&smoke_test, num_rounds);
             } else if smoke_test_one { 
                 eprintln!("{}: Batch encryption smoke test...", chrono::Local::now());
                 let dk = digest_key_file::read_digest_key(Path::new("digest_key.bin")).unwrap();
-                let smoke_test = SmokeTest::<FPTXWeighted>::new(tc, ek, dk, vks, msk_shares);
+                let smoke_test = SmokeTest::<TRXWeighted>::new(tc, ek, dk, vks, msk_shares);
 
                 smoke_test_one_round(&smoke_test);
             }

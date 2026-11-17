@@ -27,7 +27,7 @@ pub enum ContributionVerificationFailure {
 pub struct DeserializationError(pub bcs::Error);
 
 #[derive(Debug, Error)]
-#[error("FPTX batch size must be a power of two")]
+#[error("TrX batch size must be a power of two")]
 pub struct BatchSizeNotPowerOfTwo;
 
 #[derive(Debug, Error)]

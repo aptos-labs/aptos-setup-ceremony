@@ -555,7 +555,7 @@ mod tests {
                 &dks[player_id],
                 &pp,
                 &table,
-                1 << radix_exponent, // we're not aggregating anything in this test. TODO: aggregating-and-decrypting should be tested somewhere in this crate, though currently it's happening in some fptx_smoke test I think
+                1 << radix_exponent, // we're not aggregating anything in this test. TODO: aggregating-and-decrypting should be tested somewhere in this crate, though currently it's happening in some TRX test I think
                 radix_exponent,
             );
 

@@ -189,16 +189,16 @@ mod tests {
     use rand::thread_rng;
 
     use super::Contribution;
-    use crate::{contribution::Contributor, fptx::{FPTXContributionInner, FPTXParams}};
+    use crate::{contribution::Contributor, trx::{TRXContributionInner, TRXParams}};
 
     #[test]
     fn test_contribute() {
         let mut rng = thread_rng();
-        let params = FPTXParams::new(8, 4).unwrap();
+        let params = TRXParams::new(8, 4).unwrap();
         
         let (_, current_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
 
-        let new_contrib = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &current_contributor, &params).unwrap();
+        let new_contrib = Contribution::<TRXContributionInner>::generate(&mut rng, None, &current_contributor, &params).unwrap();
 
         new_contrib.verify(&mut rng, None, &params)
             .unwrap();
@@ -207,17 +207,17 @@ mod tests {
     #[test]
     fn test_contribute_2() {
         let mut rng = thread_rng();
-        let params = FPTXParams::new(8, 4).unwrap();
+        let params = TRXParams::new(8, 4).unwrap();
 
         let (_, first_contributor) = Contributor::new("Asdf Asdf", "asdf@asdf.com", &mut rng);
         let (_, second_contributor) = Contributor::new("Hjkl Hjkl", "Hjkl@asdf.com", &mut rng);
 
-        let first = Contribution::<FPTXContributionInner>::generate(&mut rng, None, &first_contributor, &params).unwrap();
+        let first = Contribution::<TRXContributionInner>::generate(&mut rng, None, &first_contributor, &params).unwrap();
 
         first.verify(&mut rng, None, &params)
             .unwrap();
 
-        let second = Contribution::<FPTXContributionInner>::generate(&mut rng, Some(&first), &second_contributor, &params).unwrap();
+        let second = Contribution::<TRXContributionInner>::generate(&mut rng, Some(&first), &second_contributor, &params).unwrap();
 
         second.verify(&mut rng, Some(&first), &params)
             .unwrap();

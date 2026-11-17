@@ -181,7 +181,7 @@ pub mod tests {
     use super::{BIBECTDecrypt, BIBECTEncrypt};
     use crate::{
         group::*,
-        schemes::fptx::FPTX,
+        schemes::trx::TRX,
         shared::{
             ciphertext::bibe::InnerCiphertext as _,
             ids::{Id, IdSet},
@@ -200,7 +200,7 @@ pub mod tests {
     fn test_bibe_ct_encrypt_decrypt() {
         let mut rng = thread_rng();
         let tc = ShamirThresholdConfig::new(1, 1);
-        let (ek, dk, _, msk_shares) = FPTX::setup_for_testing(rng.r#gen(), 8, 1, &tc).unwrap();
+        let (ek, dk, _, msk_shares) = TRX::setup_for_testing(rng.r#gen(), 8, 1, &tc).unwrap();
 
         let mut ids = IdSet::with_capacity(dk.max_batch_size());
         let mut counter = Fr::zero();

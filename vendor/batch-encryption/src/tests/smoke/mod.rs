@@ -12,10 +12,10 @@ use aptos_crypto::{TSecretSharingConfig, player::Player};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator};
 
 #[cfg(test)]
-pub mod fptx_smoke;
+pub mod trx_smoke;
 #[cfg(test)]
-pub mod fptx_succinct_smoke;
-pub mod fptx_weighted_smoke;
+pub mod trx_succinct_smoke;
+pub mod trx_weighted_smoke;
 
 // b/c Strings can't be const, and only String implements Plaintext not &str
 fn plaintext() -> String {

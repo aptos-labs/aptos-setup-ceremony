@@ -40,30 +40,6 @@ name = "batch_encryption"
 path = "src/lib.rs"
 doctest = false
 
-[[bench]]
-name = "fk_algorithm"
-path = "benches/fk_algorithm.rs"
-harness = false
-
-[[bench]]
-name = "fptx"
-path = "benches/fptx.rs"
-harness = false
-
-[[bench]]
-name = "fptx_succinct"
-path = "benches/fptx_succinct.rs"
-harness = false
-
-[[bench]]
-name = "msm"
-path = "benches/msm.rs"
-harness = false
-
-[[bench]]
-name = "multi_point_eval"
-path = "benches/multi_point_eval.rs"
-harness = false
 
 [dependencies.aes-gcm]
 version = "0.10.3"
