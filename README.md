@@ -5,11 +5,7 @@ string used by our batch threshold encryption scheme. It adapts
 powers-of-tau techniques from [Bowe, Gabizon, and Miers](https://eprint.iacr.org/2017/1050)
 and [Kohlweiss et al.](https://eprint.iacr.org/2021/219), and contains both a server which maintains a queue of contributors, and a client which performs the actual contribution. As in the prior work, contributions happen non-interactively, one at a time.
 
-This branch uses **BN254**, matching the paper's evaluation. The ceremony
-and bundled batch-encryption code use the same curve aliases. Public-input
-hashing uses the bundled SHA3-512 try-and-increment hash-to-curve routine,
-with separate BN254-specific domains for ceremony proofs and batch
-encryption.
+
 
 ## Build and test
 
@@ -33,15 +29,6 @@ cargo run --locked --release -p common --example setup_size
 
 The size calculator reads the bounds in `common/src/constants.rs`.
 
-### Setup size with the default parameters
-
-For batch size **128** and **216,000 rounds**, the BN254 BTE CRS contains
-`216000 * (128 + 1)` G1 points and one G2 point. Its compressed size is
-**891.65 MB** (decimal).
-
-The five Aptos dependency crates required by this implementation are
-included in `vendor/` as local path dependencies. Cargo downloads the
-remaining public dependencies normally.
 
 ## Repository structure
 
