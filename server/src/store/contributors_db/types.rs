@@ -93,7 +93,7 @@ impl<'q, DB: Database> Encode<'q, DB> for VKWrapper
 {
     fn encode_by_ref(
         &self,
-        buf: &mut <DB as sqlx::Database>::ArgumentBuffer<'q>,
+        buf: &mut <DB as sqlx::Database>::ArgumentBuffer,
     ) -> Result<IsNull, Box<dyn Error + Send + Sync + 'static>> {
         Encode::<DB>::encode(self.0.as_hex()?, buf)
     }

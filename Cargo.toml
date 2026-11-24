@@ -14,13 +14,13 @@ bcs = "0.1.6"
 blake3 = { version = "1.8.3", features = ["serde"] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 rand_core = "0.6.4"
-rand = "0.8.5"
+rand = "0.8.8"
 serde = { version = "1.0.228", features = ["derive"] }
-aptos-batch-encryption = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
-aptos-crypto = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
-aptos-dkg = { git = "https://github.com/aptos-labs/aptos-core", branch = "rex/refactor-smoke-tests-2" }
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "time", "chrono"] }
-tokio = { version = "1.49.0", features = ["full"] }
+aptos-batch-encryption = { git = "https://github.com/aptos-labs/aptos-core", branch = "main" }
+aptos-crypto = { git = "https://github.com/aptos-labs/aptos-core", branch = "main" }
+aptos-dkg = { git = "https://github.com/aptos-labs/aptos-core", branch = "main" }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "time", "chrono"] }
+tokio = { version = "1.53.3", features = ["full"] }
 thiserror = "2.0.18"
 ark-bls12-381 = { version = "0.5.0", features = ["curve"] }
 ark-bn254 = { version = "0.5.0", features = ["curve"] }
@@ -34,9 +34,9 @@ ark-std = { version = "0.5.0", features = ["getrandom", "parallel"] }
 sha2 = { version = "0.10.9", features = ["asm-aarch64", "asm"] }
 chrono = { version = "0.4.44", features = ["serde"] }
 rayon = "1.11.0"
-anyhow = "1.0.102"
-reqwest = { version = "0.12", features = ["json"] }
-gcp_auth = "0.12"
+anyhow = "1.0.103"
+reqwest = { version = "0.13", features = ["json"] }
+gcp_auth = "0.13"
 urlencoding = "2.1"
 wiremock = "0.6"
 async-trait = "0.1"

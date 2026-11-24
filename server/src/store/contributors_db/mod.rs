@@ -2,7 +2,7 @@
 use common::contribution::{AsAndFromHex, Contributor};
 
 use anyhow::{Context, Result, bail};
-use sqlx::SqlitePool;
+use sqlx::{AssertSqlSafe, SqlitePool};
 
 use crate::store::contributors_db::types::{ContributorRow, ContributorRowWithPos};
 
@@ -22,15 +22,15 @@ pub fn str_to_anyhow<'de, D: serde::de::Deserializer<'de>>(data: D) -> Result<an
 
 
 /// Builds a SELECT query that includes a computed `pos` column for queued contributors.
-fn select_with_pos(suffix: &str) -> String {
-    format!(
+fn select_with_pos(suffix: &'static str) -> AssertSqlSafe<String> {
+    AssertSqlSafe(format!(
         "SELECT c1.*, \
          CASE WHEN c1.status = 'queued' THEN \
            (SELECT COUNT(*) FROM contributors c2 \
             WHERE (c2.status = 'queued') AND c2.joined_at < c1.joined_at) \
          ELSE 0 END as pos \
          FROM contributors c1 {suffix}"
-    )
+    ))
 }
 
 pub struct ContributorsDB {
@@ -55,7 +55,7 @@ impl ContributorsDB {
 
     /// Return a vec of all the contributors in the DB.
     pub async fn get_contributors(&self) -> Result<Vec<(usize,ContributorRow)>> {
-        let states: Vec<(usize, ContributorRow)> = sqlx::query_as(&select_with_pos(""))
+        let states: Vec<(usize, ContributorRow)> = sqlx::query_as(select_with_pos(""))
             .fetch_all(&self.pool)
             .await?
             .into_iter()
@@ -70,7 +70,7 @@ impl ContributorsDB {
         contributor: &Contributor,
     ) -> Result<(usize, ContributorRow)> {
         let row : ContributorRowWithPos =
-            sqlx::query_as(&select_with_pos("WHERE c1.verifying_key = ?"))
+            sqlx::query_as(select_with_pos("WHERE c1.verifying_key = ?"))
                 .bind(&contributor.verifying_key.as_hex()?)
                 .fetch_one(&self.pool)
                 .await
@@ -80,7 +80,7 @@ impl ContributorsDB {
     }
 
     pub async fn get_finished_contributors(&self) -> Result<Vec<ContributorRow>> {
-        let states: Vec<ContributorRow> = sqlx::query_as(&select_with_pos(
+        let states: Vec<ContributorRow> = sqlx::query_as(select_with_pos(
             "WHERE c1.status = 'finished' ORDER BY c1.finished_verify_at ASC",
         ))
         .fetch_all(&self.pool)
@@ -89,7 +89,7 @@ impl ContributorsDB {
     }
 
     pub async fn get_most_recent_finished_contributor(&mut self) -> Result<Option<Contributor>> {
-        let state: Option<ContributorRow> = sqlx::query_as(&select_with_pos(
+        let state: Option<ContributorRow> = sqlx::query_as(select_with_pos(
             "WHERE c1.status = 'finished' ORDER BY c1.finished_verify_at DESC LIMIT 1",
         ))
         .fetch_optional(&self.pool)
@@ -100,7 +100,7 @@ impl ContributorsDB {
     /// The "current" contributor is defined as the first queued contributor, sorted by joined
     /// timestamp.
     pub async fn get_current(&self) -> Result<Option<ContributorRow>> {
-        let state: Option<ContributorRow> = sqlx::query_as(&select_with_pos(
+        let state: Option<ContributorRow> = sqlx::query_as(select_with_pos(
             "WHERE c1.status = 'queued' ORDER BY c1.joined_at ASC LIMIT 1",
         ))
         .fetch_optional(&self.pool)
